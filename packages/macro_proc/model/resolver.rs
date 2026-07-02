@@ -30,8 +30,8 @@ impl ResolverFn for GenResolver {
         self.a.inner.field_name()?.ts2_or_err()
     }
     fn gql_name(&self) -> SynRes<String> {
-        let (name_override, _) = attr_graphql_info(&self.field_attrs);
-        if let Some(n) = name_override {
+        let gql_name_override = attr_graphql_info(&self.field_attrs).0;
+        if let Some(n) = gql_name_override {
             return Ok(n);
         }
         Ok(self.name()?.to_string().to_lower_camel_case())

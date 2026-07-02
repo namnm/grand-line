@@ -136,9 +136,7 @@ impl GenRelation {
     fn body_has_many(&self) -> SynRes<Ts2> {
         let column = self.column()?;
         let col = self.col()?;
-        let extra_cond = quote! {
-            Condition::all().add(#column::#col.eq(id))
-        };
+        let extra_cond = has_many_condition(&column, &col);
         self.body_many(&extra_cond)
     }
 
@@ -171,8 +169,8 @@ impl ResolverFn for GenRelation {
         self.a.name()
     }
     fn gql_name(&self) -> SynRes<String> {
-        let (name_override, _) = attr_graphql_info(&self.field_attrs);
-        if let Some(n) = name_override {
+        let gql_name_override = attr_graphql_info(&self.field_attrs).0;
+        if let Some(n) = gql_name_override {
             return Ok(n);
         }
         Ok(self.name()?.to_string().to_lower_camel_case())

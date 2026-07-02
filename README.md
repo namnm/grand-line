@@ -425,11 +425,17 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .finish()
 ```
 
+**Known limitation:** all resolvers in a request share one `DatabaseTransaction`, i.e. one underlying DB connection. Sibling GraphQL fields (including sibling relation resolvers, see [Relationships](#relationships)) may be scheduled concurrently as Rust futures, but their SQL statements still serialize one at a time on that single connection - there is no real query-level parallelism within a request today.
+
+For pure read (query) requests this is a bigger lever than the batched-vs-JOIN choice discussed above: giving read-only resolvers their own pooled connections (instead of one shared transaction) would let sibling relations actually run in parallel and cut wall-clock latency for wide selections. This is not implemented yet - noted here as a future improvement, not current behavior. Mutations would keep the single-transaction model for write consistency.
+
 ---
 
 ### Relationships
 
 Declare on `#[model]` fields. Resolved with look-ahead - only requested fields are fetched.
+
+Each relation is resolved with its own batched query (grouped by parent ids), not a single SQL JOIN spanning the whole selection tree. A JOIN duplicates the related row for every parent row that references it: searching 100 `Todo` rows created by the same user would return that user's columns 100 times in the JOINed result set, before being reshaped back into nested objects. A batched query per relation level fetches that user exactly once, no matter how many `Todo` rows reference it. The trade-off is more round trips for deeply nested selections versus one big JOIN, in exchange for never transferring duplicated relation data.
 
 ```rs
 #[model]

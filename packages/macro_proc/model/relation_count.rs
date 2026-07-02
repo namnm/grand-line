@@ -13,13 +13,10 @@ impl GenRelationCount {
     fn extra_cond(&self) -> SynRes<Ts2> {
         match self.ty {
             RelationTy::HasMany => {
-                let shape = relation_shape(&self.ty, &self.a)?;
                 let to = self.a.to()?;
                 let column = ty_column(&to)?;
-                let col = shape.to_col;
-                Ok(quote! {
-                    Condition::all().add(#column::#col.eq(id))
-                })
+                let shape = relation_shape(&self.ty, &self.a)?;
+                Ok(has_many_condition(&column, &shape.to_col))
             }
             RelationTy::ManyToMany => many_to_many_reachable_ids(&self.a),
             RelationTy::BelongsTo | RelationTy::HasOne => {

@@ -97,3 +97,9 @@ pub fn many_to_many_filtered_self_ids(a: &RelationAttr, cond: &Ts2) -> SynRes<Ts
     }};
     Ok(r)
 }
+
+pub fn has_many_condition(column: &Ts2, col: &Ts2) -> Ts2 {
+    quote! {
+        Condition::all().add(#column::#col.eq(id))
+    }
+}
