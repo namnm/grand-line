@@ -28,12 +28,12 @@ where
     }
 
     /// Doc-comment strings from the original field definition.
-    /// Each entry corresponds to one `///` line (with leading space preserved).
+    /// Each entry corresponds to one /// line (with leading space preserved).
     fn docs(&self) -> Vec<String> {
         vec![]
     }
 
-    /// Extra `#[graphql(...)]` args (everything except `name`) from the
+    /// Extra #[graphql(...)] args (everything except name) from the
     /// original field definition. Already formatted with trailing commas,
     /// ready to be spliced into the generated graphql attribute.
     fn extra_graphql(&self) -> Ts2 {

@@ -4,12 +4,12 @@ pub trait AuthzColContext<'a>
 where
     Self: ImplContext<'a>,
 {
-    /// Entry point: verify every selected field in the GraphQL response against `output`.
+    /// Entry point: verify every selected field in the GraphQL response against output.
     fn authz_col_check_output(&self, output: &ColPolicyField) -> bool {
         check_output(self.field_impl(), output)
     }
 
-    /// Entry point: verify every argument in the current GraphQL field against `inputs`.
+    /// Entry point: verify every argument in the current GraphQL field against inputs.
     fn authz_col_check_inputs(&self, inputs: &ColPolicyField) -> bool {
         let Ok(pairs) = self.field_impl().arguments() else {
             return false;
@@ -26,7 +26,7 @@ where
 impl<'a> AuthzColContext<'a> for Context<'a> {
 }
 
-/// Check a single key-value argument pair against `parent`.
+/// Check a single key-value argument pair against parent.
 /// Dispatches on value shape:
 ///   List   -- each element is checked against the child policy (check_inputs_value).
 ///   Object -- each field of the object recurses back into check_inputs_tree.

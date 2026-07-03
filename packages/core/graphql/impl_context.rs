@@ -11,34 +11,28 @@ pub trait BaseImplContext<'a> {
 }
 
 impl<'a> BaseImplContext<'a> for Context<'a> {
-    #[inline(always)]
     fn data_impl<D: Any + Send + Sync>(&self) -> GraphQLRes<&'a D> {
         self.data()
     }
 
-    #[inline(always)]
     fn data_opt_impl<D: Any + Send + Sync>(&self) -> Option<&'a D> {
         self.data_opt()
     }
 
-    #[inline(always)]
     fn data_unchecked_impl<D: Any + Send + Sync>(&self) -> &'a D {
         self.data_unchecked()
     }
 }
 
 impl<'a> BaseImplContext<'a> for ExtensionContext<'a> {
-    #[inline(always)]
     fn data_impl<D: Any + Send + Sync>(&self) -> GraphQLRes<&'a D> {
         self.data()
     }
 
-    #[inline(always)]
     fn data_opt_impl<D: Any + Send + Sync>(&self) -> Option<&'a D> {
         self.data_opt()
     }
 
-    #[inline(always)]
     fn data_unchecked_impl<D: Any + Send + Sync>(&self) -> &'a D {
         self.data_unchecked()
     }
@@ -69,17 +63,12 @@ where
 }
 
 impl<'a> ImplContext<'a> for Context<'a> {
-    #[inline(always)]
     fn field_impl(&self) -> SelectionField<'_> {
         self.field()
     }
-
-    #[inline(always)]
     fn path_node_impl(&self) -> Option<QueryPathNode<'a>> {
         self.path_node
     }
-
-    #[inline(always)]
     fn append_http_header_impl(&self, k: &'static str, v: &str) -> bool {
         self.append_http_header(k, v)
     }

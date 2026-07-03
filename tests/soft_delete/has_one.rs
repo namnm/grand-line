@@ -15,15 +15,12 @@ async fn has_one_excludes_soft_deleted_by_default() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id1,
-    });
     let expected = value!({
         "userDetail": {
             "person": null,
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
     d.tmp.drop().await
 }

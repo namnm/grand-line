@@ -16,7 +16,7 @@ where
     }
 }
 
-/// Automatically implement for Serialize + `DeserializeOwned`.
+/// Automatically implement for Serialize + DeserializeOwned.
 impl<T> JsonHelper for T where T: Serialize + DeserializeOwned
 {
 }

@@ -54,7 +54,7 @@ where
 {
     async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>> {
         let r = O::find()
-            .exclude_deleted()
+            .include_deleted(false)
             .filter_by_id(id)
             .select_only()
             .column(O::col_id())

@@ -80,7 +80,7 @@ impl TmpDb {
         })
     }
 
-    async fn new_sqlite(_: &str) -> Res<Self> {
+    async fn new_sqlite(_uri: &str) -> Res<Self> {
         let name = "memory".to_owned();
         let db = conn("sqlite::memory:").await?;
 

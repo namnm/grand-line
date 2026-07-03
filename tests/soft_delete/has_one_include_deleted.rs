@@ -15,9 +15,6 @@ async fn has_one_include_deleted_returns_soft_deleted() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id1,
-    });
     let expected = value!({
         "userDetail": {
             "person": {
@@ -25,7 +22,7 @@ async fn has_one_include_deleted_returns_soft_deleted() -> Res<()> {
             },
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
     d.tmp.drop().await
 }

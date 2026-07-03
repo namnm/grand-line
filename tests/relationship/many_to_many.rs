@@ -20,12 +20,12 @@ async fn resolver_default_name() -> Res<()> {
             pub org_id: String,
         }
 
-        #[many_resolver(Org, parent = "User")]
+        #[many_resolver(Org)]
         fn resolve_orgs() {
             let f = filter!(Org {
                 name: "Fringe"
             });
-            (Some(f), None)
+            f.into()
         }
 
         #[detail(User)]
@@ -70,9 +70,6 @@ async fn resolver_default_name() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "orgs": [{
@@ -81,7 +78,7 @@ async fn resolver_default_name() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
 
@@ -105,10 +102,9 @@ async fn resolver_custom_fn() -> Res<()> {
             pub org_id: String,
         }
 
-        #[many_resolver(Org, parent = "User")]
+        #[many_resolver(Org)]
         fn custom_orgs() {
-            let o = order_by!(Org[NameDesc]);
-            (None, Some(o))
+            order_by!(Org[NameDesc]).into()
         }
 
         #[detail(User)]
@@ -153,9 +149,6 @@ async fn resolver_custom_fn() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "orgs": [{
@@ -166,7 +159,7 @@ async fn resolver_custom_fn() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
 
@@ -221,9 +214,6 @@ async fn many_to_many_returns_related() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "orgs": [{
@@ -232,6 +222,6 @@ async fn many_to_many_returns_related() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }

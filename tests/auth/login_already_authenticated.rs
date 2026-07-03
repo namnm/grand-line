@@ -11,22 +11,13 @@ async fn login_while_authenticated_returns_already_authenticated() -> Res<()> {
     h.insert(H_AUTHORIZATION, h_bearer(&d.token));
     let s = d.s.data(h).finish();
 
-    let q = "
-    mutation test($data: Login!) {
-        login(data: $data) {
-            inner {
-                userId
-            }
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "email": "olivia@example.com",
             "password": "123123",
         },
     });
-    exec_assert_err(&s, q, Some(v), &AuthErr::AlreadyAuthenticated).await;
+    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::AlreadyAuthenticated).await;
 
     d.tmp.drop().await
 }

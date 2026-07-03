@@ -7,10 +7,11 @@ async fn has_many_filters_by_deleted_at() -> Res<()> {
     let d = setup().await?;
 
     let q = "
-    query test($id: ID!) {
+    query test($id: ID!, $filter: AliasFilter) {
         userDetail(id: $id) {
             aliases(
-                filter: { deletedAt_ne: null },
+                filter: $filter,
+                orderBy: [NameAsc],
             ) {
                 name
             }
@@ -19,6 +20,7 @@ async fn has_many_filters_by_deleted_at() -> Res<()> {
     ";
     let v = value!({
         "id": d.id1,
+        "filter": { "deletedAt_ne": null },
     });
     let expected = value!({
         "userDetail": {
@@ -29,25 +31,9 @@ async fn has_many_filters_by_deleted_at() -> Res<()> {
     });
     exec_assert(&d.s, q, Some(v), &expected).await;
 
-    let q = "
-    query test($id: ID!) {
-        userDetail(id: $id) {
-            aliases(
-                filter: {
-                    OR: [
-                        { deletedAt: null },
-                        { deletedAt_ne: null },
-                    ],
-                },
-                orderBy: [NameAsc],
-            ) {
-                name
-            }
-        }
-    }
-    ";
     let v = value!({
         "id": d.id1,
+        "filter": include_all_filter(),
     });
     let expected = value!({
         "userDetail": {

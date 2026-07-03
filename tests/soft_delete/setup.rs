@@ -17,11 +17,9 @@ fn resolver() {
 }
 #[search(User)]
 fn resolver() {
-    (None, None)
 }
 #[count(User)]
 fn resolver() {
-    None
 }
 #[delete(User)]
 fn resolver() {
@@ -144,5 +142,14 @@ pub async fn setup() -> Res<Setup> {
         id2: u2.id,
         pid1: p1.id,
         pid2: p2.id,
+    })
+}
+
+pub fn include_all_filter() -> GraphQLValue {
+    value!({
+        "OR": [
+            { "deletedAt": null },
+            { "deletedAt_ne": null },
+        ],
     })
 }

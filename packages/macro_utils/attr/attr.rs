@@ -7,7 +7,7 @@ pub struct Attr {
     /// In field, this will be Model.field.
     pub debug: String,
     /// In proc macro, this is the macro name.
-    /// In field, this will be one of `AttrTy`.
+    /// In field, this will be one of AttrTy.
     pub attr: String,
     /// Raw args parsed as strings.
     pub args: HashMap<String, (String, AttrParseTy)>,
@@ -16,7 +16,7 @@ pub struct Attr {
     pub first_path: Option<String>,
     /// Only in field.
     pub field: Option<(String, Attribute, Field)>,
-    /// Only in attr such as #[default(..)], #[`sql_expr`(..)], etc..
+    /// Only in attr such as #[default(..)], #[sql_expr(..)], etc..
     pub raw: Option<String>,
     /// Span of the attribute for error reporting.
     pub span: Span,
@@ -108,7 +108,7 @@ impl Attr {
     pub fn model_from_first_path(&self) -> SynRes<String> {
         if let Some(v) = self.first_path.clone() {
             if v != v.to_pascal_case() {
-                let msg = format!("model `{v}` is not pascal case");
+                let msg = format!("model {v} is not pascal case");
                 return Err(self.syn_err(&msg));
             }
             Ok(v)
@@ -225,12 +225,12 @@ impl Attr {
                     Some(v)
                 } else {
                     let t = type_name::<V>();
-                    let msg = format!("cannot parse `{v}` as {t}");
+                    let msg = format!("cannot parse {v} as {t}");
                     return Err(self.err_by_key(k, &msg));
                 }
             }
             Some(_) => {
-                let msg = format!("should be `{k} = some_value`");
+                let msg = format!("should be {k} = some_value");
                 return Err(self.err_by_key(k, &msg));
             }
             None => None,
@@ -294,19 +294,19 @@ impl Attr {
         self.err_by_key(k, &msg)
     }
     pub fn err_invalid_bool(&self, k: &str) -> SynErr {
-        let msg = format!("should be `{k}` for true, or `{k} = false` for false");
+        let msg = format!("should be {k} for true, or {k} = false for false");
         self.err_by_key(k, &msg)
     }
     pub fn err_invalid_string(&self, k: &str) -> SynErr {
-        let msg = format!(r#"should be `{k} = "some_value"` for string"#);
+        let msg = format!(r#"should be {k} = "some_value" for string"#);
         self.err_by_key(k, &msg)
     }
     pub fn err_invalid_nested(&self, k: &str) -> SynErr {
-        let msg = format!("should be `{k}(some_value)` for nested");
+        let msg = format!("should be {k}(some_value) for nested");
         self.err_by_key(k, &msg)
     }
     pub fn err_by_key(&self, k: &str, msg: &str) -> SynErr {
-        let msg = format!("key `{k}` {msg}");
+        let msg = format!("key {k} {msg}");
         self.syn_err(&msg)
     }
 }
@@ -319,9 +319,9 @@ impl AttrDebug for Attr {
             ..
         } = &self;
         if debug.is_empty() {
-            format!("macro `{attr}`:")
+            format!("macro {attr}:")
         } else {
-            format!("{debug} attr `{attr}`:")
+            format!("{debug} attr {attr}:")
         }
     }
     fn span(&self) -> Span {

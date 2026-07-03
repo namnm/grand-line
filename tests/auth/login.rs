@@ -7,15 +7,6 @@ async fn login_with_correct_credentials_returns_session() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    let q = "
-    mutation test($data: Login!) {
-        login(data: $data) {
-            inner {
-                userId
-            }
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "email": "olivia@example.com",
@@ -29,7 +20,7 @@ async fn login_with_correct_credentials_returns_session() -> Res<()> {
             },
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert(&s, Q_LOGIN, Some(v), &expected).await;
 
     d.tmp.drop().await
 }

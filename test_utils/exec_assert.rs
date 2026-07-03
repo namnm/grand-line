@@ -10,6 +10,18 @@ where
     pretty_eq!(res.data, expected.clone());
 }
 
+pub async fn exec_assert_id<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, id: &str, expected: &GraphQLValue)
+where
+    Q: ObjectType + Default + 'static,
+    M: ObjectType + Default + 'static,
+    S: SubscriptionType + 'static,
+{
+    let v = value!({
+        "id": id,
+    });
+    exec_assert(s, q, Some(v), expected).await;
+}
+
 pub async fn exec_assert_ok<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>) -> Response
 where
     Q: ObjectType + Default + 'static,
@@ -30,6 +42,19 @@ where
 {
     let res = exec(s, q, v).await;
     check_err(&res, e);
+}
+
+pub async fn exec_assert_err_id<Q, M, S, E>(s: &GraphQLSchema<Q, M, S>, q: &str, id: &str, e: &E)
+where
+    Q: ObjectType + Default + 'static,
+    M: ObjectType + Default + 'static,
+    S: SubscriptionType + 'static,
+    E: GrandLineErrImpl,
+{
+    let v = value!({
+        "id": id,
+    });
+    exec_assert_err(s, q, Some(v), e).await;
 }
 
 async fn exec<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>) -> Response

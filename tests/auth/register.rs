@@ -7,20 +7,13 @@ async fn register_then_resolve_creates_user() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    let q = "
-    mutation test($data: Register!) {
-        register(data: $data) {
-            secret
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "email": "peter@example.com",
             "password": "Str0ngP@ssw0rd?",
         },
     });
-    let r = exec_assert_ok(&s, q, Some(v)).await;
+    let r = exec_assert_ok(&s, Q_REGISTER, Some(v)).await;
     let r = r.data.to_json()?;
 
     let secret = r
@@ -31,15 +24,6 @@ async fn register_then_resolve_creates_user() -> Res<()> {
     assert!(!secret.is_empty(), "secret should be in response");
 
     let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
-    let q = "
-    mutation test($data: AuthOtpResolve!) {
-        registerResolve(data: $data) {
-            inner {
-                userId
-            }
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "id": t.id,
@@ -47,7 +31,7 @@ async fn register_then_resolve_creates_user() -> Res<()> {
             "otp": "999999",
         },
     });
-    exec_assert_ok(&s, q, Some(v)).await;
+    exec_assert_ok(&s, Q_REGISTER_RESOLVE, Some(v)).await;
 
     let u = User::find()
         .filter(UserColumn::Email.eq("peter@example.com"))

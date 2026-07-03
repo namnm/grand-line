@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-/// Pagination `async_graphql` input struct to use in search query.
+/// Pagination async_graphql input struct to use in search query.
 #[gql_input]
 pub struct Pagination {
     pub offset: Option<u64>,
@@ -19,7 +19,7 @@ pub trait ToPaginationInner {
     fn inner(self, c: &CoreConfig) -> PaginationInner;
 }
 
-/// Automatically implement `ToPaginationInner` for Pagination.
+/// Automatically implement ToPaginationInner for Pagination.
 impl ToPaginationInner for Pagination {
     fn inner(self, c: &CoreConfig) -> PaginationInner {
         PaginationInner {
@@ -38,7 +38,7 @@ impl ToPaginationInner for Pagination {
     }
 }
 
-/// Automatically implement `ToPaginationInner` for Option<Pagination>.
+/// Automatically implement ToPaginationInner for Option<Pagination>.
 impl ToPaginationInner for Option<Pagination> {
     fn inner(self, c: &CoreConfig) -> PaginationInner {
         match self {
@@ -48,5 +48,15 @@ impl ToPaginationInner for Option<Pagination> {
                 limit: c.limit_default,
             },
         }
+    }
+}
+
+/// Automatically implement ChainSelect for PaginationInner.
+impl<E> ChainSelect<E> for PaginationInner
+where
+    E: EntityX,
+{
+    fn chain_select(self, q: Select<E>) -> Select<E> {
+        q.offset(self.offset).limit(self.limit)
     }
 }

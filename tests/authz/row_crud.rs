@@ -118,20 +118,17 @@ async fn detail_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDetail": {
             "title": "Analyze the sample",
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task1 belongs to org1 -> returned.
+// OrgHandler returns org1 filter, task1 belongs to org1 -> returned.
 #[tokio::test]
 async fn detail_filter_match() -> Res<()> {
     let pol = row_policy("taskDetail".to_owned(), "any".to_owned());
@@ -148,20 +145,17 @@ async fn detail_filter_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDetail": {
             "title": "Analyze the sample",
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task2 belongs to org2 -> null.
+// OrgHandler returns org1 filter, task2 belongs to org2 -> null.
 #[tokio::test]
 async fn detail_filter_no_match() -> Res<()> {
     let pol = row_policy("taskDetail".to_owned(), "any".to_owned());
@@ -178,13 +172,10 @@ async fn detail_filter_no_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task2_id,
-    });
     let expected = value!({
         "taskDetail": null,
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task2_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -206,20 +197,17 @@ async fn delete_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDelete": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task1 belongs to org1 -> delete succeeds.
+// OrgHandler returns org1 filter, task1 belongs to org1 -> delete succeeds.
 #[tokio::test]
 async fn delete_filter_match() -> Res<()> {
     let pol = row_policy("taskDelete".to_owned(), "any".to_owned());
@@ -236,20 +224,17 @@ async fn delete_filter_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDelete": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task2 belongs to org2 -> Unauthorized.
+// OrgHandler returns org1 filter, task2 belongs to org2 -> Unauthorized.
 #[tokio::test]
 async fn delete_filter_no_match() -> Res<()> {
     let pol = row_policy("taskDelete".to_owned(), "any".to_owned());
@@ -266,10 +251,7 @@ async fn delete_filter_no_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task2_id,
-    });
-    exec_assert_err(&d.schema, q, Some(v), &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
 
     d.tmp.drop().await
 }
@@ -292,10 +274,7 @@ async fn delete_unauthorized_err_as_db404() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task2_id,
-    });
-    exec_assert_err(&d.schema, q, Some(v), &CoreDbErr::Db404).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &CoreDbErr::Db404).await;
 
     d.tmp.drop().await
 }
@@ -305,7 +284,6 @@ async fn delete_unauthorized_err_as_db404() -> Res<()> {
 // ---------------------------------------------------------------------------
 
 // No row_policy entry -> update succeeds without filter.
-// gql_update returns G::from_id so only id is populated in the response.
 #[tokio::test]
 async fn update_no_policy() -> Res<()> {
     let d = row_crud_setup(RowPolicy::default(), AuthzConfig::default()).await?;
@@ -314,23 +292,22 @@ async fn update_no_policy() -> Res<()> {
     mutation($id: ID!) {
         taskUpdate(id: $id, data: { title: "Updated" }) {
             id
+            title
         }
     }
     "#;
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskUpdate": {
             "id": d.task1_id,
+            "title": "Updated",
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task1 belongs to org1 -> update succeeds.
+// OrgHandler returns org1 filter, task1 belongs to org1 -> update succeeds.
 #[tokio::test]
 async fn update_filter_match() -> Res<()> {
     let pol = row_policy("taskUpdate".to_owned(), "any".to_owned());
@@ -347,20 +324,17 @@ async fn update_filter_match() -> Res<()> {
         }
     }
     "#;
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskUpdate": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task2 belongs to org2 -> Unauthorized.
+// OrgHandler returns org1 filter, task2 belongs to org2 -> Unauthorized.
 #[tokio::test]
 async fn update_filter_no_match() -> Res<()> {
     let pol = row_policy("taskUpdate".to_owned(), "any".to_owned());
@@ -377,10 +351,7 @@ async fn update_filter_no_match() -> Res<()> {
         }
     }
     "#;
-    let v = value!({
-        "id": d.task2_id,
-    });
-    exec_assert_err(&d.schema, q, Some(v), &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
 
     d.tmp.drop().await
 }
@@ -402,15 +373,12 @@ async fn update_authorized_changes_db_row() -> Res<()> {
         }
     }
     "#;
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskUpdate": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     let task = Task::find_by_id(&d.task1_id)
         .one(&d.tmp.db)
@@ -438,12 +406,9 @@ async fn update_unauthorized_does_not_change_db_row() -> Res<()> {
         }
     }
     "#;
-    let v = value!({
-        "id": d.task2_id,
-    });
-    exec_assert_err(&d.schema, q, Some(v), &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
 
-    // task2 belongs to org2; the update was rejected, so title must still be "Interview the witness".
+    // task2 belongs to org2, the update was rejected, so title must still be "Interview the witness".
     let task = Task::find_by_id(&d.task2_id)
         .one(&d.tmp.db)
         .await?
@@ -472,15 +437,12 @@ async fn delete_soft_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDelete": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     // Row must still exist but with deleted_at set.
     let task = Task::find_by_id(&d.task1_id)
@@ -492,7 +454,7 @@ async fn delete_soft_no_policy() -> Res<()> {
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task1 belongs to org1 -> soft delete succeeds.
+// OrgHandler returns org1 filter, task1 belongs to org1 -> soft delete succeeds.
 #[tokio::test]
 async fn delete_soft_filter_match() -> Res<()> {
     let pol = row_policy("taskDelete".to_owned(), "any".to_owned());
@@ -509,15 +471,12 @@ async fn delete_soft_filter_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task1_id,
-    });
     let expected = value!({
         "taskDelete": {
             "id": d.task1_id,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     // Row must still exist but with deleted_at set.
     let task = Task::find_by_id(&d.task1_id)
@@ -532,7 +491,7 @@ async fn delete_soft_filter_match() -> Res<()> {
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; task2 belongs to org2 -> Unauthorized;
+// OrgHandler returns org1 filter, task2 belongs to org2 -> Unauthorized,
 // deleted_at remains None because the soft-delete UPDATE was blocked by the filter.
 #[tokio::test]
 async fn delete_soft_filter_no_match() -> Res<()> {
@@ -550,10 +509,7 @@ async fn delete_soft_filter_no_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.task2_id,
-    });
-    exec_assert_err(&d.schema, q, Some(v), &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
 
     // Row must not be soft-deleted because the filter excluded it.
     let task = Task::find_by_id(&d.task2_id)

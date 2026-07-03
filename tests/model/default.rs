@@ -43,9 +43,6 @@ async fn insert_defaults() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "a": "I love you",
@@ -54,6 +51,6 @@ async fn insert_defaults() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }

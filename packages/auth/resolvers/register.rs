@@ -50,7 +50,7 @@ where
     U: AuthUser,
 {
     let exists = U::find()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter(U::email_col().eq(email))
         .exists(tx)
         .await?;

@@ -42,21 +42,12 @@ impl GenRelation {
         Ok(quote!(Vec<#to>))
     }
 
-    fn body_utils(&self, r: &Ts2, vec: bool) -> SynRes<Ts2> {
+    fn body_utils(&self, r: &Ts2) -> SynRes<Ts2> {
         let sql_dep = self.sql_dep_str()?.ts2_or_err()?;
-        let none = if vec {
-            quote!(vec![])
-        } else {
-            quote!(None)
-        };
 
         let r = quote! {
-            if let Some(id) = self.#sql_dep.clone() {
-                let tx = &*ctx.tx().await?;
-                #r
-            } else {
-                #none
-            }
+            let id = self.#sql_dep.clone().ok_or(CoreDbErr::GqlResolverNone)?;
+            #r
         };
         Ok(r)
     }
@@ -70,52 +61,72 @@ impl GenRelation {
         let col = self.col()?;
 
         let model = self.a.to()?;
-        let authz_row_filter = gen_authz_row_filter(&ty_filter(&model)?, self.a.authz_row);
+        let filter = ty_filter(&model)?;
+
+        let authz_row = gen_authz_row(&filter, self.a.authz_row);
         let include_deleted = get_include_deleted(self.a.include_deleted);
 
+        let extra = unique_ident();
+        let resolver = if let Some(f) = &self.a.resolver {
+            quote! {
+                #f(
+                    self,
+                    ctx,
+                    tx,
+                    #include_deleted.as_ref(),
+                ).await?
+            }
+        } else {
+            quote!(None)
+        };
+
         let r = quote! {
+            let #extra: Option<#filter> = #resolver;
             #model::gql_load(
                 ctx,
                 tx,
                 #column::#col,
                 id,
-                #authz_row_filter,
+                #authz_row,
                 #include_deleted,
+                #extra,
             )
             .await?
         };
-        self.body_utils(&r, false)
+        self.body_utils(&r)
     }
 
     fn body_many(&self, extra_cond: &Ts2) -> SynRes<Ts2> {
         let model = self.a.to()?;
         let filter = ty_filter(&model)?;
         let order_by = ty_order_by(&model)?;
-        let include_deleted = get_include_deleted(self.a.include_deleted);
-        let authz_row_filter = gen_authz_row_filter(&filter, self.a.authz_row);
 
-        let (resolver, filter_extra, order_by_default) = if let Some(f) = &self.a.resolver {
-            let filter_extra = unique_ident();
-            let order_by_default = unique_ident();
-            let resolver = quote! {
-                let (#filter_extra, #order_by_default): (Option<#filter>, Option<Vec<#order_by>>) = #f(
+        let extra = unique_ident();
+        let include_deleted = get_include_deleted(self.a.include_deleted);
+        let authz_row = gen_authz_row(&filter, self.a.authz_row);
+
+        let resolver = if let Some(f) = &self.a.resolver {
+            quote! {
+                #f(
                     self,
                     ctx,
                     tx,
-                    &filter,
-                    &order_by,
-                    &page,
-                    &#include_deleted,
+                    filter.as_ref(),
+                    order_by.as_ref(),
+                    page.as_ref(),
+                    #include_deleted.as_ref(),
                 )
-                .await?;
-            };
-            (resolver, filter_extra, order_by_default)
+                .await?
+            }
         } else {
-            (quote!(), quote!(None), quote!(None))
+            quote! {
+                Default::default()
+            }
         };
 
         let r = quote! {
-            #resolver
+            let #extra: Search<#order_by> = #resolver;
+            let #extra = #extra.add(#extra_cond).add_option(#authz_row);
             #model::gql_search(
                 ctx,
                 tx,
@@ -123,14 +134,11 @@ impl GenRelation {
                 order_by,
                 page,
                 #include_deleted,
-                #filter_extra,
-                #order_by_default,
-                Some(#extra_cond),
-                #authz_row_filter,
+                #extra,
             )
             .await?
         };
-        self.body_utils(&r, true)
+        self.body_utils(&r)
     }
 
     fn body_has_many(&self) -> SynRes<Ts2> {
@@ -141,7 +149,7 @@ impl GenRelation {
     }
 
     fn body_many_to_many(&self) -> SynRes<Ts2> {
-        let extra_cond = many_to_many_reachable_ids(&self.a)?;
+        let extra_cond = many_to_many_condition(&self.a)?;
         self.body_many(&extra_cond)
     }
 
@@ -207,8 +215,8 @@ impl ResolverFn for GenRelation {
     }
 }
 
-/// Register one relation field: its main resolver, its `_some`/`_none`/`_every` filter
-/// fields, and its `_count` resolver if enabled. The single entry point so a relation
+/// Register one relation field: its main resolver, its _some/_none/_every filter
+/// fields, and its _count resolver if enabled. The single entry point so a relation
 /// can not end up with only some of these wired in.
 pub fn register_relation(
     ty: &RelationTy,

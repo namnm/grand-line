@@ -3,10 +3,7 @@ mod row_relation_setup;
 use row_relation_setup::*;
 
 fn finish(d: Setup) -> (GraphQLSchema<Query, EmptyMutation, EmptySubscription>, TmpDb) {
-    let mut h = d.h;
-    h.append(H_ORG_ID, h_str(&d.org_id1));
-    h.insert(H_AUTHORIZATION, h_bearer(&d.token1));
-    h.insert(H_ROLE_ID, h_str(&d.role_id1));
+    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
     (d.s.data(h).finish(), d.tmp)
 }
 
@@ -142,7 +139,7 @@ async fn multiple_ops_one_err() -> Res<()> {
     tmp.drop().await
 }
 
-// Aliased op succeeds; other op in same request is Unauthorized independently.
+// Aliased op succeeds, other op in same request is Unauthorized independently.
 #[tokio::test]
 async fn alias_ok_other_err() -> Res<()> {
     let c = col_policy_with_children("org", "**");
@@ -197,9 +194,6 @@ async fn nested_alias_on_root() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "pd": {
             "comments": [{
@@ -207,7 +201,7 @@ async fn nested_alias_on_root() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -234,9 +228,6 @@ async fn deep_nested_alias_translates_to_schema_path() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "pd": {
             "cmt": [{
@@ -244,13 +235,13 @@ async fn deep_nested_alias_translates_to_schema_path() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
 // Two root ops each with a nested relation in one request.
-// postDetail.comments walk-up finds "postDetail"; commentDetail.post walk-up
+// postDetail.comments walk-up finds "postDetail", commentDetail.post walk-up
 // finds "commentDetail". Neither crosses into the other root's cache entry.
 // OrgHandler filters by org1, so only org1 records pass.
 #[tokio::test]

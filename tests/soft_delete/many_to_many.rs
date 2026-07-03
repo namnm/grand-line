@@ -15,9 +15,6 @@ async fn many_to_many_excludes_soft_deleted_by_default() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id1,
-    });
     let expected = value!({
         "userDetail": {
             "orgs": [{
@@ -25,7 +22,7 @@ async fn many_to_many_excludes_soft_deleted_by_default() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
     d.tmp.drop().await
 }

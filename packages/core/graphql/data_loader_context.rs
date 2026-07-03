@@ -12,8 +12,7 @@ where
         key: String,
         col: E::C,
         look_ahead: Vec<LookaheadX<E>>,
-        exclude_deleted: Option<Condition>,
-        authz_row_filter: Option<Condition>,
+        condition: Condition,
     ) -> Res<Arc<DataLoader<LoaderX<E>>>>
     where
         E: EntityX,
@@ -31,8 +30,7 @@ where
                     tx: gl.tx().await?,
                     col,
                     look_ahead,
-                    exclude_deleted,
-                    authz_row_filter,
+                    condition,
                 },
                 spawn,
             ));

@@ -25,7 +25,7 @@ where
         let tx = &*self.tx().await?;
 
         let ls = LoginSession::find()
-            .exclude_deleted()
+            .include_deleted(false)
             .filter_by_id(&t.id)
             .one(tx)
             .await?;

@@ -17,7 +17,7 @@ pub enum MyErr {
         #[from]
         inner: DbErr,
     },
-    #[error("`{col}` column not found")]
+    #[error("{col} column not found")]
     DbCol404 {
         col: String,
     },

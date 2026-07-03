@@ -14,12 +14,10 @@ pub use row_handlers::*;
 
 #[search(Task, authz(realm = "org"))]
 fn task_search() {
-    (None, None)
 }
 
 #[count(Task, authz(realm = "org"))]
 fn task_count() {
-    None
 }
 
 #[detail(Task, authz(realm = "org"))]
@@ -66,74 +64,25 @@ pub async fn row_crud_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<RowCrud
     let s = schema_qm::<CrudQ, CrudM>(&tmp.db).data(org_impl).data(cfg);
 
     let h = init_common_headers();
-    let ua = Context::get_ua_raw(Context::axum_headers(&h))?;
-
-    let u1 = am_create!(User {
-        email: "walter@example.com",
-        password_hashed: rand_utils::password_hash("pw")?,
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-
-    let secret1 = rand_utils::secret();
-    let ls1 = am_create!(LoginSession {
-        user_id: u1.id.clone(),
-        secret_hashed: rand_utils::secret_hash(&secret1),
-        ip: "127.0.0.1",
-        ua: ua.to_json()?,
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    let token1 = rand_utils::qs_token(&ls1.id, &secret1)?;
-
-    let o1 = am_create!(Org {
-        name: "Fringe Division"
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    let o2 = am_create!(Org {
-        name: "Massive Dynamic"
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-
-    let r1 = am_create!(Role {
-        name: "Admin",
-        realm: "org",
-        col_policy: col_policy_wildcard().to_json()?,
-        row_policy: row_pol.to_json()?,
-        org_id: Some(o1.id.clone()),
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    am_create!(UserInRole {
-        user_id: u1.id.clone(),
-        role_id: r1.id.clone(),
-        org_id: Some(o1.id.clone()),
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
+    let seed = seed_org_admin(&tmp, &h, "walter@example.com", row_pol).await?;
 
     // task1: org1, task2: org2
     let t1 = am_create!(Task {
         title: "Analyze the sample",
-        assignee_id: u1.id.clone(),
-        org_id: o1.id.clone(),
+        assignee_id: seed.user_id.clone(),
+        org_id: seed.org_id1.clone(),
     })
     .exec_without_ctx(&tmp.db)
     .await?;
     let t2 = am_create!(Task {
         title: "Interview the witness",
-        assignee_id: u1.id.clone(),
-        org_id: o2.id.clone(),
+        assignee_id: seed.user_id.clone(),
+        org_id: seed.org_id2.clone(),
     })
     .exec_without_ctx(&tmp.db)
     .await?;
 
-    let mut headers = h;
-    headers.append(H_ORG_ID, h_str(&o1.id));
-    headers.insert(H_AUTHORIZATION, h_bearer(&token1));
-    headers.insert(H_ROLE_ID, h_str(&r1.id));
+    let headers = auth_headers(h, &seed.org_id1, &seed.token, &seed.role_id1);
 
     Ok(RowCrudSetup {
         schema: s.data(headers).finish(),

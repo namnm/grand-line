@@ -5,13 +5,13 @@ fn resolver() {
     ctx.auth_ensure_authenticated().await?;
     let f = get_filter(ctx).await?;
     let o = order_by!(LoginSession[UpdatedAtDesc]);
-    (Some(f), Some(o))
+    (f, o).into()
 }
 
 #[count(LoginSession, include_deleted = false, auth, authz_row = false)]
 fn resolver() {
     let f = get_filter(ctx).await?;
-    Some(f)
+    f.into()
 }
 
 async fn get_filter(ctx: &Context<'_>) -> Res<LoginSessionFilter> {

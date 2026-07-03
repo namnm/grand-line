@@ -13,15 +13,12 @@ async fn delete_sets_deleted_at_by_default() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id1,
-    });
     let expected = value!({
         "userDelete": {
             "id": d.id1,
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
     match User::find_by_id(&d.id1).one(&d.tmp.db).await? {
         Some(u) => assert!(

@@ -41,9 +41,6 @@ async fn sql_expr_computes_derived_column() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "b": 1001,
@@ -51,6 +48,6 @@ async fn sql_expr_computes_derived_column() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }

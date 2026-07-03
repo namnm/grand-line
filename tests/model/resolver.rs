@@ -14,7 +14,7 @@ async fn sql_dep_cols() -> Res<()> {
             pub full_name: String,
         }
 
-        async fn resolve_full_name(u: &UserGql, _: &Context<'_>) -> Res<String> {
+        async fn resolve_full_name(u: &UserGql, _ctx: &Context<'_>) -> Res<String> {
             let full_name = [
                 u.first_name.clone().ok_or(CoreDbErr::GqlResolverNone)?,
                 u.last_name.clone().ok_or(CoreDbErr::GqlResolverNone)?,
@@ -46,16 +46,13 @@ async fn sql_dep_cols() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "fullName": "Olivia Dunham",
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
 
@@ -75,7 +72,7 @@ async fn sql_dep_exprs() -> Res<()> {
             d: i64,
         }
 
-        async fn resolve_c(u: &UserGql, _: &Context<'_>) -> Res<i64> {
+        async fn resolve_c(u: &UserGql, _ctx: &Context<'_>) -> Res<i64> {
             let a = u.a.ok_or(CoreDbErr::GqlResolverNone)?;
             let b = u.b.ok_or(CoreDbErr::GqlResolverNone)?;
             Ok(a + b)
@@ -107,9 +104,6 @@ async fn sql_dep_exprs() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "c": 1002,
@@ -117,6 +111,6 @@ async fn sql_dep_exprs() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }

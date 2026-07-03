@@ -43,46 +43,174 @@ async fn has_many_count() -> Res<()> {
     let q = "
     query test($id: ID!) {
         userDetail(id: $id) {
-            aliases_count
+            aliasesCount
         }
     }
     ";
-    let v = value!({
-        "id": u1.id,
-    });
     let expected = value!({
         "userDetail": {
-            "aliases_count": 2,
+            "aliasesCount": 2,
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u1.id, &expected).await;
 
-    let v = value!({
-        "id": u2.id,
-    });
     let expected = value!({
         "userDetail": {
-            "aliases_count": 0,
+            "aliasesCount": 0,
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u2.id, &expected).await;
 
     let q = r#"
     query test($id: ID!) {
         userDetail(id: $id) {
-            aliases_count(filter: { name: "Liv" })
+            aliasesCount(
+                filter: { name: "Liv" },
+            )
         }
     }
     "#;
-    let v = value!({
-        "id": u1.id,
-    });
     let expected = value!({
         "userDetail": {
-            "aliases_count": 1,
+            "aliasesCount": 1,
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u1.id, &expected).await;
+
+    tmp.drop().await
+}
+
+#[tokio::test]
+async fn has_many_count_custom_resolver() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model]
+        pub struct User {
+            #[has_many(count, count_resolver)]
+            pub aliases: Alias,
+        }
+        #[model]
+        pub struct Alias {
+            pub name: String,
+            pub user_id: String,
+        }
+
+        #[count_resolver(Alias)]
+        fn resolve_aliases_count() {
+            let f = filter!(Alias {
+                name: "Walter"
+            });
+            f.into()
+        }
+
+        #[detail(User)]
+        fn resolver() {
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(User, Alias);
+    let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
+
+    let u = am_create!(User).exec_without_ctx(&tmp.db).await?;
+    am_create!(Alias {
+        name: "Walter",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Alias {
+        name: "Astrid",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let q = "
+    query test($id: ID!) {
+        userDetail(id: $id) {
+            aliasesCount
+        }
+    }
+    ";
+    let expected = value!({
+        "userDetail": {
+            "aliasesCount": 1,
+        },
+    });
+    exec_assert_id(&s, q, &u.id, &expected).await;
+
+    tmp.drop().await
+}
+
+#[tokio::test]
+async fn has_many_count_custom_resolver_uses_parent_field() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model]
+        pub struct User {
+            pub cover_identity: String,
+            #[has_many(count, count_resolver = "count_aliases_matching_cover_identity")]
+            pub aliases: Alias,
+        }
+        #[model]
+        pub struct Alias {
+            pub name: String,
+            pub user_id: String,
+        }
+
+        #[count_resolver(Alias, parent = "User")]
+        fn count_aliases_matching_cover_identity() {
+            filter!(Alias {
+                name: parent.cover_identity.clone().unwrap_or_default()
+            })
+            .into()
+        }
+
+        #[detail(User)]
+        fn resolver() {
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(User, Alias);
+    let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
+
+    let u = am_create!(User {
+        cover_identity: "Bell",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Alias {
+        name: "Bell",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Alias {
+        name: "Bishop",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let q = "
+    query test($id: ID!) {
+        userDetail(id: $id) {
+            coverIdentity
+            aliasesCount
+        }
+    }
+    ";
+    let expected = value!({
+        "userDetail": {
+            "coverIdentity": "Bell",
+            "aliasesCount": 1,
+        },
+    });
+    exec_assert_id(&s, q, &u.id, &expected).await;
 
     tmp.drop().await
 }
@@ -143,36 +271,32 @@ async fn many_to_many_count() -> Res<()> {
     let q = "
     query test($id: ID!) {
         userDetail(id: $id) {
-            orgs_count
+            orgsCount
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
-            "orgs_count": 2,
+            "orgsCount": 2,
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
 
     let q = r#"
     query test($id: ID!) {
         userDetail(id: $id) {
-            orgs_count(filter: { name: "Fringe" })
+            orgsCount(
+                filter: { name: "Fringe" },
+            )
         }
     }
     "#;
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
-            "orgs_count": 1,
+            "orgsCount": 1,
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
 
     tmp.drop().await
 }

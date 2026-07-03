@@ -22,7 +22,7 @@ pub async fn auth_otp_ensure_resolve(
     data: AuthOtpResolve,
 ) -> Res<AuthOtpSql> {
     let u = AuthOtp::update_many()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter_by_id(&data.id)
         .filter(AuthOtpColumn::Ty.eq(ty))
         .set(AuthOtpActiveModel::defaults_on_update())
@@ -45,7 +45,7 @@ pub async fn auth_otp_ensure_resolve(
             Err(MyErr::OtpResolveInvalid)?;
         }
         AuthOtp::find()
-            .exclude_deleted()
+            .include_deleted(false)
             .filter_by_id(&data.id)
             .one(tx)
             .await?
@@ -78,7 +78,7 @@ pub async fn auth_otp_ensure_re_request(
     email: &str,
 ) -> Res<()> {
     let t = AuthOtp::find()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter(AuthOtpColumn::Ty.eq(ty))
         .filter(AuthOtpColumn::Email.eq(email))
         .one(tx)

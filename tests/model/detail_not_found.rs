@@ -27,13 +27,10 @@ async fn returns_null_when_record_not_found() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": "nonexistent-id",
-    });
     let expected = value!({
         "userDetail": null,
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, "nonexistent-id", &expected).await;
 
     tmp.drop().await
 }

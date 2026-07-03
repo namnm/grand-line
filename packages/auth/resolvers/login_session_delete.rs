@@ -25,7 +25,7 @@ fn login_session_delete_all() -> Vec<LoginSessionGql> {
     let ls = arc.as_ref().as_ref().ok_or(MyErr::Unauthenticated)?;
 
     let r = LoginSession::find()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter(LoginSessionColumn::Id.ne(&ls.id))
         .filter(LoginSessionColumn::UserId.eq(&ls.user_id))
         .gql_select_id()

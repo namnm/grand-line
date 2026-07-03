@@ -13,15 +13,12 @@ async fn detail_include_deleted_returns_soft_deleted() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id2,
-    });
     let expected = value!({
         "userDetail": {
             "name": "Peter",
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id2, &expected).await;
 
     d.tmp.drop().await
 }

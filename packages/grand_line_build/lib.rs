@@ -8,10 +8,10 @@ use syn::{Attribute, Item, ItemFn, Meta, Token, parse_file, punctuated::Punctuat
 // ============================================================================
 // Public API
 
-/// Scan `src/` of the current crate and generate `$OUT_DIR/grand_line_schema.rs`
-/// containing `pub struct Query(...)` and `pub struct Mutation(...)`.
+/// Scan src/ of the current crate and generate $OUT_DIR/grand_line_schema.rs
+/// containing pub struct Query(...) and pub struct Mutation(...).
 ///
-/// Call from `build.rs`:
+/// Call from build.rs:
 /// ```rust
 /// fn main() {
 ///     grand_line_build::generate_schema();
@@ -51,26 +51,26 @@ impl SchemaBuilder {
         }
     }
 
-    /// Add a source directory to scan (relative to `CARGO_MANIFEST_DIR`).
+    /// Add a source directory to scan (relative to CARGO_MANIFEST_DIR).
     pub fn scan(mut self, dir: &str) -> Self {
         self.dirs.push(dir.to_owned());
         self
     }
 
-    /// Prepend an extra type to `Query` (e.g. `"AuthMergedQuery"`).
+    /// Prepend an extra type to Query (e.g. "AuthMergedQuery").
     pub fn extra_query(mut self, ty: &str) -> Self {
         self.extra_query.push(ty.to_owned());
         self
     }
 
-    /// Prepend an extra type to `Mutation` (e.g. `"AuthMergedMutation<User>"`).
+    /// Prepend an extra type to Mutation (e.g. "AuthMergedMutation<User>").
     pub fn extra_mutation(mut self, ty: &str) -> Self {
         self.extra_mutation.push(ty.to_owned());
         self
     }
 
     /// Scan all configured dirs, compute resolver struct names, and write
-    /// `$OUT_DIR/grand_line_schema.rs`.
+    /// $OUT_DIR/grand_line_schema.rs.
     pub fn generate(self) {
         let manifest_dir = match env::var("CARGO_MANIFEST_DIR") {
             Ok(v) => v,
@@ -166,14 +166,13 @@ fn scan_fn(ifn: &ItemFn, query_types: &mut Vec<String>, mutation_types: &mut Vec
         ifn.attrs.iter().filter_map(detect_resolver_attr).collect();
 
     if resolver_attrs.len() > 1 {
-        let msg = format!("`{f}` has multiple resolver attributes; only one resolver attribute per function is valid");
+        let msg = format!("{f} has multiple resolver attributes; only one resolver attribute per function is valid");
         println!("cargo:warning=grand_line_build: {msg}");
     }
 
     if let Some((crud, operation, model)) = resolver_attrs.into_iter().next() {
         if !crud.is_empty() && model.is_empty() {
-            let msg =
-                format!("#[{crud}] on `{f}` is missing a model argument (expected #[{crud}(Model, ...)]); skipped");
+            let msg = format!("#[{crud}] on {f} is missing a model argument (expected #[{crud}(Model, ...)]); skipped");
             println!("cargo:warning=grand_line_build: {msg}");
             return;
         }
@@ -220,7 +219,7 @@ fn detect_resolver_attr(attr: &Attribute) -> Option<(String, &'static str, Strin
 }
 
 // Parse the first argument of an attribute as an identifier.
-// Handles `#[search(Todo)]`, `#[update(Todo, resolver_inputs)]`, etc.
+// Handles #[search(Todo)], #[update(Todo, resolver_inputs)], etc.
 fn first_arg_ident(attr: &Attribute) -> Option<String> {
     let args = attr
         .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
@@ -257,7 +256,7 @@ fn dedup_warn(types: Vec<String>, kind: &str) -> Vec<String> {
             if seen.insert(t.clone()) {
                 true
             } else {
-                let msg = format!("duplicate {kind} type `{t}`; keeping one");
+                let msg = format!("duplicate {kind} type {t}, keeping one");
                 println!("cargo:warning=grand_line_build: {msg}");
                 false
             }

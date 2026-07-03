@@ -8,13 +8,6 @@ async fn register_with_existing_email_returns_email_exists() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    let q = "
-    mutation test($data: Register!) {
-        register(data: $data) {
-            secret
-        }
-    }
-    ";
     // olivia@example.com is already seeded in setup().
     let v = value!({
         "data": {
@@ -22,7 +15,7 @@ async fn register_with_existing_email_returns_email_exists() -> Res<()> {
             "password": "Str0ngP@ssw0rd?",
         },
     });
-    exec_assert_err(&s, q, Some(v), &AuthErr::RegisterEmailExists).await;
+    exec_assert_err(&s, Q_REGISTER, Some(v), &AuthErr::RegisterEmailExists).await;
 
     d.tmp.drop().await
 }

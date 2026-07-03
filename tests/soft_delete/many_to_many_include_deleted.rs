@@ -15,9 +15,6 @@ async fn many_to_many_include_deleted_returns_all() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.id1,
-    });
     let expected = value!({
         "userDetail": {
             "orgs": [{
@@ -27,7 +24,7 @@ async fn many_to_many_include_deleted_returns_all() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.s, q, Some(v), &expected).await;
+    exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
     d.tmp.drop().await
 }

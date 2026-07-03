@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
-/// Add `<field>_some` / `<field>_none` / `<field>_every` filter fields for a relationship.
-/// `_some` matches rows where at least one related row satisfies the nested filter.
-/// `_none` matches rows where no related row satisfies the nested filter.
-/// `_every` matches rows where every related row satisfies the nested filter
+/// Add <field>_some / <field>_none / <field>_every filter fields for a relationship.
+/// _some matches rows where at least one related row satisfies the nested filter.
+/// _none matches rows where no related row satisfies the nested filter.
+/// _every matches rows where every related row satisfies the nested filter
 /// (vacuously true when there is no related row).
 pub fn relation_filter(r: &GenRelation, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>) -> SynRes<()> {
     push(r, struk, query, "some")?;
@@ -19,8 +19,8 @@ fn push(r: &GenRelation, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>, op_str: &st
     let gql_name = format!("{gql_base}_{op_str}");
 
     let to = r.a.to()?;
-    let filter_ty = ty_filter(&to)?;
-    // `_every` is `_none` of the negated nested filter: no related row fails to match.
+    let filter = ty_filter(&to)?;
+    // _every is _none of the negated nested filter: no related row fails to match.
     let negate = op_str == "every";
     let (self_col, sub) = self_col_and_subquery(r, negate)?;
     let in_fn = if op_str == "some" {
@@ -31,11 +31,11 @@ fn push(r: &GenRelation, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>, op_str: &st
 
     struk.push(quote! {
         #[graphql(name = #gql_name)]
-        pub #name: Option<Box<#filter_ty>>,
+        pub #name: Option<Box<#filter>>,
     });
     query.push(quote! {
-        if let Some(v) = this.#name {
-            let v = *v;
+        if let Some(f) = f.#name {
+            let f = *f;
             let sub = #sub;
             c = c.add(Column::#self_col.#in_fn(sub));
         }
@@ -43,37 +43,21 @@ fn push(r: &GenRelation, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>, op_str: &st
     Ok(())
 }
 
-/// Compute the column on the owning entity to test with `in_subquery`/`not_in_subquery`,
+/// Compute the column on the owning entity to test with in_subquery/not_in_subquery,
 /// and the subquery expression selecting the matching side of that column,
-/// filtered down by the nested filter `v` (or its negation, when `negate` is set).
+/// filtered down by the nested filter f (or its negation, when negate is set).
 fn self_col_and_subquery(r: &GenRelation, negate: bool) -> SynRes<(Ts2, Ts2)> {
-    let cond = if negate {
-        quote!(Condition::not(v.into_condition()))
-    } else {
-        quote!(v.into_condition())
-    };
+    let mut cond = quote!(f.into_condition());
+    if negate {
+        cond = quote!(Condition::not(#cond));
+    }
 
     if r.ty == RelationTy::ManyToMany {
-        let sub = many_to_many_filtered_self_ids(&r.a, &cond)?;
+        let sub = many_to_many_filter(&r.a, &cond)?;
         return Ok((quote!(Id), sub));
     }
 
     let shape = relation_shape(&r.ty, &r.a)?;
-    let to = r.a.to()?;
-    let to_column = ty_column(&to)?;
-    let to_col = shape.to_col;
-    let exclude = if r.a.include_deleted {
-        quote!()
-    } else {
-        quote!(q = q.exclude_deleted();)
-    };
-    let sub = quote! {{
-        let mut q = #to::find()
-            .select_only()
-            .column(#to_column::#to_col)
-            .filter(#cond);
-        #exclude
-        q.into_query()
-    }};
+    let sub = relation_shape_filter(r, &cond)?;
     Ok((shape.self_col, sub))
 }

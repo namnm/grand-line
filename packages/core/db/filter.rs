@@ -1,15 +1,15 @@
 use super::prelude::*;
 
-/// Helper trait to combine filter and `filter_extra`.
-pub trait Filter<E>
+/// Helper trait to combine filter and filter_extra.
+pub trait FilterX
 where
-    E: EntityX,
-    Self: IntoCondition + ChainSelect<E> + Default + Serialize + Send + Sync,
+    Self: IntoCondition + ChainSelect<Self::E> + Default + Serialize + Send + Sync,
 {
-    /// Combine filter and `filter_extra` to use in abstract methods.
+    type E: EntityX;
+    /// Combine filter and filter_extra to use in abstract methods.
     /// Should be generated in the model macro.
     fn combine_and(a: Self, b: Self) -> Self;
-    /// Check if there is `deleted_at` in this filter, without the combination of nested and/or/not.
+    /// Check if there is deleted_at in this filter, without the combination of nested and/or/not.
     /// Should be generated in the model macro.
     fn has_deleted_at_without_nested(&self) -> bool;
     /// Get and to use in abstract methods.
@@ -21,8 +21,19 @@ where
     /// Get not to use in abstract methods.
     /// Should be generated in the model macro.
     fn get_not(&self) -> Option<Self>;
+}
 
-    /// Check if there is `deleted_at` in this filter, with the combination of nested and/or/not.
+/// Automatically implement FilterXImpl for Option<FilterX>.
+pub trait FilterXImpl {
+    /// Check if there is deleted_at in this filter.
+    fn has_deleted_at(&self) -> bool;
+}
+
+impl<F> FilterXImpl for F
+where
+    Self: FilterX,
+{
+    /// Check if there is deleted_at in this filter, with the combination of nested and/or/not.
     fn has_deleted_at(&self) -> bool {
         if self.has_deleted_at_without_nested() {
             return true;
@@ -46,32 +57,12 @@ where
     }
 }
 
-/// Automatically implement `FilterImpl` for Option<Filter>.
-pub trait FilterImpl<E>
+/// Automatically implement FilterXImpl for Option<FilterX>.
+impl<F> FilterXImpl for Option<F>
 where
-    E: EntityX,
+    F: FilterX,
 {
-    /// Helper to combine filter and `filter_extra`.
-    fn combine(self, filter_extra: Self) -> Self;
-    /// Check if there is `deleted_at` in this filter.
-    fn has_deleted_at(&self) -> bool;
-}
-
-/// Automatically implement `FilterImpl` for Option<Filter>.
-impl<E, F> FilterImpl<E> for Option<F>
-where
-    E: EntityX,
-    F: Filter<E>,
-{
-    fn combine(self, filter_extra: Self) -> Self {
-        match (self, filter_extra) {
-            (Some(a), Some(b)) => Some(F::combine_and(a, b)),
-            (Some(a), None) => Some(a),
-            (None, Some(b)) => Some(b),
-            (None, None) => None,
-        }
-    }
     fn has_deleted_at(&self) -> bool {
-        self.as_ref().is_some_and(Filter::has_deleted_at)
+        self.as_ref().is_some_and(|v| v.has_deleted_at())
     }
 }

@@ -16,12 +16,12 @@ async fn resolver_default_name() -> Res<()> {
             pub user_id: String,
         }
 
-        #[many_resolver(Alias, parent = "User")]
+        #[many_resolver(Alias)]
         fn resolve_aliases() {
             let f = filter!(Alias {
                 name: "Liv"
             });
-            (Some(f), None)
+            f.into()
         }
 
         #[detail(User)]
@@ -56,9 +56,6 @@ async fn resolver_default_name() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "aliases": [{
@@ -67,7 +64,7 @@ async fn resolver_default_name() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
 
@@ -87,10 +84,9 @@ async fn resolver_custom_fn() -> Res<()> {
             pub user_id: String,
         }
 
-        #[many_resolver(Alias, parent = "User")]
+        #[many_resolver(Alias)]
         fn custom_aliases() {
-            let o = order_by!(Alias[NameDesc]);
-            (None, Some(o))
+            order_by!(Alias[NameDesc]).into()
         }
 
         #[detail(User)]
@@ -125,9 +121,6 @@ async fn resolver_custom_fn() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "aliases": [{
@@ -138,7 +131,82 @@ async fn resolver_custom_fn() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
+    tmp.drop().await
+}
+
+#[tokio::test]
+async fn resolver_custom_fn_uses_parent_field() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model]
+        pub struct User {
+            pub cover_identity: String,
+            #[has_many(resolver = "aliases_matching_cover_identity")]
+            pub aliases: Alias,
+        }
+        #[model]
+        pub struct Alias {
+            pub name: String,
+            pub user_id: String,
+        }
+
+        #[many_resolver(Alias, parent = "User")]
+        fn aliases_matching_cover_identity() {
+            filter!(Alias {
+                name: parent.cover_identity.clone().unwrap_or_default()
+            })
+            .into()
+        }
+
+        #[detail(User)]
+        fn resolver() {
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(User, Alias);
+    let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
+
+    let u = am_create!(User {
+        cover_identity: "Bell",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Alias {
+        name: "Bell",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Alias {
+        name: "Bishop",
+        user_id: u.id.clone(),
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let q = "
+    query test($id: ID!) {
+        userDetail(id: $id) {
+            coverIdentity
+            aliases {
+                name
+            }
+        }
+    }
+    ";
+    let expected = value!({
+        "userDetail": {
+            "coverIdentity": "Bell",
+            "aliases": [{
+                "name": "Bell",
+            }],
+        },
+    });
+
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
 
@@ -184,9 +252,6 @@ async fn has_many_returns_children() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "aliases": [{
@@ -195,6 +260,6 @@ async fn has_many_returns_children() -> Res<()> {
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }

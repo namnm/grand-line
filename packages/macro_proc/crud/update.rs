@@ -33,15 +33,17 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             quote!(into_active_model_without_ctx())
         };
 
-        let (authz_row_filter, authz_row_filter_def) = gen_authz_row_filter_var(&ty_filter(&model)?, a.ra.authz_row);
+        let filter = ty_filter(&model)?;
+        let (authz_row, authz_row_def) = gen_authz_row_def(&filter, a.ra.authz_row);
         let authz_err = gen_authz_err(a.ra.authz_row);
 
         r.body = quote! {
-            #authz_row_filter_def
+            #authz_row_def
             #model::gql_mutation_check_id(
+                ctx,
                 tx,
                 &id,
-                #authz_row_filter.clone(),
+                #authz_row.clone(),
                 #authz_err,
             )
             .await?;
@@ -49,10 +51,11 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
                 #body
             };
             #model::gql_update(
+                ctx,
                 tx,
                 &id,
                 am.#into,
-                #authz_row_filter,
+                #authz_row,
                 #authz_err,
             )
             .await?

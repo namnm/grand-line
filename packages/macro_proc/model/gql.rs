@@ -4,7 +4,7 @@ use crate::prelude::*;
 // Field attribute helpers
 
 /// Extract doc-comment strings from a field's attributes.
-/// Each `///` line becomes one String entry (with the leading space preserved).
+/// Each /// line becomes one String entry (with the leading space preserved).
 pub fn attr_docs(attrs: &[Attribute]) -> Vec<String> {
     attrs
         .iter()
@@ -23,12 +23,12 @@ pub fn attr_docs(attrs: &[Attribute]) -> Vec<String> {
         .collect()
 }
 
-/// Extract the graphql `name` override and all remaining graphql args from a
+/// Extract the graphql name override and all remaining graphql args from a
 /// field's attributes.
 ///
-/// Returns `(name_override, extra_args)` where `extra_args` is a `Ts2` ready
-/// to be spliced into `#[graphql(name = ..., #extra_args)]`.
-/// The `name` key is consumed and returned separately so the caller controls
+/// Returns (name_override, extra_args) where extra_args is a Ts2 ready
+/// to be spliced into #[graphql(name = ..., #extra_args)].
+/// The name key is consumed and returned separately so the caller controls
 /// which effective name ends up in the attribute.
 pub fn attr_graphql_info(attrs: &[Attribute]) -> (Option<String>, Ts2) {
     let mut name_override = None;

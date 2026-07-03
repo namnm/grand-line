@@ -20,9 +20,6 @@ async fn has_many_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "comments": [{
@@ -32,7 +29,7 @@ async fn has_many_no_policy() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -56,9 +53,6 @@ async fn has_many_with_filter() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "comments": [{
@@ -66,7 +60,7 @@ async fn has_many_with_filter() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -89,9 +83,6 @@ async fn has_one_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "meta": {
@@ -99,12 +90,12 @@ async fn has_one_no_policy() -> Res<()> {
             },
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; meta1 has org1 -> returned.
+// OrgHandler returns org1 filter, meta1 has org1 -> returned.
 #[tokio::test]
 async fn has_one_filter_match() -> Res<()> {
     let pol = row_policy("postDetail.meta".to_owned(), "any".to_owned());
@@ -123,9 +114,6 @@ async fn has_one_filter_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "meta": {
@@ -133,12 +121,12 @@ async fn has_one_filter_match() -> Res<()> {
             },
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; meta2 has org2 -> None.
+// OrgHandler returns org1 filter, meta2 has org2 -> None.
 #[tokio::test]
 async fn has_one_filter_no_match() -> Res<()> {
     let pol = row_policy("postDetail.meta".to_owned(), "any".to_owned());
@@ -157,15 +145,12 @@ async fn has_one_filter_no_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post2_id,
-    });
     let expected = value!({
         "postDetail": {
             "meta": null,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post2_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -188,9 +173,6 @@ async fn belongs_to_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.comment_a_id,
-    });
     let expected = value!({
         "commentDetail": {
             "post": {
@@ -198,12 +180,12 @@ async fn belongs_to_no_policy() -> Res<()> {
             },
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.comment_a_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; post1 has org1 -> returned.
+// OrgHandler returns org1 filter, post1 has org1 -> returned.
 #[tokio::test]
 async fn belongs_to_filter_match() -> Res<()> {
     let pol = row_policy("commentDetail.post".to_owned(), "any".to_owned());
@@ -222,9 +204,6 @@ async fn belongs_to_filter_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.comment_a_id,
-    });
     let expected = value!({
         "commentDetail": {
             "post": {
@@ -232,12 +211,12 @@ async fn belongs_to_filter_match() -> Res<()> {
             },
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.comment_a_id, &expected).await;
 
     d.tmp.drop().await
 }
 
-// OrgHandler returns org1 filter; comment_on_post2 points to post2 (org2) -> None.
+// OrgHandler returns org1 filter, comment_on_post2 points to post2 (org2) -> None.
 #[tokio::test]
 async fn belongs_to_filter_no_match() -> Res<()> {
     let pol = row_policy("commentDetail.post".to_owned(), "any".to_owned());
@@ -256,15 +235,12 @@ async fn belongs_to_filter_no_match() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.comment_on_post2_id,
-    });
     let expected = value!({
         "commentDetail": {
             "post": null,
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.comment_on_post2_id, &expected).await;
     d.tmp.drop().await
 }
 
@@ -286,9 +262,6 @@ async fn many_to_many_no_policy() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "tags": [{
@@ -298,7 +271,7 @@ async fn many_to_many_no_policy() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }
@@ -322,9 +295,6 @@ async fn many_to_many_with_filter() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": d.post1_id,
-    });
     let expected = value!({
         "postDetail": {
             "tags": [{
@@ -332,7 +302,7 @@ async fn many_to_many_with_filter() -> Res<()> {
             }],
         },
     });
-    exec_assert(&d.schema, q, Some(v), &expected).await;
+    exec_assert_id(&d.schema, q, &d.post1_id, &expected).await;
 
     d.tmp.drop().await
 }

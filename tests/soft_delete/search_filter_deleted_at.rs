@@ -7,36 +7,28 @@ async fn search_filters_by_deleted_at() -> Res<()> {
     let d = setup().await?;
 
     let q = "
-    query test {
+    query test($filter: UserFilter) {
         userSearch(
-            filter: { deletedAt_ne: null },
-        ) {
-            name
-        }
-    }
-    ";
-    let expected = value!({
-        "userSearch": [{
-            "name": "Peter",
-        }],
-    });
-    exec_assert(&d.s, q, None, &expected).await;
-
-    let q = "
-    query test {
-        userSearch(
-            filter: {
-                OR: [
-                    { deletedAt: null },
-                    { deletedAt_ne: null },
-                ],
-            },
+            filter: $filter,
             orderBy: [NameAsc],
         ) {
             name
         }
     }
     ";
+    let v = value!({
+        "filter": { "deletedAt_ne": null },
+    });
+    let expected = value!({
+        "userSearch": [{
+            "name": "Peter",
+        }],
+    });
+    exec_assert(&d.s, q, Some(v), &expected).await;
+
+    let v = value!({
+        "filter": include_all_filter(),
+    });
     let expected = value!({
         "userSearch": [{
             "name": "Olivia",
@@ -44,7 +36,7 @@ async fn search_filters_by_deleted_at() -> Res<()> {
             "name": "Peter",
         }],
     });
-    exec_assert(&d.s, q, None, &expected).await;
+    exec_assert(&d.s, q, Some(v), &expected).await;
 
     d.tmp.drop().await
 }

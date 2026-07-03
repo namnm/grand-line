@@ -14,7 +14,7 @@ pub struct ColPolicyOperation {
 
 /// A node in the allow-tree.  Both inputs and output share this shape.
 ///
-/// Wildcard semantics (stored as special keys in `children`):
+/// Wildcard semantics (stored as special keys in children):
 ///   "*"  -- allow all direct scalar children without explicit entries.
 ///   "**" -- allow all descendants at any depth (short-circuits the whole subtree).
 #[gql_input]

@@ -1,11 +1,45 @@
 use crate::prelude::*;
 
+/// Parse a key that is either bare (true, default name) or a string (custom name),
+/// e.g. resolver or resolver = "custom_name". default_name builds the default
+/// ident from the field name, used when the key is bare or first_path.
+fn parse_resolver_ident<F>(a: &Attr, key: &str, default_name: F) -> SynRes<Option<Ident>>
+where
+    F: Fn(&str) -> String,
+{
+    let r1 = a.bool(key);
+    let r2 = a.str(key);
+    let make_err = || {
+        let msg = "must be true for default name or a string identifier for custom name";
+        a.err_by_key(key, msg)
+    };
+    if r1.is_err() && r2.is_err() {
+        return Err(make_err());
+    }
+    let make_default = || -> SynRes<Ident> {
+        let field = a.field_name()?;
+        Ok(format_ident!("{}", default_name(&field)))
+    };
+    let r = if a.first_path.clone().unwrap_or_default() == key {
+        Some(make_default()?)
+    } else if let Some(default) = r1.unwrap_or_default() {
+        if !default {
+            return Err(make_err());
+        }
+        Some(make_default()?)
+    } else {
+        r2?.map(|custom| format_ident!("{custom}"))
+    };
+    Ok(r)
+}
+
 #[field_names]
 pub struct RelationAttr {
     pub resolver: Option<Ident>,
     pub include_deleted: bool,
     pub authz_row: bool,
     pub count: bool,
+    pub count_resolver: Option<Ident>,
     #[field_names(skip)]
     pub inner: Attr,
     #[field_names(key_only)]
@@ -18,29 +52,9 @@ pub struct RelationAttr {
 impl TryFrom<Attr> for RelationAttr {
     type Error = SynErr;
     fn try_from(a: Attr) -> SynRes<Self> {
-        let r1 = a.bool(Self::FIELD_RESOLVER);
-        let r2 = a.str(Self::FIELD_RESOLVER);
-        let make_err = || {
-            let msg = "must be true for default name or a string identifier for custom name";
-            a.err_by_key(Self::FIELD_RESOLVER, msg)
-        };
-        if r1.is_err() && r2.is_err() {
-            return Err(make_err());
-        }
-        let make_default = || -> SynRes<Ident> {
-            let field = a.field_name()?;
-            Ok(format_ident!("resolve_{field}"))
-        };
-        let resolver = if a.first_path.clone().unwrap_or_default() == Self::FIELD_RESOLVER {
-            Some(make_default()?)
-        } else if let Some(default) = r1.unwrap_or_default() {
-            if !default {
-                return Err(make_err());
-            }
-            Some(make_default()?)
-        } else {
-            r2?.map(|custom| format_ident!("{custom}"))
-        };
+        let resolver = parse_resolver_ident(&a, Self::FIELD_RESOLVER, |field| format!("resolve_{field}"))?;
+        let count_resolver =
+            parse_resolver_ident(&a, Self::FIELD_COUNT_RESOLVER, |field| format!("resolve_{field}_count"))?;
         Ok(Self {
             resolver,
             include_deleted: a
@@ -48,6 +62,7 @@ impl TryFrom<Attr> for RelationAttr {
                 .unwrap_or(FEATURE_RESOLVER_INCLUDE_DELETED),
             authz_row: a.bool(Self::FIELD_AUTHZ_ROW)?.unwrap_or(FEATURE_RESOLVER_AUTHZ_ROW),
             count: a.bool(Self::FIELD_COUNT)?.unwrap_or(false),
+            count_resolver,
             inner: a,
         })
     }
@@ -59,9 +74,10 @@ impl AttrValidate for RelationAttr {
             f.push(Self::FIELD_THROUGH);
             f.push(Self::FIELD_OTHER_KEY);
         }
+        f.push(Self::FIELD_RESOLVER);
         if a.attr == RelationTy::HasMany || a.attr == RelationTy::ManyToMany {
-            f.push(Self::FIELD_RESOLVER);
             f.push(Self::FIELD_COUNT);
+            f.push(Self::FIELD_COUNT_RESOLVER);
         }
         f.iter().copied().map(|f| f.to_owned()).collect()
     }
@@ -116,7 +132,7 @@ impl RelationAttr {
 
     fn bug(&self, k: &str) -> SynErr {
         let d = self.inner.attr_debug();
-        let msg = format!("{d} key `{k}` should not access this key in this attr (programmer error)");
+        let msg = format!("{d} key {k}: should not access this key in this attr (programmer error)");
         SynErr::new(self.inner.span, msg)
     }
 }

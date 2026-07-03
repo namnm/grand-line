@@ -32,7 +32,7 @@ fn try_gen_field_names(attr: TokenStream, mut item: ItemStruct) -> SynRes<TokenS
                     return Err(a.inner.syn_err("virtual field should not be public"));
                 }
                 if f.ty.to_token_stream().to_string() != "!" {
-                    return Err(a.inner.syn_err("virtual field type should be `!`"));
+                    return Err(a.inner.syn_err("virtual field type should be !"));
                 }
             }
             if !a.skip {
@@ -93,7 +93,7 @@ impl TryFrom<Attr> for FieldNamesAttr {
     }
 }
 impl AttrValidate for FieldNamesAttr {
-    fn attr_fields(_: &Attr) -> Vec<String> {
+    fn attr_fields(_attr: &Attr) -> Vec<String> {
         ["skip", "key_only"].map(|f| f.to_owned()).to_vec()
     }
 }

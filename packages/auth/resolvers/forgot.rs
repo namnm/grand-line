@@ -17,7 +17,7 @@ where
     auth_otp_ensure_re_request(ctx, tx, AuthOtpTy::Forgot, &data.email.0).await?;
 
     let u = U::find()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter(U::email_col().eq(&data.email.0))
         .one_or_404(tx)
         .await?;

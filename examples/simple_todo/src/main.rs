@@ -16,7 +16,6 @@ fn resolver() {
     let o = json_string(&order_by)?;
     let p = json_string(&page)?;
     println!("todoSearch filter={f} order_by={o} page={p}");
-    (None, None)
 }
 
 // we can also have a custom name
@@ -28,7 +27,7 @@ fn todo_search_2024() {
         content_starts_with: "2024",
     });
     let default_order_by = order_by!(Todo [DoneAsc, ContentAsc]);
-    (Some(extra_filter), Some(default_order_by))
+    (extra_filter, default_order_by).into()
 }
 
 // count Todo with filter from client
@@ -36,7 +35,6 @@ fn todo_search_2024() {
 fn resolver() {
     let f = json_string(&filter)?;
     println!("todoCount filter={f}");
-    None
 }
 
 // get detail of a Todo by id
@@ -109,10 +107,7 @@ fn todo_delete_done() -> Vec<TodoGql> {
     let f = filter!(Todo {
         done: true,
     });
-    Todo::soft_delete_many()?
-        .filter(f.clone().into_condition())
-        .exec(tx)
-        .await?;
+    Todo::soft_delete_many()?.filter(f.clone()).exec(tx).await?;
     f.gql_select_id().all(tx).await?
 }
 

@@ -33,16 +33,13 @@ async fn name_override() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "y": 42,
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
 
     tmp.drop().await
 }
@@ -162,16 +159,13 @@ async fn name_override_with_extra() -> Res<()> {
         }
     }
     ";
-    let v = value!({
-        "id": u.id,
-    });
     let expected = value!({
         "userDetail": {
             "y": 7,
         },
     });
 
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert_id(&s, q, &u.id, &expected).await;
 
     let sdl = s.sdl();
     assert!(sdl.contains("@deprecated"), "deprecated missing: {sdl}");

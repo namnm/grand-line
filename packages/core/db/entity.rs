@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-/// Helper trait to abstract extra methods into `sea_orm` entity.
+/// Helper trait to abstract extra methods into sea_orm entity.
 #[async_trait]
 pub trait EntityX
 where
@@ -8,9 +8,9 @@ where
 {
     type M: ModelX<Self>;
     type A: ActiveModelX<Self>;
-    type C: ColumnX<Self>;
-    type F: Filter<Self>;
-    type O: OrderBy<Self>;
+    type C: ColumnX<E = Self>;
+    type F: FilterX<E = Self>;
+    type O: OrderBy<E = Self>;
     type G: GqlModel<Self>;
 
     /// Get entity model name.
@@ -20,22 +20,22 @@ where
     /// Get column id.
     /// Should be generated in the model macro.
     fn col_id() -> Self::C;
-    /// Get column `created_at`.
+    /// Get column created_at.
     /// Should be generated in the model macro.
     fn col_created_at() -> Option<Self::C>;
-    /// Get column `updated_at`.
+    /// Get column updated_at.
     /// Should be generated in the model macro.
     fn col_updated_at() -> Option<Self::C>;
-    /// Get column `deleted_at`.
+    /// Get column deleted_at.
     /// Should be generated in the model macro.
     fn col_deleted_at() -> Option<Self::C>;
-    /// Get column `created_by_id`.
+    /// Get column created_by_id.
     /// Should be generated in the model macro.
     fn col_created_by_id() -> Option<Self::C>;
-    /// Get column `updated_by_id`.
+    /// Get column updated_by_id.
     /// Should be generated in the model macro.
     fn col_updated_by_id() -> Option<Self::C>;
-    /// Get column `deleted_by_id`.
+    /// Get column deleted_by_id.
     /// Should be generated in the model macro.
     fn col_deleted_by_id() -> Option<Self::C>;
 
@@ -68,7 +68,8 @@ where
             .collect::<HashSet<_>>()
             .iter()
             .filter_map(|c| {
-                let (col, expr) = (gql_cols.get(c), gql_exprs.get(c));
+                let col = gql_cols.get(c);
+                let expr = gql_exprs.get(c);
                 match (col, expr) {
                     (None, None) => None,
                     _ => Some(LookaheadX {
@@ -88,7 +89,7 @@ where
         Condition::all().add(Self::col_id().eq(id))
     }
 
-    /// Ensure `deleted_at` column is present.
+    /// Ensure deleted_at column is present.
     fn ensure_col_deleted_at() -> Res<Self::C> {
         let col = Self::col_deleted_at().ok_or_else(|| MyErr::DbCol404 {
             col: Self::model_name().to_owned() + ".deleted_at",
@@ -100,15 +101,15 @@ where
         Self::col_deleted_at().map(|c| Condition::all().add(c.is_null()))
     }
 
-    /// Set `deleted_at` with filter by id.
-    /// It also checks if the model has configured with `deleted_at` column or not.
+    /// Set deleted_at with filter by id.
+    /// It also checks if the model has configured with deleted_at column or not.
     fn soft_delete_by_id(id: &str) -> Res<UpdateMany<Self>> {
         let r = Self::soft_delete_many()?.filter_by_id(id);
         Ok(r)
     }
 
-    /// Set `deleted_at` without any filter.
-    /// It also checks if the model has configured with `deleted_at` column or not.
+    /// Set deleted_at without any filter.
+    /// It also checks if the model has configured with deleted_at column or not.
     fn soft_delete_many() -> Res<UpdateMany<Self>> {
         Self::ensure_col_deleted_at()?;
         let am = Self::A::defaults_on_delete();
@@ -125,29 +126,17 @@ where
         order_by: Option<Vec<Self::O>>,
         page: Option<Pagination>,
         include_deleted: Option<bool>,
-        // From resolver handler.
-        filter_extra: Option<Self::F>,
-        order_by_default: Option<Vec<Self::O>>,
-        // From relation.
-        extra_cond: Option<Condition>,
-        // From macro to handle authz row filter.
-        authz_row_filter: Option<Self::F>,
+        // From resolver handler, relation, and authz row filter.
+        extra: Search<Self::O>,
     ) -> Res<Vec<Self::G>>
     where
         D: ConnectionTrait,
     {
-        // should not combine authz role filter, it will change the exclude_deleted condition
-        let f = filter.combine(filter_extra);
-        let exclude_deleted = !include_deleted.or_else(|| Some(f.has_deleted_at())).unwrap_or_default();
-        let mut r = Self::find();
-        if exclude_deleted {
-            r = r.exclude_deleted();
-        }
-        let r = r
-            .filter_opt(extra_cond)
-            .chain(f)
-            .chain(authz_row_filter)
-            .chain(order_by.combine(order_by_default))
+        let r = Self::find()
+            .include_deleted(extra.include_deleted(include_deleted, filter.as_ref()))
+            .filter(extra.filter.condition)
+            .filter_option(filter)
+            .chain(order_by.combine(extra.default_order_by))
             .chain(page.inner(ctx.core_config()))
             .gql_select(ctx)?
             .all(tx)
@@ -157,31 +146,21 @@ where
 
     /// Helper to use in resolver body of the macro count.
     async fn gql_count<D>(
+        _ctx: &Context<'_>,
         tx: &D,
         // From graphql input.
         filter: Option<Self::F>,
         include_deleted: Option<bool>,
-        // From resolver handler.
-        filter_extra: Option<Self::F>,
-        // From relation.
-        extra_cond: Option<Condition>,
-        // From macro to handle authz row filter.
-        authz_row_filter: Option<Self::F>,
+        // From resolver handler and authz row filter.
+        extra: Count,
     ) -> Res<u64>
     where
         D: ConnectionTrait,
     {
-        // should not combine authz role filter, it will change the exclude_deleted condition
-        let f = filter.combine(filter_extra);
-        let exclude_deleted = !include_deleted.or_else(|| Some(f.has_deleted_at())).unwrap_or_default();
-        let mut r = Self::find();
-        if exclude_deleted {
-            r = r.exclude_deleted();
-        }
-        let r = r
-            .filter_opt(extra_cond)
-            .chain(f)
-            .chain(authz_row_filter)
+        let r = Self::find()
+            .include_deleted(extra.include_deleted(include_deleted, filter.as_ref()))
+            .filter(extra.condition)
+            .filter_option(filter)
             .count(tx)
             .await?;
         Ok(r)
@@ -191,22 +170,19 @@ where
     async fn gql_detail<D>(
         ctx: &Context<'_>,
         tx: &D,
+        // From graphql input.
         id: &str,
         include_deleted: Option<bool>,
-        authz_row_filter: Option<Self::F>,
+        // From resolver handler and authz row filter.
+        extra: Detail,
     ) -> Res<Option<Self::G>>
     where
         D: ConnectionTrait,
     {
-        // should not combine authz role filter, it will change the exclude_deleted condition
-        let exclude_deleted = !include_deleted.unwrap_or_default();
-        let mut q = Self::find();
-        if exclude_deleted {
-            q = q.exclude_deleted();
-        }
-        let r = q
+        let r = Self::find()
+            .include_deleted(extra.include_deleted(include_deleted, Option::<&Self::F>::None))
             .filter_by_id(id)
-            .chain(authz_row_filter)
+            .filter(extra.condition)
             .gql_select(ctx)?
             .one(tx)
             .await?;
@@ -215,9 +191,10 @@ where
 
     /// Helper to use in resolver body of the macro update/delete.
     async fn gql_mutation_check_id<D>(
+        _ctx: &Context<'_>,
         tx: &D,
         id: &str,
-        authz_row_filter: Option<Self::F>,
+        authz_row: Option<Self::F>,
         authz_err: &GrandLineErr,
     ) -> Res<()>
     where
@@ -225,12 +202,12 @@ where
     {
         let q = || Self::find().filter_by_id(id);
 
-        let Some(f) = authz_row_filter else {
+        let Some(f) = authz_row else {
             q().exists_or_404(tx).await?;
             return Ok(());
         };
 
-        if !q().chain(f).exists(tx).await? {
+        if !q().filter(f).exists(tx).await? {
             return Err(authz_err.clone());
         }
 
@@ -239,52 +216,57 @@ where
 
     /// Helper to use in resolver body of the macro update.
     async fn gql_update<D>(
+        ctx: &Context<'_>,
         tx: &D,
         id: &str,
         am: Self::A,
-        authz_row_filter: Option<Self::F>,
+        authz_row: Option<Self::F>,
         authz_err: &GrandLineErr,
     ) -> Res<Self::G>
     where
         D: ConnectionTrait,
     {
-        let mut q = Self::update_many().filter_by_id(id);
-        if let Some(f) = authz_row_filter {
-            q = q.filter(f.into_condition());
-        }
-        let rows_affected = q.set(am).exec(tx).await?.rows_affected;
+        let rows_affected = Self::update_many()
+            .filter_by_id(id)
+            .filter_option(authz_row)
+            .set(am)
+            .exec(tx)
+            .await?
+            .rows_affected;
 
         if rows_affected == 0 {
             return Err(authz_err.clone());
         }
 
-        let r = Self::G::from_id(id);
+        let r = Self::find().filter_by_id(id).gql_select(ctx)?.one_or_404(tx).await?;
         Ok(r)
     }
 
     /// Helper to use in resolver body of the macro delete.
     async fn gql_delete<D>(
+        _ctx: &Context<'_>,
         tx: &D,
         id: &str,
         permanent: Option<bool>,
-        authz_row_filter: Option<Self::F>,
+        authz_row: Option<Self::F>,
         authz_err: &GrandLineErr,
     ) -> Res<Self::G>
     where
         D: ConnectionTrait,
     {
         let rows_affected = if permanent.unwrap_or_default() {
-            let mut q = Self::delete_many().filter_by_id(id);
-            if let Some(f) = authz_row_filter {
-                q = q.filter(f.into_condition());
-            }
-            q.exec(tx).await?.rows_affected
+            Self::delete_many()
+                .filter_by_id(id)
+                .filter_option(authz_row)
+                .exec(tx)
+                .await?
+                .rows_affected
         } else {
-            let mut q = Self::soft_delete_by_id(id)?;
-            if let Some(f) = authz_row_filter {
-                q = q.filter(f.into_condition());
-            }
-            q.exec(tx).await?.rows_affected
+            Self::soft_delete_by_id(id)?
+                .filter_option(authz_row)
+                .exec(tx)
+                .await?
+                .rows_affected
         };
 
         if rows_affected == 0 {
@@ -295,28 +277,50 @@ where
         Ok(r)
     }
 
+    /// Helper to use in resolver body of has_one / belongs_to.
+    /// extra is the relation's own resolver-contributed filter (if any), folded into
+    /// the condition and the batch key the same way authz_row already is - both are
+    /// Self::F so both are serializable, keeping different (authz_row, extra) pairs
+    /// from colliding into the same dataloader batch.
     async fn gql_load<D>(
         ctx: &Context<'_>,
         _tx: &D,
         col: Self::C,
         id: String,
-        authz_row_filter: Option<Self::F>,
+        authz_row: Option<Self::F>,
         include_deleted: Option<bool>,
+        extra: Option<Self::F>,
     ) -> Res<Option<Self::G>>
     where
         D: ConnectionTrait,
     {
         let look_ahead = Self::gql_look_ahead(ctx)?;
-        let exclude_deleted = !include_deleted.unwrap_or_default();
-        let exclude_deleted = if exclude_deleted {
-            Self::cond_exclude_deleted()
-        } else {
+
+        let cond_exclude_deleted = if include_deleted.unwrap_or_default() {
             None
+        } else {
+            Self::cond_exclude_deleted()
         };
-        let authz_key = authz_row_filter.as_ref().map(json_string).transpose()?;
-        let authz_condition = authz_row_filter.map(|f| f.into_condition());
-        let key = col.to_loader_key(&look_ahead, exclude_deleted.is_some(), authz_key.as_deref());
-        ctx.data_loader(key, col, look_ahead, exclude_deleted, authz_condition)
+
+        let deleted_marker = if cond_exclude_deleted.is_none() {
+            "include_deleted"
+        } else {
+            "exclude_deleted"
+        };
+        // Serialize authz_row and extra together as one JSON value rather than
+        // concatenating their individual json strings - each can contain arbitrary
+        // characters (dates, free-form text, etc.), so naive string-joining them
+        // could let two different (authz_row, extra) pairs collide on the same key.
+        let suffix = json_string(&(deleted_marker, authz_row.as_ref(), extra.as_ref()))?;
+
+        let key = col.to_loader_key(&look_ahead, &suffix);
+
+        let condition = Condition::all()
+            .add_option(authz_row.map(|f| f.into_condition()))
+            .add_option(extra.map(|f| f.into_condition()))
+            .add_option(cond_exclude_deleted);
+
+        ctx.data_loader(key, col, look_ahead, condition)
             .await?
             .as_ref()
             .load_one(id)

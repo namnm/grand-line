@@ -18,7 +18,6 @@ async fn has_many_some_none() -> Res<()> {
 
         #[search(User)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;
@@ -89,7 +88,6 @@ async fn has_many_every() -> Res<()> {
 
         #[search(User)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;
@@ -174,7 +172,6 @@ async fn many_to_many_some_none() -> Res<()> {
 
         #[search(User)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;
@@ -249,7 +246,6 @@ async fn belongs_to_some_none() -> Res<()> {
 
         #[search(Alias)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;

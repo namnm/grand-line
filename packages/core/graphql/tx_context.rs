@@ -6,7 +6,6 @@ where
     Self: GrandLineDataContext<'a>,
 {
     /// Shortcut to get tx from grand line data.
-    #[inline(always)]
     async fn tx(&self) -> Res<Arc<DatabaseTransaction>> {
         self.grand_line()?.tx().await
     }

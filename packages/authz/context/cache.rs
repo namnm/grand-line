@@ -23,4 +23,5 @@ pub struct AuthzRowCache(pub Mutex<HashMap<(TypeId, String), ArcAny>>);
 /// by the root resolver from its full selection tree. Covers N levels of nesting
 /// regardless of which intermediate resolvers call authz_row.
 /// Key: dot-joined alias segments (e.g. "pd.cmt"). Value: schema names (e.g. "postDetail.comments").
-pub type AuthzPathMap = Mutex<HashMap<String, String>>;
+/// This seems to be a generic type, so we need to create a struct wrapper to avoid conflict.
+pub struct AuthzPathMap(pub Mutex<HashMap<String, String>>);

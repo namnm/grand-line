@@ -7,6 +7,52 @@ pub use grand_line::prelude::*;
 mod user;
 pub use user::*;
 
+pub const Q_LOGIN: &str = "
+mutation test($data: Login!) {
+    login(data: $data) {
+        inner {
+            userId
+        }
+    }
+}
+";
+
+pub const Q_REGISTER: &str = "
+mutation test($data: Register!) {
+    register(data: $data) {
+        secret
+    }
+}
+";
+
+pub const Q_REGISTER_RESOLVE: &str = "
+mutation test($data: AuthOtpResolve!) {
+    registerResolve(data: $data) {
+        inner {
+            userId
+        }
+    }
+}
+";
+
+pub const Q_FORGOT: &str = "
+mutation test($data: Forgot!) {
+    forgot(data: $data) {
+        secret
+    }
+}
+";
+
+pub const Q_FORGOT_RESOLVE: &str = "
+mutation test($data: AuthOtpResolve!, $password: String!) {
+    forgotResolve(data: $data, password: $password) {
+        inner {
+            userId
+        }
+    }
+}
+";
+
 #[derive(Default, MergedObject)]
 pub struct Query(AuthMergedQuery);
 #[derive(Default, MergedObject)]

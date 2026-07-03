@@ -77,7 +77,6 @@ where
 
 #[async_trait]
 impl<'a> AuthzRowContext<'a> for Context<'a> {
-    #[inline(always)]
     async fn authz_execute_script(&self, h: &Arc<dyn AuthzHandlers>, script: &str) -> Res<Option<JsonValue>> {
         h.execute_script(self, script).await
     }

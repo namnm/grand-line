@@ -26,13 +26,15 @@ Rust macro framework for building GraphQL APIs on top of `sea-orm` and `async-gr
   - [Input types and enums](#input-types-and-enums)
 - [CRUD resolvers](#crud-resolvers)
 - [Custom resolvers](#custom-resolvers)
+- [Relationships](#relationships)
+  - [Custom relation resolvers](#custom-relation-resolvers)
+- [Filtering and sorting](#filtering-and-sorting)
 - [Schema collector](#schema-collector)
 - [Resolver bodies](#resolver-bodies)
 - [Context](#context)
 - [Transactions](#transactions)
-- [Relationships](#relationships)
-- [Filtering and sorting](#filtering-and-sorting)
 - [Active model helpers](#active-model-helpers)
+- [SeaORM query helpers](#seaorm-query-helpers)
 - [Error handling](#error-handling)
 - [Authentication](#authentication)
   - [Setup](#setup)
@@ -49,10 +51,6 @@ Rust macro framework for building GraphQL APIs on top of `sea-orm` and `async-gr
   - [`authz` attribute](#authz-attribute)
   - [Col policy structure](#col-policy-structure)
   - [Row policy and `authz_row`](#row-policy-and-authz_row)
-- [SeaORM helpers](#seaorm-helpers)
-  - [Query helpers](#query-helpers)
-  - [Soft-delete helpers](#soft-delete-helpers)
-  - [Active model helpers](#active-model-helpers-1)
 - [Debug macro outputs](#debug-macro-outputs)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -72,7 +70,6 @@ pub struct Todo {
 
 #[search(Todo)]
 fn resolver() {
-    (None, None)
 }
 
 #[gql_input]
@@ -125,13 +122,13 @@ Every model gets these automatically:
 | `updated_by_id` | `Option<String>`        | manually     |
 | `deleted_by_id` | `Option<String>`        | manually     |
 
-Opt-out per model:
+Opt out per model:
 
 ```rs
-#[model(created_at=false)]   // no created_at / created_by_id
-#[model(updated_at=false)]   // no updated_at / updated_by_id
-#[model(deleted_at=false)]   // no deleted_at / deleted_by_id - also disables soft-delete
-#[model(by_id=false)]        // no *_by_id fields
+#[model(created_at = false)] // no created_at / created_by_id
+#[model(updated_at = false)] // no updated_at / updated_by_id
+#[model(deleted_at = false)] // no deleted_at / deleted_by_id - also disables soft-delete
+#[model(by_id = false)]      // no *_by_id fields
 ```
 
 #### Field attributes
@@ -149,12 +146,7 @@ pub struct Todo {
 }
 ```
 
-**`#[graphql(skip)]`** - stored in DB, hidden from the GraphQL schema:
-
-```rs
-#[graphql(skip)]
-pub password_hashed: String,
-```
+**`#[graphql(skip)]`** - stored in the DB, hidden from the GraphQL schema.
 
 **`#[sql_expr(...)]`** - GraphQL-only computed column, evaluated by the database:
 
@@ -163,19 +155,20 @@ pub password_hashed: String,
 pub discounted_price: f64,
 ```
 
-**`#[resolver(sql_dep = "col1, col2")]`** - GraphQL-only field resolved in Rust. Requires a `resolve_{field_name}` function in the same scope:
+**`#[resolver(sql_dep = "col1, col2")]`** - GraphQL-only field resolved in Rust. Requires a `resolve_{field_name}` function in the same scope, or write it with the `#[field_resolver]` macro (see [Custom relation resolvers](#custom-relation-resolvers)):
 
 ```rs
 #[resolver(sql_dep = "first_name, last_name")]
 pub full_name: String,
 
-async fn resolve_full_name(u: &UserGql, _: &Context<'_>) -> Res<String> {
-    let first_name = u.first_name.ok_or(CoreDbErr::GqlResolverNone)?;
-    let last_name = u.last_name.ok_or(CoreDbErr::GqlResolverNone)?;
-    let full_name = format!("{first_name} {last_name}");
-    Ok(full_name)
+async fn resolve_full_name(u: &UserGql, _ctx: &Context<'_>) -> Res<String> {
+    let first_name = u.first_name.clone().ok_or(CoreDbErr::GqlResolverNone)?;
+    let last_name = u.last_name.clone().ok_or(CoreDbErr::GqlResolverNone)?;
+    Ok(format!("{first_name} {last_name}"))
 }
 ```
+
+`sql_dep` lists which underlying SQL columns must be selected for this resolver to run - the framework only fetches columns actually requested in the GraphQL selection, so any column the Rust function reads has to be declared here.
 
 #### Input types and enums
 
@@ -202,26 +195,49 @@ pub enum Status {
 
 ### CRUD resolvers
 
-When the function is named `resolver`, the GraphQL field defaults to `{Model}{Operation}` (e.g. `todoSearch`). Any other name overrides it.
+When the function is named `resolver`, the GraphQL field defaults to `{model}{Operation}` (e.g. `todoSearch`). Any other name overrides it.
 
 The input type for `#[create]` / `#[update]` is the PascalCase of the GraphQL field name.
 
-| Macro       | Body returns                    | Injected locals                                 | Output              |
-| ----------- | ------------------------------- | ----------------------------------------------- | ------------------- |
-| `#[search]` | `(extra_filter, default_order)` | `filter`, `order_by`, `page`, `include_deleted` | `Vec<TodoGql>`      |
-| `#[count]`  | `extra_filter`                  | `filter`, `include_deleted`                     | `u64`               |
-| `#[detail]` | nothing (pre-fetch hook)        | `id`, `include_deleted`                         | `Option<TodoGql>`   |
-| `#[create]` | `TodoActiveModel`               | `data: TodoCreate`                              | `TodoGql`           |
-| `#[update]` | `TodoActiveModel`               | `id`, `data: TodoUpdate`                        | `TodoGql`           |
-| `#[delete]` | nothing (pre-delete hook)       | `id`, `permanent: Option<bool>`                 | `TodoGql` (id only) |
+| Macro       | Body returns                                    | Injected locals                                 | Output              |
+| ----------- | ----------------------------------------------- | ----------------------------------------------- | ------------------- |
+| `#[search]` | `Search<TodoOrderBy>`                           | `filter`, `order_by`, `page`, `include_deleted` | `Vec<TodoGql>`      |
+| `#[count]`  | `Count`                                         | `filter`, `include_deleted`                     | `u64`               |
+| `#[detail]` | `Detail`                                        | `id`, `include_deleted`                         | `Option<TodoGql>`   |
+| `#[create]` | `ActiveModelWrapper<AmCreate, TodoActiveModel>` | `data: TodoCreate`                              | `TodoGql`           |
+| `#[update]` | `ActiveModelWrapper<AmUpdate, TodoActiveModel>` | `id`, `data: TodoUpdate`                        | `TodoGql`           |
+| `#[delete]` | nothing (pre-delete hook)                       | `id`, `permanent: Option<bool>`                 | `TodoGql` (id only) |
+
+`am_create!`/`am_update!` (see [Active model helpers](#active-model-helpers)) already produce the `ActiveModelWrapper` type `#[create]`/`#[update]` expect - you rarely need to name it directly.
+
+`Search<O>` / `Count` / `Detail` are what a resolver returns to add extra deleted-visibility/condition/ordering on top of what the client sent:
+
+```rs
+pub struct Filter {
+    pub include_deleted: bool, // used if the client didn't pass includeDeleted
+    pub condition: Condition,  // will be AND-ed with the client filter
+}
+pub struct Search<O>
+where
+    O: OrderBy,
+{
+    pub filter: Filter,
+    pub default_order_by: Vec<O>, // used if the client didn't request an order by
+}
+pub type Count = Filter;
+pub type Detail = Filter;
+```
+
+Build one from a filter (`include_deleted` is inherited from the filter's own `deletedAt`/`deletedAt_ne` if the client filtered on it):
 
 ```rs
 #[search(Todo)]
 fn resolver() {
-    let extra = filter!(Todo {
+    let extra_filter = filter!(Todo {
         content_starts_with: "2024",
     });
-    (Some(extra), Some(order_by!(Todo[CreatedAtDesc])))
+    let default_order_by = order_by!(Todo[CreatedAtDesc]);
+    (extra_filter, default_order_by).into()
 }
 
 #[create(Todo)]
@@ -246,7 +262,21 @@ fn resolver() {
 }
 
 #[delete(Todo, permanent_delete = false)] // remove the permanent option
-fn resolver() {}
+fn resolver() {
+}
+```
+
+Use `resolver_inputs` to define fully custom parameters instead of the ones the table above injects:
+
+```rs
+#[update(Todo, resolver_inputs)]
+fn todo_toggle_done(id: String) {
+    let todo = Todo::find_by_id(&id).one_or_404(tx).await?;
+    am_update!(Todo {
+        id: id.clone(),
+        done: !todo.done,
+    })
+}
 ```
 
 ---
@@ -270,14 +300,149 @@ fn todo_delete_done() -> Vec<TodoGql> {
         done: true,
     });
     Todo::soft_delete_many()?
-        .filter(f.clone().into_condition())
+        .filter(f.clone())
         .exec(tx)
         .await?;
     f.gql_select_id().all(tx).await?
 }
 ```
 
-These generate `TodoCountDoneQuery` / `TodoDeleteDoneMutation` structs for use in `MergedObject`.
+These generate `TodoCountDoneQuery` / `TodoDeleteDoneMutation` structs for use in `MergedObject` (see [Schema collector](#schema-collector) to avoid listing them by hand).
+
+---
+
+### Relationships
+
+Declare on `#[model]` fields. Resolved with look-ahead - only requested fields are fetched.
+
+```rs
+#[model]
+pub struct User {
+    #[has_one]
+    pub profile: UserProfile, // UserProfile holds user_id FK
+    #[has_many]
+    pub posts: Post,
+    #[many_to_many]
+    pub orgs: Org, // requires UserInOrg join model
+}
+
+#[model]
+pub struct Post {
+    pub user_id: String,
+    #[belongs_to]
+    pub user: User,
+}
+
+#[model]
+pub struct UserInOrg {
+    pub user_id: String,
+    pub org_id: String,
+}
+```
+
+`has_one`/`belongs_to` are resolved through a per-request `DataLoader`, batched by the foreign key column - N sibling rows referencing the same `User` fetch that `User` exactly once instead of once per row. `has_many`/`many_to_many` run one query per relation field per parent (no cross-request batching); each relation is still its own query rather than a single SQL JOIN spanning the whole selection tree, so a `User` referenced by 100 `Post` rows never gets duplicated 100 times in the result set the way a JOIN would.
+
+Soft-deleted related records are excluded by default. Override per field:
+
+```graphql
+query {
+    userDetail(id: "...") {
+        profile(includeDeleted: true) {
+            bio
+        }
+        posts(filter: { deletedAt_ne: null }) {
+            content
+        }
+    }
+}
+```
+
+#### Custom relation resolvers
+
+Add `resolver` to scope down what a relation fetches - a generator macro builds the resolver function's full signature for you, so the body only needs to return the extra condition:
+
+| Field attribute                  | On                        | Generator macro                               | Body returns           | Extra injected locals        |
+| -------------------------------- | ------------------------- | --------------------------------------------- | ---------------------- | ---------------------------- |
+| `resolver` / `resolver = "name"` | `has_many`/`many_to_many` | `#[many_resolver(Model, parent = "Parent")]`  | `Search<ModelOrderBy>` | `filter`, `order_by`, `page` |
+| `count`, `count_resolver`        | `has_many`/`many_to_many` | `#[count_resolver(Model, parent = "Parent")]` | `Count`                | `filter`                     |
+| `resolver` / `resolver = "name"` | `has_one`/`belongs_to`    | `#[one_resolver(Model, parent = "Parent")]`   | `Option<ModelFilter>`  | -                            |
+
+All three (plus `ctx`, `tx`, `include_deleted`) are auto-injected - the tagged function must take no parameters and declare no return type, both are generated. `parent` is optional; omit it and the function becomes generic over any `GqlModel`, useful when the body doesn't need to read the parent row's own fields.
+
+```rs
+#[model]
+pub struct User {
+    #[has_many(resolver = "recent_posts", count, count_resolver = "published_count")]
+    pub posts: Post,
+    #[has_one(resolver = "primary_profile")]
+    pub profile: UserProfile,
+}
+
+#[many_resolver(Post, parent = "User")]
+fn recent_posts() {
+    order_by!(Post[CreatedAtDesc]).into()
+}
+
+#[count_resolver(Post)]
+fn published_count() {
+    filter!(Post {
+        published: true,
+    })
+    .into()
+}
+
+#[one_resolver(UserProfile)]
+fn primary_profile() {
+    filter!(UserProfile {
+        primary: true,
+    })
+}
+```
+
+`has_one`/`belongs_to` resolvers return `Option<ModelFilter>` rather than a raw `Detail`/`Condition` - since these relations are DataLoader-batched (see above), the filter needs to be serializable so it can be folded into the batch key alongside `authz_row`. This keeps two different resolver/authz combinations from ever colliding into the same batch while still batching the common case.
+
+`#[resolver(sql_dep = "...")]` plain field resolvers (see [Field attributes](#field-attributes)) can use the same generator pattern via `#[field_resolver]` - it reads the output type straight from your function signature and wraps it for you:
+
+```rs
+#[model]
+pub struct AuthOtp {
+    #[default(0)]
+    #[graphql(skip)]
+    pub total_attempt: i64,
+    #[resolver(sql_dep = "total_attempt")]
+    pub remaining_attempt: i64,
+}
+
+#[field_resolver(parent = "AuthOtp")]
+fn resolve_remaining_attempt() -> i64 {
+    let max = ctx.auth_config().otp_max_attempt;
+    max - parent.total_attempt.unwrap_or_default()
+}
+```
+
+---
+
+### Filtering and sorting
+
+```rs
+let f = filter!(Todo {
+    done: true,
+    content_starts_with: "2024",
+});
+let f = TodoFilter::combine_and(f1, f2);
+
+let sort = order_by!(Todo [CreatedAtDesc, ContentAsc]);
+```
+
+Filter operators per column (`content: String`):
+
+```
+content  content_eq  content_ne  content_in  content_not_in
+content_gt  content_gte  content_lt  content_lte
+content_like  content_starts_with  content_ends_with
+```
+
+`TodoFilter` also has top-level `and`, `or`, `not` for nested conditions.
 
 ---
 
@@ -311,9 +476,6 @@ grand_line_build = { path = "../packages/grand_line_build" }
 Create or edit `build.rs` at the crate root:
 
 ```rs
-fn main() {
-    grand_line_build::generate_schema();
-}
 ```
 
 This scans `src/` of the current crate. Then include the generated file in your crate root:
@@ -353,33 +515,24 @@ Resolver bodies are blocks, not functions - `return` only works with errors. `ct
 ```rs
 #[query]
 fn my_query() -> String {
-    // ok
     if missing {
-        return Err(MyErr::NotFound.into());
+        return Err(MyErr::NotFound.into()); // ok - return only works for errors
     }
-
-    // this will not work
-    // if present {
-    //     return "ok".to_string();
-    // }
-
-    // ok
-    "ok".to_string()
+    "ok".to_string() // tail expression is the actual return value
 }
 ```
 
-Use `resolver_inputs` to define fully custom parameters:
+For bodies that must return `Search`/`Count`/`Detail` (`#[search]`, `#[count]`, `#[detail]`, `#[many_resolver]`, `#[count_resolver]`), if the last statement isn't a tail expression the macro appends `Default::default()` automatically - a body with no extra condition can be left empty:
 
 ```rs
-#[update(Todo, resolver_inputs)]
-fn todo_toggle_done(id: String) {
-    let todo = Todo::find_by_id(&id).one_or_404(tx).await?;
-    am_update!(Todo {
-        id: id.clone(),
-        done: !todo.done,
-    })
+#[detail(Todo)]
+fn resolver() {
+    println!("todoDetail id={id}");
+    // no tail expression needed - Detail::default() is appended automatically
 }
 ```
+
+**Caveat:** this check is syntactic (does the last statement lack a trailing `;`), not a type check. A stray trailing `;` after what was meant to be the tail expression silently discards it and appends `Default::default()` instead of failing to compile - double-check you haven't left a `;` on your last line in these bodies. This only affects the _outermost_ statement position: an `if`/`match` used correctly as the tail is unaffected, and if a branch of that `if`/`match` ends in `;` instead of an expression, the compiler still catches the resulting type mismatch normally (the macro doesn't reach into nested blocks to paper over it).
 
 ---
 
@@ -410,7 +563,7 @@ ctx.cache(|| async { ... }).await?    // Arc<T> - per-request memoize by type
 | `ctx.authz().await?`          | `String`          | Verified `org_id` from `X-Org-Id` header             |
 | `ctx.authz_role().await?`     | `RoleSql`         | The matched `Role` row                               |
 | `ctx.authz_row::<F>().await?` | `Option<F>`       | Row-level filter from the role's `row_policy` script |
-| `ctx.org_unchecked().await?`  | `Arc<OrgMinimal>` | Org from `X-Org-Id` without auth check               |
+| `ctx.org_unchecked().await?`  | `Arc<OrgMinimal>` | Org from `X-Org-Id` without an auth check            |
 
 ---
 
@@ -425,114 +578,72 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .finish()
 ```
 
-**Known limitation:** all resolvers in a request share one `DatabaseTransaction`, i.e. one underlying DB connection. Sibling GraphQL fields (including sibling relation resolvers, see [Relationships](#relationships)) may be scheduled concurrently as Rust futures, but their SQL statements still serialize one at a time on that single connection - there is no real query-level parallelism within a request today.
-
-For pure read (query) requests this is a bigger lever than the batched-vs-JOIN choice discussed above: giving read-only resolvers their own pooled connections (instead of one shared transaction) would let sibling relations actually run in parallel and cut wall-clock latency for wide selections. This is not implemented yet - noted here as a future improvement, not current behavior. Mutations would keep the single-transaction model for write consistency.
-
----
-
-### Relationships
-
-Declare on `#[model]` fields. Resolved with look-ahead - only requested fields are fetched.
-
-Each relation is resolved with its own batched query (grouped by parent ids), not a single SQL JOIN spanning the whole selection tree. A JOIN duplicates the related row for every parent row that references it: searching 100 `Todo` rows created by the same user would return that user's columns 100 times in the JOINed result set, before being reshaped back into nested objects. A batched query per relation level fetches that user exactly once, no matter how many `Todo` rows reference it. The trade-off is more round trips for deeply nested selections versus one big JOIN, in exchange for never transferring duplicated relation data.
-
-```rs
-#[model]
-pub struct User {
-    #[has_one]
-    pub profile: UserProfile, // UserProfile holds user_id FK
-    #[has_many]
-    pub posts: Post,
-    #[many_to_many]
-    pub orgs: Org, // requires UserInOrg join model
-}
-
-#[model]
-pub struct Post {
-    pub user_id: String,
-    #[belongs_to]
-    pub user: User,
-}
-
-#[model]
-pub struct UserInOrg {
-    pub user_id: String,
-    pub org_id: String,
-}
-```
-
-Soft-deleted related records are excluded by default. Override per field:
-
-```graphql
-query {
-    userDetail(id: "...") {
-        profile(includeDeleted: true) {
-          bio
-        }
-        orgs(filter: { deletedAt_ne: null }) {
-          name
-        }
-    }
-}
-```
-
----
-
-### Filtering and sorting
-
-```rs
-let f = filter!(Todo {
-    done: true,
-    content_starts_with: "2024",
-});
-let f = TodoFilter::combine_and(f1, f2);
-
-let sort = order_by!(Todo [CreatedAtDesc, ContentAsc]);
-```
-
-Filter operators per column (`content: String`):
-
-```
-content  content_eq  content_ne  content_in  content_not_in
-content_gt  content_gte  content_lt  content_lte
-content_like  content_starts_with  content_ends_with
-```
-
-`TodoFilter` also has top-level `and`, `or`, `not` for nested conditions.
+**Known limitation:** all resolvers in a request share one `DatabaseTransaction`, i.e. one underlying DB connection. Sibling GraphQL fields (including sibling relation resolvers) may be scheduled concurrently as Rust futures, but their SQL statements still serialize one at a time on that connection - there is no query-level parallelism within a request today. Giving read-only requests their own pooled connections (instead of one shared transaction) would let sibling relations actually run in parallel; this is not implemented yet. Mutations would keep the single-transaction model for write consistency.
 
 ---
 
 ### Active model helpers
 
 ```rs
-// auto id, created_at, updated_at
+// auto id, created_at, field defaults
 am_create!(Todo {
     content: "hello",
-    done: false,
 })
 // auto updated_at
 am_update!(Todo {
     id: id.clone(),
     content: "new",
 })
-// auto deleted_at, updated_at
+// auto updated_at + deleted_at
 am_soft_delete!(Todo {
     id: id.clone(),
 })
-// auto *_by_id
-am.exec(ctx)
-// without *_by_id
-am.exec_without_ctx(tx)
-// into sea orm active model
-am.into_active_model()
 
-Todo::soft_delete_by_id(&id)?.exec(ctx).await?;
-Todo::soft_delete_many()?.filter(condition).exec(ctx).await?;
+am.exec(ctx).await?;                // insert/update, sets *_by_id from ctx.auth()
+am.exec_without_ctx(tx).await?;     // insert/update, no by_id fields
+am.into_active_model(ctx).await?;   // unwrap to raw sea-orm ActiveModel, sets *_by_id from ctx.auth()
+am.into_active_model_without_ctx(); // unwrap to raw sea-orm ActiveModel, no by_id fields
 
-let todo: TodoSql = Todo::find_by_id(&id).one_or_404(tx).await?;
-Todo::find_by_id(&id).exists_or_404(tx).await?;
-filter.gql_select_id().all(tx).await?
+Todo::soft_delete_by_id(&id)?.exec(tx).await?;
+Todo::soft_delete_many()?.filter(condition).exec(tx).await?;
+am.soft_delete(tx).await?; // on an active model instance
+```
+
+---
+
+### SeaORM query helpers
+
+The traits in `packages/core/db` extend sea-orm's `Select`, `Filter`, and `ActiveModel` types with convenience methods available throughout resolvers.
+
+Available on `Select<E>`, `DeleteMany<E>`, and `UpdateMany<E>`:
+
+```rs
+Todo::find()
+    .filter_by_id(&id)       // WHERE id = ?
+    .include_deleted(false); // WHERE deleted_at IS NULL (no-op if the model has no deleted_at)
+```
+
+Available on `Select<E>`:
+
+```rs
+Todo::find()
+    .filter_option(some_cond)  // filter only if Some
+    .filter_option(filter)     // apply a TodoFilter
+    .chain(order_by)           // apply a Vec<TodoOrderBy>
+    .gql_select(ctx)?          // select only columns requested in the GQL look-ahead
+    .gql_select_id()           // select only id (for delete response)
+    .exists_or_404(tx).await?; // error if no row matches
+
+Todo::find().one_or_404(tx).await?; // one() + error if None
+selector.one_or_404(tx).await?;     // same on Selector<SelectModel<G>>
+```
+
+Available on `Filter` and `OrderBy` via `IntoSelect`:
+
+```rs
+filter.into_select();    // E::find().filter_option(filter)
+filter.gql_select(ctx)?; // shortcut for into_select().gql_select(ctx)
+filter.gql_select_id();  // shortcut for into_select().gql_select_id()
 ```
 
 ---
@@ -543,25 +654,24 @@ filter.gql_select_id().all(tx).await?
 #[grand_line_err]
 enum MyErr {
     #[error("record not found")]
-    // forwarded to response as-is
-    #[client]
+    #[client] // forwarded to the response as-is
     NotFound,
 
-    // client sees generic "internal server error"
-    #[error("oops")]
+    #[error("oops")] // client sees a generic "internal server error"
     InternalProblem,
 }
 
 // Raise from any resolver:
 Err(MyErr::NotFound)?;
 
-// Downcast from response error:
+// Downcast from a response error:
 error.source
     .as_deref()
     .and_then(|e| e.downcast_ref::<GrandLineErr>())
-    // e.g. "NotFound"
-    .map(|e| e.0.code());
+    .map(|e| e.0.code()); // e.g. "NotFound"
 ```
+
+Any error that isn't `#[client]` is logged to stderr with its real message and replaced with a generic internal-server error before it reaches the client, so accidental leaks of internal detail are opt-in, not opt-out.
 
 ---
 
@@ -584,7 +694,6 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .extension(GrandLineExtension)
     .data(Arc::new(db.clone()))
     .data(AuthConfig::default())
-    .data(AuthUserImpl::<User>::default())
     .finish()
 ```
 
@@ -631,14 +740,14 @@ Two-step OTP flow:
 # Step 1 - triggers on_otp_create (send OTP by email)
 mutation {
     register(data: { email: "user@example.com", password: "Str0ngP@ssw0rd?" }) {
-        secret  # save this - needed in step 2
+        secret # save this - needed in step 2
     }
 }
 
 # Step 2
 mutation {
     registerResolve(data: { id: "...", secret: "...", otp: "123456" }) {
-        secret  # Bearer token for subsequent requests
+        secret # bearer token for subsequent requests
         inner { userId }
     }
 }
@@ -687,56 +796,50 @@ mutation { logout { id } }
 
 ```rs
 #[query(auth)]
-fn my_profile() -> UserGql { ... }
+fn my_profile() -> UserGql {
+}
 
 #[mutation(auth(unauthenticated))]
-fn register() -> AuthOtpWithSecret { ... }
+fn register() -> AuthOtpWithSecret {
+}
 
 #[search(Todo, auth)]
-fn resolver() { (None, None) }
+fn resolver() {
+}
 ```
 
 #### Customizing behavior
 
-`AuthHandlers` hooks into OTP and password logic (not user-model specific):
+Implement `AuthHandlers` to hook into OTP delivery, password validation, and post-auth lifecycle events - every method has a no-op default, override only what you need:
 
 ```rs
 struct MyHandlers;
 
 #[async_trait]
 impl AuthHandlers for MyHandlers {
-    async fn otp(&self, _: &Context<'_>) -> Res<String> {
-        // custom OTP generator
-        Ok(generate_otp())
+    async fn otp(&self, _ctx: &Context<'_>) -> Res<String> {
+        Ok(generate_otp()) // custom OTP generator, defaults to a random 6-digit code
     }
-    async fn on_otp_create(&self, _: &Context<'_>, otp: &AuthOtpSql, raw: &str) -> Res<()> {
-        // send the OTP by email
-        send_email(&otp.email, raw).await
+    async fn on_otp_create(&self, _ctx: &Context<'_>, otp: &AuthOtpSql, raw: &str) -> Res<()> {
+        send_email(&otp.email, raw).await // send the OTP by email
     }
-}
-
-AuthConfig { handlers: Arc::new(MyHandlers), ..Default::default() }
-```
-
-`AuthUserHandlers<U>` hooks into the user lifecycle. The callbacks receive your full `U::M` model:
-
-```rs
-struct MyUserHandlers;
-
-#[async_trait]
-impl AuthUserHandlers<User> for MyUserHandlers {
-    async fn on_register_resolve(&self, ctx: &Context<'_>, user: &UserSql, _: &LoginSessionSql) -> Res<()> {
+    async fn on_register_resolve(&self, ctx: &Context<'_>, user_id: &str, _ls: &LoginSessionSql) -> Res<()> {
         let tx = &*ctx.tx().await?;
-        // user.id, user.display_name, etc. are all available
         am_create!(UserProfile {
-            user_id: user.id.clone(),
+            user_id: user_id.to_owned(),
             bio: "",
-        }).exec(ctx).await?;
+        })
+        .exec(ctx)
+        .await?;
         Ok(())
     }
+    // also available: password_validate, on_login_resolve, on_forgot_resolve
 }
 
-AuthUserImpl::<User> { handlers: Arc::new(MyUserHandlers) }
+AuthConfig {
+    handlers: Arc::new(MyHandlers),
+    ..Default::default()
+}
 ```
 
 ---
@@ -754,7 +857,6 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .extension(GrandLineExtension)
     .data(Arc::new(db.clone()))
     .data(AuthConfig::default())
-    .data(AuthUserImpl::<User>::default())
     .data(AuthzConfig::default())
     .data(authz_org_impl::<Org>())
     .finish()
@@ -783,11 +885,12 @@ am_create!(Role {
 
 am_create!(UserInRole {
     user_id: user_id.clone(), role_id: role_id.clone(),
-    // must match role's org_id
-    org_id: Some(org_id.clone()),
+    org_id: Some(org_id.clone()), // must match the role's org_id
 })
 .exec(ctx).await?;
 ```
+
+By default a mismatch (missing role, wrong org, wrong realm) surfaces as `AuthzErr::Unauthorized`; set `AuthzConfig.unauthorized_err` to swap that for something like `CoreDbErr::Db404` if you don't want to reveal that a resource exists.
 
 #### Defining your Org model
 
@@ -827,8 +930,7 @@ fn system_dashboard() -> String {
 // Works on all CRUD macros - use authz_row for row-level filtering
 #[search(Task, authz(realm = "org"))]
 fn resolver() {
-    let row_filter = ctx.authz_row::<TaskFilter>().await?;
-    (row_filter.map(|f| f.into_condition()), None)
+    ctx.authz_row::<TaskFilter>().await?.into()
 }
 ```
 
@@ -901,14 +1003,8 @@ let col: ColPolicy = hashmap! {
         output: ColPolicyField {
             allow: true,
             children: Some(hashmap! {
-                "id".to_owned() => ColPolicyField {
-                      allow: true,
-                      children: None,
-                  },
-                "title".to_owned() => ColPolicyField {
-                      allow: true,
-                      children: None,
-                },
+                "id".to_owned() => ColPolicyField { allow: true, children: None },
+                "title".to_owned() => ColPolicyField { allow: true, children: None },
             }),
         },
     },
@@ -919,10 +1015,6 @@ let col: ColPolicy = hashmap! {
 
 `Role.row_policy` is a JSON-encoded `RowPolicy` map from field path to a script string. The script is forwarded verbatim to `AuthzHandlers::execute_script` so your app can produce a filter for that resolver.
 
-```rs
-pub type RowPolicy = HashMap<String, String>;
-```
-
 Key is the GraphQL field path (e.g. `"tasks"` or `"users.posts"`). Value is an arbitrary string - the framework passes it to `execute_script` unchanged.
 
 ```rs
@@ -932,17 +1024,15 @@ let row: RowPolicy = hashmap! {
 am_create!(Role {
     col_policy: col.to_json()?,
     row_policy: row.to_json()?,
-    // ...
 })
 ```
 
-Inside a resolver, call `ctx.authz_row::<F>()`. Authorize is already guaranteed from the macro. Returns `None` when no entry exists for this field (all rows accessible), or `Some(F)` when the script produced a filter:
+Inside a resolver, call `ctx.authz_row::<F>()`. Authorization is already guaranteed by the macro. Returns `None` when no entry exists for this field (all rows accessible), or `Some(F)` when the script produced a filter:
 
 ```rs
 #[search(Task, authz(realm = "org"))]
 fn resolver() {
-    let row_filter = ctx.authz_row::<TaskFilter>().await?;
-    (row_filter.map(|f| f.into_condition()), None)
+    ctx.authz_row::<TaskFilter>().await?.into()
 }
 ```
 
@@ -956,12 +1046,11 @@ impl AuthzHandlers for MyHandlers {
     async fn execute_script(&self, ctx: &Context<'_>, script: &str) -> Res<Option<JsonValue>> {
         let user_id = ctx.auth().await?;
         let org_id = ctx.authz().await?;
-        // evaluate `script` (Rhai, hand-written match, etc.)
-        let script_result = json!({
+        // evaluate script (Rhai, hand-written match, etc.)
+        Ok(Some(json!({
             "assignee_id_eq": user_id,
             "org_id_eq": org_id,
-        });
-        Ok(Some(script_result))
+        })))
     }
 }
 
@@ -971,71 +1060,7 @@ AuthzConfig {
 }
 ```
 
----
-
-### SeaORM helpers
-
-The traits in `packages/core/db` extend sea-orm's `Select`, `Filter`, and `ActiveModel` types with convenience methods available throughout resolvers.
-
-#### Query helpers
-
-Available on `Select<E>`, `DeleteMany<E>`, and `UpdateMany<E>`:
-
-```rs
-Todo::find()
-    .filter_by_id(&id)      // WHERE id = ?
-    .exclude_deleted()       // WHERE deleted_at IS NULL (no-op if model has no deleted_at)
-```
-
-Available on `Select<E>`:
-
-```rs
-Todo::find()
-    .filter_opt(maybe_cond)           // filter only if Some
-    .chain(filter)                    // apply a TodoFilter
-    .chain(order_by)                  // apply a Vec<TodoOrderBy>
-    .gql_select(ctx)?                 // select only columns requested in the GQL look-ahead
-    .gql_select_id()                  // select only id (for delete response)
-    .exists_or_404(tx).await?         // error if no row matches
-
-Todo::find().one_or_404(tx).await?    // one() + error if None
-selector.one_or_404(tx).await?        // same on Selector<SelectModel<G>>
-```
-
-Available on `Filter` and `OrderBy` via `IntoSelect`:
-
-```rs
-filter.into_select()           // E::find().chain(filter)
-filter.gql_select(ctx)?        // shortcut for into_select().gql_select(ctx)
-filter.gql_select_id()         // shortcut for into_select().gql_select_id()
-```
-
-#### Soft-delete helpers
-
-```rs
-Todo::soft_delete_by_id(&id)?.exec(tx).await?;
-Todo::soft_delete_many()?.filter(condition).exec(tx).await?;
-
-// on an active model instance
-am.soft_delete(tx).await?;
-```
-
-#### Active model helpers
-
-```rs
-// auto id, created_at, field defaults
-am_create!(Todo { content: "hello" })
-
-// auto updated_at
-am_update!(Todo { id: id.clone(), content: "new" })
-
-// auto updated_at + deleted_at
-am_soft_delete!(Todo { id: id.clone() })
-
-am.exec(ctx).await?           // insert/update, sets *_by_id from ctx.auth()
-am.exec_without_ctx(db).await? // insert/update, no by_id fields
-am.into_active_model()         // unwrap to raw sea-orm ActiveModel (for insert_many etc.)
-```
+`authz_row` results and field-path resolution are cached per request, and alias-aware - `myTasks: tasks { ... }` still resolves the row policy for the real field `tasks`, so aliasing a query can't be used to bypass a row policy.
 
 ---
 

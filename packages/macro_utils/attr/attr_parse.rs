@@ -7,7 +7,7 @@ pub enum AttrParseTy {
     List,
 }
 
-/// Only in proc macro. For example with `proc_macro(k`, k1=v1, k2=v2)
+/// Only in proc macro. For example with proc_macro(k, k1=v1, k2=v2)
 /// it will only pass the nested part k, k1=v1, k2=v2 to this impl.
 pub struct AttrParse {
     pub args: Vec<(String, (String, AttrParseTy))>,
@@ -31,7 +31,7 @@ impl AttrParse {
         let metas = Punctuated::<Meta, Token![,]>::parse_terminated
             .parse2(ts.clone())
             .map_err(|e| {
-                let msg = format!("failed to parse meta list from token stream `{ts}`: {e}");
+                let msg = format!("failed to parse meta list from token stream {ts}: {e}");
                 SynErr::new(e.span(), msg)
             })?
             .into_iter()

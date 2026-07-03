@@ -21,7 +21,7 @@ fn push_and_or(f: &Ts2, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>, op_str: &str
         pub #op: Option<Vec<#f>>,
     });
     query.push(quote! {
-        if let Some(v) = this.#op {
+        if let Some(v) = f.#op {
             let mut #op = Condition::#cond();
             for f in v {
                 #op = #op.add(f.into_condition());
@@ -38,8 +38,9 @@ fn push_not(f: &Ts2, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>) {
         pub not: Option<Box<#f>>,
     });
     query.push(quote! {
-        if let Some(v) = this.not {
-            c = c.add(Condition::not(v.into_condition()));
+        if let Some(f) = f.not {
+            let f = *f;
+            c = c.add(Condition::not(f.into_condition()));
         }
     });
 }

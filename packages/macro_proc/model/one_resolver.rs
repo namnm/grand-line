@@ -1,18 +1,18 @@
 use crate::prelude::*;
 
-pub fn gen_many_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn gen_one_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let ifn = parse_macro_input!(item as ItemFn);
-    try_gen_many_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
+    try_gen_one_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 #[field_names]
-pub struct ManyResolverAttr {
+pub struct OneResolverAttr {
     #[field_names(skip)]
     pub model: String,
     pub parent: Option<String>,
 }
-impl TryFrom<Attr> for ManyResolverAttr {
+impl TryFrom<Attr> for OneResolverAttr {
     type Error = SynErr;
     fn try_from(a: Attr) -> SynRes<Self> {
         Ok(Self {
@@ -21,7 +21,7 @@ impl TryFrom<Attr> for ManyResolverAttr {
         })
     }
 }
-impl AttrValidate for ManyResolverAttr {
+impl AttrValidate for OneResolverAttr {
     fn attr_fields(a: &Attr) -> Vec<String> {
         Self::FIELDS
             .iter()
@@ -32,8 +32,8 @@ impl AttrValidate for ManyResolverAttr {
     }
 }
 
-fn try_gen_many_resolver(a: AttrParse, ifn: &ItemFn) -> SynRes<TokenStream> {
-    let a = Attr::from_proc_macro("many_resolver", a)?.try_into_with_validate::<ManyResolverAttr>()?;
+fn try_gen_one_resolver(a: AttrParse, ifn: &ItemFn) -> SynRes<TokenStream> {
+    let a = Attr::from_proc_macro("one_resolver", a)?.try_into_with_validate::<OneResolverAttr>()?;
     ensure_no_inputs(&ifn.sig)?;
     ensure_no_output(&ifn.sig)?;
 
@@ -45,23 +45,19 @@ fn try_gen_many_resolver(a: AttrParse, ifn: &ItemFn) -> SynRes<TokenStream> {
 
     let (parent_generics, parent_ty, parent_where) = parent_ty_parts(a.parent.as_ref())?;
     let filter = ty_filter(&a.model)?;
-    let order_by = ty_order_by(&a.model)?;
 
     let r = quote! {
         #vis async fn #f<D, #parent_generics>(
             parent: &#parent_ty,
             ctx: &Context<'_>,
             tx: &D,
-            filter: Option<&#filter>,
-            order_by: Option<&Vec<#order_by>>,
-            page: Option<&Pagination>,
             include_deleted: Option<&bool>,
-        ) -> Res<Search<#order_by>>
+        ) -> Res<Option<#filter>>
         where
             D: ConnectionTrait,
             #parent_where
         {
-            Ok(#body)
+            Ok(Some(#body))
         }
     };
     Ok(r.into())

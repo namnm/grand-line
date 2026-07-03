@@ -7,19 +7,12 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    let q = "
-    mutation test($data: Forgot!) {
-        forgot(data: $data) {
-            secret
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "email": "olivia@example.com",
         },
     });
-    let r = exec_assert_ok(&s, q, Some(v)).await;
+    let r = exec_assert_ok(&s, Q_FORGOT, Some(v)).await;
     let r = r.data.to_json()?;
 
     let secret = r
@@ -30,15 +23,6 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
     assert!(!secret.is_empty(), "secret should be in response");
 
     let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
-    let q = "
-    mutation test($data: AuthOtpResolve!, $password: String!) {
-        forgotResolve(data: $data, password: $password) {
-            inner {
-                userId
-            }
-        }
-    }
-    ";
     let v = value!({
         "data": {
             "id": t.id,
@@ -54,7 +38,7 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
             },
         },
     });
-    exec_assert(&s, q, Some(v), &expected).await;
+    exec_assert(&s, Q_FORGOT_RESOLVE, Some(v), &expected).await;
 
     let u = User::find()
         .filter(UserColumn::Email.eq("olivia@example.com"))

@@ -13,7 +13,6 @@ async fn returns_all() -> Res<()> {
 
         #[search(User)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;
@@ -64,7 +63,6 @@ async fn pagination_limit() -> Res<()> {
 
         #[search(User)]
         fn resolver() {
-            (None, None)
         }
     }
     use test::*;
@@ -120,7 +118,6 @@ async fn count() -> Res<()> {
 
         #[count(User)]
         fn resolver() {
-            None
         }
     }
     use test::*;

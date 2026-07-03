@@ -81,22 +81,22 @@ fn push(f: &Field, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>, op_str: &str) -> 
             quote!(is_not_null)
         };
         quote! {
-            if let Undefined::Null = this.#name {
+            if let Undefined::Null = f.#name {
                 c = c.add(Column::#col.#op_null());
-            } else if let Undefined::Value(v) = this.#name {
+            } else if let Undefined::Value(v) = f.#name {
                 c = c.add(Column::#col.#op(v));
             }
         }
     } else if pg.contains_key(op_str) {
         quote! {
-            if let Some(v) = this.#name {
+            if let Some(v) = f.#name {
                 use sea_query::extension::postgres::PgExpr;
                 c = c.add(Expr::col(Column::#col).#op(v));
             }
         }
     } else {
         quote! {
-            if let Some(v) = this.#name {
+            if let Some(v) = f.#name {
                 c = c.add(Column::#col.#op(v));
             }
         }

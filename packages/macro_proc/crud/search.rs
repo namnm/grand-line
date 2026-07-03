@@ -27,15 +27,16 @@ fn try_gen_search(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         let output = ty_gql(&a.model)?;
         r.output = quote!(Vec<#output>);
 
-        let body = r.body;
+        let body = ensure_default_tail(r.body)?;
         let model = a.model.ts2_or_err()?;
-        let authz_row_filter = gen_authz_row_filter(&ty_filter(&model)?, a.ra.authz_row);
+
+        let extra = unique_ident();
+        let authz_row = gen_authz_row(&filter, a.ra.authz_row);
         let include_deleted = get_include_deleted(!a.resolver_inputs && a.ra.include_deleted);
 
         r.body = quote! {
-            let (filter_extra, order_by_default): (Option<#filter>, Option<Vec<#order_by>>) = {
-                #body
-            };
+            let #extra: Search<#order_by> = #body;
+            let #extra = #extra.add_option(#authz_row);
             #model::gql_search(
                 ctx,
                 tx,
@@ -43,10 +44,7 @@ fn try_gen_search(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
                 order_by,
                 page,
                 #include_deleted,
-                filter_extra,
-                order_by_default,
-                None,
-                #authz_row_filter,
+                #extra,
             )
             .await?
         };

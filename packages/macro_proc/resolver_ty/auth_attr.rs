@@ -14,7 +14,7 @@ impl TryFrom<Attr> for AuthAttr {
     }
 }
 impl AttrValidate for AuthAttr {
-    fn attr_fields(_: &Attr) -> Vec<String> {
+    fn attr_fields(_attr: &Attr) -> Vec<String> {
         Self::FIELDS.iter().copied().map(|f| f.to_owned()).collect()
     }
 }

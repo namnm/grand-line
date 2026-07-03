@@ -364,7 +364,9 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                 }
             }
 
-            impl ColumnX<Entity> for Column {}
+            impl ColumnX for Column {
+                type E = Entity;
+            }
 
             impl GqlModel<Entity> for #gql {
                 fn set_id(mut self, v: &str) -> Self {
@@ -391,7 +393,8 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             pub struct #filter {
                 #(#filter_struk)*
             }
-            impl Filter<Entity> for #filter {
+            impl FilterX for #filter {
+                type E = Entity;
                 fn combine_and(a: Self, b: Self) -> Self {
                     Self {
                         and: Some(vec![a, b]),
@@ -413,7 +416,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             }
             impl IntoCondition for #filter {
                 fn into_condition(self) -> Condition {
-                    let this = self.clone();
+                    let f = self.clone();
                     let mut c = Condition::all();
                     #(#filter_query)*
                     c
@@ -430,7 +433,8 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             pub enum #order_by {
                 #(#order_by_struk)*
             }
-            impl OrderBy<Entity> for #order_by {
+            impl OrderBy for #order_by {
+                type E = Entity;
                 fn conf_default() -> Self {
                     Self::IdDesc
                 }
@@ -460,8 +464,8 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
     Ok(r.into())
 }
 
-/// Build one resolver per virtual field: relations (main resolver + filter + optional
-/// count, via `register_relation`) and custom `#[resolver]` fields.
+/// Build one resolver per virtual field: relations (main resolver + filter + optional count, via register_relation)
+/// and custom #[resolver] fields.
 fn gen_virtual_resolvers(
     virtuals: &[(Field, Vec<Attr>)],
     valid_sql_dep: &HashSet<&String>,

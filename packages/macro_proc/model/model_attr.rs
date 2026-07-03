@@ -22,7 +22,7 @@ impl TryFrom<Attr> for ModelAttr {
     }
 }
 impl AttrValidate for ModelAttr {
-    fn attr_fields(_: &Attr) -> Vec<String> {
+    fn attr_fields(_attr: &Attr) -> Vec<String> {
         Self::FIELDS.iter().copied().map(|f| f.to_owned()).collect()
     }
 }

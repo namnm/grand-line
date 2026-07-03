@@ -24,7 +24,7 @@ impl ResolverTyItem {
     pub fn init(mut self, operation: &str, crud: &str, crud_model: &str) -> SynRes<(Self, Ts2, Ts2)> {
         if self.gql_name == "resolver" {
             if crud.is_empty() {
-                let msg = "resolver name should be different than the reserved keyword `resolver`";
+                let msg = "resolver name should be different than the reserved keyword resolver";
                 return Err(SynErr::new(self.span, msg));
             }
             if crud_model.is_empty() {

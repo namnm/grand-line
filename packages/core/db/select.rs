@@ -6,10 +6,7 @@ pub trait SelectX<E>
 where
     E: EntityX,
 {
-    /// Helper to filter with option.
-    fn filter_opt(self, c: Option<Condition>) -> Self;
-
-    /// Helper to filter with `ChainSelect`.
+    /// Helper to chain with ChainSelect.
     fn chain<C>(self, c: C) -> Self
     where
         C: ChainSelect<E>;
@@ -34,13 +31,6 @@ impl<E> SelectX<E> for Select<E>
 where
     E: EntityX,
 {
-    fn filter_opt(self, c: Option<Condition>) -> Self {
-        match c {
-            Some(c) => self.filter(c),
-            None => self,
-        }
-    }
-
     fn chain<C>(self, c: C) -> Self
     where
         C: ChainSelect<E>,
@@ -82,20 +72,5 @@ where
             return Err(MyErr::Db404.into());
         }
         Ok(())
-    }
-}
-
-/// Automatically implement for Select<E>.
-#[async_trait]
-impl<E> SelectorX<E::M> for Select<E>
-where
-    E: EntityX,
-{
-    async fn one_or_404<D>(self, tx: &D) -> Res<E::M>
-    where
-        D: ConnectionTrait,
-    {
-        let v = self.one(tx).await?.ok_or(MyErr::Db404)?;
-        Ok(v)
     }
 }

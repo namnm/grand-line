@@ -38,7 +38,7 @@ where
         // path to a schema path for row policy lookup. or_insert keeps the first
         // mapping in case two root fields share overlapping response keys.
         let pm = self.authz_path_map_or_init().await?;
-        let mut pm_guard = pm.lock().await;
+        let mut pm_guard = pm.0.lock().await;
         // need to use for loop to keep existing keys from other operations.
         for (a, n) in path_entries {
             pm_guard.entry(a).or_insert(n);
@@ -56,7 +56,7 @@ where
         }
 
         let mut q = Role::find()
-            .exclude_deleted()
+            .include_deleted(false)
             .filter_by_id(&role_id)
             .filter(RoleColumn::Realm.eq(&check.realm));
 
@@ -72,7 +72,7 @@ where
         if check.user {
             let user_id = self.auth().await?;
             let mut sub = UserInRole::find()
-                .exclude_deleted()
+                .include_deleted(false)
                 .select_only()
                 .column(UserInRoleColumn::RoleId)
                 .filter(UserInRoleColumn::UserId.eq(user_id));
@@ -112,7 +112,7 @@ where
     }
 
     async fn authz_path_map_or_init(&self) -> Res<Arc<AuthzPathMap>> {
-        self.cache(async || Ok(Mutex::new(HashMap::new()))).await
+        self.cache(async || Ok(AuthzPathMap(Mutex::new(HashMap::new())))).await
     }
 
     /// Translate the current resolver's alias-based path to schema field names.
@@ -121,8 +121,10 @@ where
     async fn authz_row_field_path(&self) -> Res<String> {
         let alias_path = self.field_path_without_number_index();
         let pm = self.authz_path_map_or_init().await?;
-        let guard = pm.lock().await;
-        Ok(guard.get(&alias_path).cloned().unwrap_or(alias_path))
+        let guard = pm.0.lock().await;
+        let p = guard.get(&alias_path).cloned().unwrap_or(alias_path);
+        drop(guard);
+        Ok(p)
     }
 
     /// Return the root resolver's cache key from the current resolver's path.

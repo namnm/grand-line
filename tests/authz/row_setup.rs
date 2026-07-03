@@ -42,10 +42,7 @@ pub async fn row_setup_with_col(col_key: &str, row_script: Option<&str>, cfg: Op
     .exec_without_ctx(&d.tmp.db)
     .await?;
 
-    let mut h = d.h;
-    h.append(H_ORG_ID, h_str(&d.org_id1));
-    h.insert(H_AUTHORIZATION, h_bearer(&d.token1));
-    h.insert(H_ROLE_ID, h_str(&d.role_id1));
+    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
     let mut b = d.s;
     if let Some(c) = cfg {
         b = b.data(c);

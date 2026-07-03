@@ -5,6 +5,9 @@
 - See ./tests/independently.sh to find a coresponding command and run to test your change.
 - Code need to be human readable, concise and focus. You can see the existing code base to know the current convention, follow exactly coding style, variable names, line break, block break..
 - Unit test names need to be meaningful semantic. Test data are all related to the Fringe TV series.
+- Comments and docs:
+  - Should not have semicolon, use comma instead.
+  - Should not have backtick, we dont need styling code in comment.
 
 # Formatting Rules
 

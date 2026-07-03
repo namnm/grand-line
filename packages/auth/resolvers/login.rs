@@ -22,7 +22,7 @@ where
     let h = &ctx.auth_config().handlers;
 
     let u = U::find()
-        .exclude_deleted()
+        .include_deleted(false)
         .filter(U::email_col().eq(&data.email))
         .one(tx)
         .await?
