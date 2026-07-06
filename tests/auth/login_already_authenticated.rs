@@ -17,7 +17,7 @@ async fn login_while_authenticated_returns_already_authenticated() -> Res<()> {
             "password": "123123",
         },
     });
-    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::AlreadyAuthenticated).await;
+    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::AlreadyAuthenticated).await?;
 
     d.tmp.drop().await
 }

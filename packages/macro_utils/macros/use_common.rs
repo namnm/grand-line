@@ -22,6 +22,6 @@ macro_rules! use_common_macro_utils {
         pub use maplit::*;
         pub use proc_macro2::{Span, TokenStream as Ts2};
         pub use quote::*;
-        pub use syn::{Error as SynErr, Result as SynRes, parse::*, punctuated::*, spanned::Spanned, token::Paren, *};
+        pub use syn::{Error as SynErr, Result as SynRes, parse::*, punctuated::*, spanned::Spanned, token::Comma, *};
     };
 }

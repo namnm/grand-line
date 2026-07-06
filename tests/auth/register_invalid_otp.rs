@@ -18,14 +18,12 @@ async fn register_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let r = exec_assert_ok(&s, Q_REGISTER, Some(v)).await;
     let r = r.data.to_json()?;
 
-    let secret = r
-        .pointer("/register/secret")
-        .unwrap_or_default()
-        .as_str()
-        .unwrap_or_default();
-    assert!(!secret.is_empty(), "secret should be in response");
+    let secret = r.str("/register/secret");
+    pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
+    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("AuthOtp row should be created by register");
+    };
 
     // Resolve with the wrong OTP code.
     let v = value!({
@@ -35,7 +33,7 @@ async fn register_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
             "otp": "000000",
         },
     });
-    exec_assert_err(&s, Q_REGISTER_RESOLVE, Some(v), &AuthErr::OtpResolveInvalid).await;
+    exec_assert_err(&s, Q_REGISTER_RESOLVE, Some(v), &AuthErr::OtpResolveInvalid).await?;
 
     d.tmp.drop().await
 }

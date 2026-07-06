@@ -4,7 +4,7 @@ use super::prelude::*;
 #[async_trait]
 pub trait EntityX
 where
-    Self: EntityTrait<Model = Self::M, ActiveModel = Self::A, Column = Self::C>,
+    Self: EntityTrait<Model = Self::M, ActiveModel = Self::A, Column = Self::C> + Send + Sync,
 {
     type M: ModelX<Self>;
     type A: ActiveModelX<Self>;
@@ -50,6 +50,10 @@ where
     /// To look ahead and select only requested fields in the gql context.
     /// Should be generated in the model macro.
     fn gql_select() -> &'static LazyLock<HashMap<&'static str, HashSet<&'static str>>>;
+
+    /// Returns true when this entity enables history tracking.
+    /// Should be generated in the model macro.
+    fn has_history() -> bool;
 
     /// Look ahead for sql columns and exprs, from requested fields in the gql context.
     fn gql_look_ahead(ctx: &Context<'_>) -> Res<Vec<LookaheadX<Self>>> {
@@ -243,6 +247,7 @@ where
     }
 
     /// Helper to use in resolver body of the macro delete.
+    /// by_id is the current user id for history tracking (None if not authenticated).
     async fn gql_delete<D>(
         _ctx: &Context<'_>,
         tx: &D,
@@ -250,11 +255,17 @@ where
         permanent: Option<bool>,
         authz_row: Option<Self::F>,
         authz_err: &GrandLineErr,
+        by_id: Option<String>,
     ) -> Res<Self::G>
     where
         D: ConnectionTrait,
     {
         let rows_affected = if permanent.unwrap_or_default() {
+            if Self::has_history()
+                && let Some(m) = Self::find().filter_by_id(id).one(tx).await?
+            {
+                History::add(tx, HistoryOperation::PermanentDelete, &m, by_id).await?;
+            }
             Self::delete_many()
                 .filter_by_id(id)
                 .filter_option(authz_row)
@@ -262,11 +273,18 @@ where
                 .await?
                 .rows_affected
         } else {
-            Self::soft_delete_by_id(id)?
+            let rows = Self::soft_delete_by_id(id)?
                 .filter_option(authz_row)
                 .exec(tx)
                 .await?
-                .rows_affected
+                .rows_affected;
+            if Self::has_history()
+                && rows > 0
+                && let Some(m) = Self::find().filter_by_id(id).one(tx).await?
+            {
+                History::add(tx, HistoryOperation::Delete, &m, by_id).await?;
+            }
+            rows
         };
 
         if rows_affected == 0 {

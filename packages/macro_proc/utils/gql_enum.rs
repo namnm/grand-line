@@ -11,8 +11,8 @@ pub fn gen_gql_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
             Eq,
             PartialEq,
             Copy,
-            Deserialize,
             Serialize,
+            Deserialize,
             Enum,
         )]
         #attr

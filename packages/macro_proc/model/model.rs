@@ -65,7 +65,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
     let sql = ty_sql(&model)?;
     let gql = ty_gql(&model)?;
     let column = ty_column(&model)?;
-    let active_model = ty_active_model(&model)?;
+    let am = ty_am(&model)?;
     let gql_alias = model.to_string();
     let sql_alias = model.to_string().to_snake_case();
 
@@ -205,14 +205,21 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
         gql_resolver.push(f.resolver_fn()?);
     }
 
+    // ------------------------------------------------------------------------
+    // history model (when history = true)
+    let has_history = a.history;
+
     let r = quote! {
         mod #module {
             use super::*;
 
+            // Serialize is needed unconditionally, History::add/add_many
+            // (see packages/core/db/history.rs) are called generically for every model.
             #[derive(
                 Debug,
                 Clone,
                 DeriveEntityModel,
+                Serialize,
             )]
             #[sea_orm(table_name = #sql_alias)]
             #item
@@ -233,6 +240,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             /// ActiveModelBehavior is intentionally empty.
             /// Use the following macros instead to set default values on active models:
             /// #[default], am_create!, am_update!, am_soft_delete!
+            /// am_create_many!, am_update_many!, am_soft_delete_many!
             /// Other lifecycle related logic should be handled in the service layer
             /// to keep the model clean and focused on data representation.
             impl ActiveModelBehavior for ActiveModel {
@@ -299,6 +307,9 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                 }
                 fn gql_select() -> &'static LazyLock<HashMap<&'static str, HashSet<&'static str>>> {
                     &GQL_SELECT
+                }
+                fn has_history() -> bool {
+                    #has_history
                 }
             }
 
@@ -451,7 +462,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             Model as #sql,
             Entity as #model,
             Column as #column,
-            ActiveModel as #active_model,
+            ActiveModel as #am,
             #gql,
             #filter,
             #order_by,

@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[derive(Default)]
 struct Query;
@@ -21,14 +21,14 @@ async fn on_parse_error() {
     let s = schema();
 
     let r = s.execute("{ one( }").await;
-    assert!(r.errors.len() == 1, "response should have an error");
+    pretty_eq!(r.errors.len(), 1, "response should have an error");
 
     let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(err.source.is_none(), "parse request error source should be none");
-    assert!(err.path.is_empty(), "parse request error path should be empty");
+    pretty_eq!(err.source.is_none(), true, "parse request error source should be none");
+    pretty_eq!(err.path.is_empty(), true, "parse request error path should be empty");
 }
 
 #[tokio::test]
@@ -36,14 +36,14 @@ async fn on_unknown_field() {
     let s = schema();
 
     let r = s.execute("{ unknown }").await;
-    assert!(r.errors.len() == 1, "response should have an error");
+    pretty_eq!(r.errors.len(), 1, "response should have an error");
 
     let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(err.source.is_none(), "unknown field error source should be none");
-    assert!(err.path.is_empty(), "unknown field error path should be empty");
+    pretty_eq!(err.source.is_none(), true, "unknown field error source should be none");
+    pretty_eq!(err.path.is_empty(), true, "unknown field error path should be empty");
 }
 
 #[tokio::test]
@@ -61,15 +61,20 @@ async fn on_variable_type_mismatch() {
     });
 
     let r = s.execute(Request::new(q).variables(Variables::from_value(v))).await;
-    assert!(r.errors.len() == 1, "response should have an error");
+    pretty_eq!(r.errors.len(), 1, "response should have an error");
 
     let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(
+    pretty_eq!(
         err.source.is_none(),
-        "variable type mismatch error source should be none"
+        true,
+        "variable type mismatch error source should be none",
     );
-    assert!(err.path.is_empty(), "variable type mismatch error path should be empty");
+    pretty_eq!(
+        err.path.is_empty(),
+        true,
+        "variable type mismatch error path should be empty",
+    );
 }

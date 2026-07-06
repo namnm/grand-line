@@ -44,7 +44,7 @@ async fn denied_field_returns_unauthorized() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     // Selecting both an allowed (name) and a denied (id) field -> unauthorized.
     let q = "
@@ -55,7 +55,7 @@ async fn denied_field_returns_unauthorized() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     // orgPrimitive is not in the allowed operation map -> unauthorized.
     let q = "
@@ -63,7 +63,7 @@ async fn denied_field_returns_unauthorized() -> Res<()> {
         orgPrimitive
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     d.tmp.drop().await
 }
@@ -102,7 +102,7 @@ async fn alias_on_output_field_uses_schema_name() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     d.tmp.drop().await
 }

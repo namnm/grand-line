@@ -21,8 +21,8 @@ async fn logout_deletes_session_when_authenticated() -> Res<()> {
     let r = exec_assert_ok(&s, q, None).await;
     let r = r.data.to_json()?;
 
-    let id = r.pointer("/logout/id").unwrap_or_default().as_str().unwrap_or_default();
-    assert!(!id.is_empty(), "logout should return the session id");
+    let id = r.str("/logout/id");
+    pretty_eq!(id.is_empty(), false, "logout should return the session id");
 
     d.tmp.drop().await
 }
@@ -40,7 +40,7 @@ async fn logout_without_token_returns_unauthenticated() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await;
+    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await?;
 
     d.tmp.drop().await
 }

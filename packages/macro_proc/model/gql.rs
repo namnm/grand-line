@@ -38,7 +38,7 @@ pub fn attr_graphql_info(attrs: &[Attribute]) -> (Option<String>, Ts2) {
         if !attr.path().is_ident("graphql") {
             continue;
         }
-        let Ok(args) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+        let Ok(args) = attr.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated) else {
             continue;
         };
         for meta in args {
@@ -50,12 +50,12 @@ pub fn attr_graphql_info(attrs: &[Attribute]) -> (Option<String>, Ts2) {
                         name_override = Some(s.value());
                     }
                 }
-                _ => extras.push(quote!(#meta,)),
+                _ => extras.push(quote!(#meta)),
             }
         }
     }
 
-    (name_override, quote!(#(#extras)*))
+    (name_override, quote!(#(#extras,)*))
 }
 
 // ============================================================================
@@ -106,7 +106,7 @@ pub fn gql_attr(gql_fields: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttr> {
         // Use the effective graphql name (user override or auto camelCase) so
         // GQL_SELECT maps the correct GraphQL field name to its SQL columns.
         let auto_gql_name = name.to_string().to_lower_camel_case();
-        let effective_gql_name: &str = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
+        let effective_gql_name = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
         select.push(quote! {
             m.entry(#effective_gql_name).or_insert_with(HashSet::new).insert(#name_str);
         });
@@ -200,7 +200,7 @@ pub fn gql_exprs_ts2(exprs: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttrExprs> {
         push_default(&mut defaults, &name);
 
         let auto_gql_name = name.to_string().to_lower_camel_case();
-        let effective_gql_name: &str = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
+        let effective_gql_name = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
         select.push(quote! {
             m.entry(#effective_gql_name).or_insert_with(HashSet::new).insert(#name_str);
         });
@@ -243,7 +243,7 @@ fn push_struk_resolver(
     }
 
     let auto_gql_name = name.to_string().to_lower_camel_case();
-    let gql_name: &str = gql_name_override.unwrap_or(&auto_gql_name);
+    let gql_name = gql_name_override.unwrap_or(&auto_gql_name);
     let unwrap = if opt {
         quote!()
     } else {

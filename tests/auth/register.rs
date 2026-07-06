@@ -16,14 +16,13 @@ async fn register_then_resolve_creates_user() -> Res<()> {
     let r = exec_assert_ok(&s, Q_REGISTER, Some(v)).await;
     let r = r.data.to_json()?;
 
-    let secret = r
-        .pointer("/register/secret")
-        .unwrap_or_default()
-        .as_str()
-        .unwrap_or_default();
-    assert!(!secret.is_empty(), "secret should be in response");
+    let secret = r.str("/register/secret");
+    pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
+    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("AuthOtp row should be created by register");
+    };
+
     let v = value!({
         "data": {
             "id": t.id,
@@ -33,12 +32,16 @@ async fn register_then_resolve_creates_user() -> Res<()> {
     });
     exec_assert_ok(&s, Q_REGISTER_RESOLVE, Some(v)).await;
 
-    let u = User::find()
-        .filter(UserColumn::Email.eq("peter@example.com"))
-        .one_or_404(&d.tmp.db)
-        .await?;
-    assert!(
+    let f = filter!(User {
+        email: "peter@example.com",
+    });
+    let Some(u) = f.into_select().one(&d.tmp.db).await? else {
+        return TestErr::expect("User row for peter@example.com should exist after register resolve");
+    };
+
+    pretty_eq!(
         rand_utils::password_eq(&u.password_hashed, "Str0ngP@ssw0rd?"),
+        true,
         "password should be matched",
     );
 

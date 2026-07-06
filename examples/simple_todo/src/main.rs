@@ -165,22 +165,22 @@ async fn db() -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
             content: "2023 good bye",
             done: true,
         })
-        .into_active_model_without_ctx(),
+        .into_am_without_ctx(),
         am_create!(Todo {
             content: "2023 great",
             done: true,
         })
-        .into_active_model_without_ctx(),
+        .into_am_without_ctx(),
         am_create!(Todo {
             content: "2024 hello",
             done: false,
         })
-        .into_active_model_without_ctx(),
+        .into_am_without_ctx(),
         am_create!(Todo {
             content: "2024 awesome",
             done: false,
         })
-        .into_active_model_without_ctx(),
+        .into_am_without_ctx(),
     ])
     .exec(&db)
     .await?;

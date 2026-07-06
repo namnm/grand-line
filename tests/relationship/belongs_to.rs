@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[tokio::test]
 async fn belongs_to_returns_parent() -> Res<()> {

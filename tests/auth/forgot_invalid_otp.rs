@@ -17,14 +17,12 @@ async fn forgot_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let r = exec_assert_ok(&s, Q_FORGOT, Some(v)).await;
     let r = r.data.to_json()?;
 
-    let secret = r
-        .pointer("/forgot/secret")
-        .unwrap_or_default()
-        .as_str()
-        .unwrap_or_default();
-    assert!(!secret.is_empty(), "secret should be in response");
+    let secret = r.str("/forgot/secret");
+    pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
+    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("AuthOtp row should be created by forgot");
+    };
 
     // Resolve with the wrong OTP code.
     let v = value!({
@@ -35,7 +33,7 @@ async fn forgot_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
         },
         "password": "NewStr0ng@Pass!",
     });
-    exec_assert_err(&s, Q_FORGOT_RESOLVE, Some(v), &AuthErr::OtpResolveInvalid).await;
+    exec_assert_err(&s, Q_FORGOT_RESOLVE, Some(v), &AuthErr::OtpResolveInvalid).await?;
 
     d.tmp.drop().await
 }

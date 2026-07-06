@@ -15,7 +15,7 @@ async fn login_with_unknown_email_returns_login_incorrect() -> Res<()> {
             "password": "123123",
         },
     });
-    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::LoginIncorrect).await;
+    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::LoginIncorrect).await?;
 
     d.tmp.drop().await
 }

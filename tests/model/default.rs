@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[tokio::test]
 async fn insert_defaults() -> Res<()> {
@@ -30,9 +30,9 @@ async fn insert_defaults() -> Res<()> {
     .exec_without_ctx(&tmp.db)
     .await?;
 
-    pretty_eq!(u.a, "I love you");
-    pretty_eq!(u.b, 3000);
-    pretty_eq!(u.c, 9);
+    pretty_eq!(u.a, "I love you", "u.a should use its default value");
+    pretty_eq!(u.b, 3000, "u.b should use its default value");
+    pretty_eq!(u.c, 9, "u.c should keep the explicitly provided value, not the default");
 
     let q = "
     query test($id: ID!) {

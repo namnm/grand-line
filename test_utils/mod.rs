@@ -2,19 +2,23 @@
 
 #[cfg(feature = "axum")]
 mod axum;
+mod check_err;
 mod consts;
 mod db;
 mod err;
 mod exec_assert;
+mod json;
 mod schema;
 
 pub mod prelude {
     #[cfg(feature = "axum")]
     pub use super::axum::*;
+    pub use super::check_err::*;
     pub use super::consts::*;
     pub use super::db::*;
     pub use super::err::*;
     pub use super::exec_assert::*;
+    pub use super::json::*;
     pub use super::schema::*;
     pub use _utils::*;
     pub use pretty_assertions::assert_eq as pretty_eq;

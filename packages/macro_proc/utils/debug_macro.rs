@@ -37,6 +37,7 @@ pub fn debug_macro(name: &str, ts: &Ts2) {
             eprintln!("debug_macro: path.parent returned None for {path:?}");
             return;
         };
+
         if let Err(e) = create_dir_all(parent) {
             eprintln!("debug_macro: create_dir_all failed: {e}");
             return;
@@ -49,6 +50,7 @@ pub fn debug_macro(name: &str, ts: &Ts2) {
                 return;
             }
         };
+
         if let Err(e) = writeln!(file, "{code}") {
             eprintln!("debug_macro: writeln failed: {e}");
             return;

@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[tokio::test]
 async fn name_override() -> Res<()> {
@@ -66,8 +66,8 @@ async fn skip() -> Res<()> {
     let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
     let sdl = s.sdl();
 
-    assert!(sdl.contains("visible"), "visible missing: {sdl}");
-    assert!(!sdl.contains("hidden"), "skipped leaked: {sdl}");
+    pretty_eq!(sdl.contains("visible"), true, "visible should be in sdl: {sdl}");
+    pretty_eq!(sdl.contains("hidden"), false, "hidden should not be in sdl: {sdl}");
 
     tmp.drop().await
 }
@@ -93,7 +93,11 @@ async fn doc_comment() -> Res<()> {
     let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
     let sdl = s.sdl();
 
-    assert!(sdl.contains("This is a description."), "doc missing: {sdl}");
+    pretty_eq!(
+        sdl.contains("This is a description."),
+        true,
+        "sdl should contain the doc comment: {sdl}",
+    );
 
     tmp.drop().await
 }
@@ -120,8 +124,16 @@ async fn deprecation() -> Res<()> {
     let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
     let sdl = s.sdl();
 
-    assert!(sdl.contains("@deprecated"), "deprecated missing: {sdl}");
-    assert!(sdl.contains("use y instead"), "reason missing: {sdl}");
+    pretty_eq!(
+        sdl.contains("@deprecated"),
+        true,
+        "sdl should contain the deprecated directive: {sdl}",
+    );
+    pretty_eq!(
+        sdl.contains("use y instead"),
+        true,
+        "sdl should contain the deprecation reason: {sdl}",
+    );
 
     tmp.drop().await
 }
@@ -168,7 +180,11 @@ async fn name_override_with_extra() -> Res<()> {
     exec_assert_id(&s, q, &u.id, &expected).await;
 
     let sdl = s.sdl();
-    assert!(sdl.contains("@deprecated"), "deprecated missing: {sdl}");
+    pretty_eq!(
+        sdl.contains("@deprecated"),
+        true,
+        "sdl should contain the deprecated directive: {sdl}",
+    );
 
     tmp.drop().await
 }

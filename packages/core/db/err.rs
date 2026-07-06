@@ -21,6 +21,8 @@ pub enum MyErr {
     DbCol404 {
         col: String,
     },
+    #[error("id not set")]
+    IdNotSet,
 
     #[error("resolver try to unwrap with no value")]
     GqlResolverNone,

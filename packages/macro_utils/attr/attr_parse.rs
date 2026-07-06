@@ -28,7 +28,7 @@ impl AttrParse {
             let msg = "empty meta list ()";
             return Err(SynErr::new(Span::call_site(), msg));
         }
-        let metas = Punctuated::<Meta, Token![,]>::parse_terminated
+        let metas = Punctuated::<Meta, Comma>::parse_terminated
             .parse2(ts.clone())
             .map_err(|e| {
                 let msg = format!("failed to parse meta list from token stream {ts}: {e}");
@@ -76,7 +76,7 @@ impl AttrParse {
 
 impl Parse for AttrParse {
     fn parse(input: ParseStream) -> Result<Self> {
-        let metas = Punctuated::<Meta, Token![,]>::parse_terminated(input)?
+        let metas = Punctuated::<Meta, Comma>::parse_terminated(input)?
             .into_iter()
             .collect();
         let a = Self::from_meta_list(metas);

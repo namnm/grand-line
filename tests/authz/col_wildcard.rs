@@ -88,7 +88,7 @@ async fn role_from_other_org_returns_unauthorized() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     d.tmp.drop().await
 }

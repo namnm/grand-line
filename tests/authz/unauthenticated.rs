@@ -21,7 +21,7 @@ async fn no_token_org_realm() -> Res<()> {
         orgPrimitive
     }
     ";
-    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await;
+    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await?;
 
     d.tmp.drop().await
 }
@@ -41,7 +41,7 @@ async fn no_token_system_realm() -> Res<()> {
         systemPrimitive
     }
     ";
-    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await;
+    exec_assert_err(&s, q, None, &AuthErr::Unauthenticated).await?;
 
     d.tmp.drop().await
 }

@@ -20,8 +20,8 @@ async fn delete_permanent_removes_row_from_db() -> Res<()> {
     });
     exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
-    let count = User::find_by_id(&d.id1).count(&d.tmp.db).await?;
-    assert!(count == 0, "it should delete permanently in db, found count={count}");
+    let exist = User::find_by_id(&d.id1).exists(&d.tmp.db).await?;
+    pretty_eq!(exist, false, "user should be permanently deleted from db");
 
     d.tmp.drop().await
 }

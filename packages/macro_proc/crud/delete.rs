@@ -40,6 +40,12 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         let (authz_row, authz_row_def) = gen_authz_row_def(&filter, a.ra.authz_row);
         let authz_err = gen_authz_err(a.ra.authz_row);
 
+        let by_id = if a.ra.has_auth() {
+            quote!(ctx.auth().await.ok())
+        } else {
+            quote!(None)
+        };
+
         r.body = quote! {
             #authz_row_def
             #model::gql_mutation_check_id(
@@ -59,6 +65,7 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
                 #permanent,
                 #authz_row,
                 #authz_err,
+                #by_id,
             )
             .await?
         };

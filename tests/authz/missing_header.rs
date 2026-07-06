@@ -16,7 +16,7 @@ async fn err_on_missing_role_id() -> Res<()> {
         systemPrimitive
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::HeaderRoleId404).await;
+    exec_assert_err(&s, q, None, &AuthzErr::HeaderRoleId404).await?;
 
     d.tmp.drop().await
 }
@@ -36,7 +36,7 @@ async fn err_on_missing_org_id() -> Res<()> {
         orgPrimitive
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::HeaderOrgId404).await;
+    exec_assert_err(&s, q, None, &AuthzErr::HeaderOrgId404).await?;
 
     d.tmp.drop().await
 }

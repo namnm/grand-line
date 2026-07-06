@@ -121,14 +121,7 @@ pub fn order_by(item: TokenStream) -> TokenStream {
     gen_order_by(item)
 }
 
-/// Helper to quickly create an active model with concise syntax
-/// and convert all string literals into String automatically.
-#[proc_macro]
-pub fn active_model(item: TokenStream) -> TokenStream {
-    expr_struct(item, "ActiveModel", "Set", "")
-}
-
-/// Helper to quickly create an ActiveModelWrapper<AmCreate, E, A> with concise syntax
+/// Helper to quickly create an AmWrapper<AmCreate, E, A> with concise syntax
 /// and convert all string literals into String automatically.
 /// Call .exec_without_ctx(db) or .exec(ctx) to execute.
 #[proc_macro]
@@ -136,7 +129,7 @@ pub fn am_create(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmCreate")
 }
 
-/// Helper to quickly create an ActiveModelWrapper<AmUpdate, E, A> with concise syntax
+/// Helper to quickly create an AmWrapper<AmUpdate, E, A> with concise syntax
 /// and convert all string literals into String automatically.
 /// Call .exec_without_ctx(db) or .exec(ctx) to execute.
 #[proc_macro]
@@ -144,12 +137,43 @@ pub fn am_update(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmUpdate")
 }
 
-/// Helper to quickly create an ActiveModelWrapper<AmSoftDelete, E, A> with concise syntax
+/// Helper to quickly create an AmWrapper<AmSoftDelete, E, A> with concise syntax
 /// and convert all string literals into String automatically.
 /// Call .exec_without_ctx(db) or .exec(ctx) to execute.
 #[proc_macro]
 pub fn am_soft_delete(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmSoftDelete")
+}
+
+/// Helper to quickly create an AmCreateMany from a model name and an array of
+/// field-only blocks, e.g. am_create_many!(Todo, [{ content: "a" }, { content: "b" }]).
+/// Call .exec_without_ctx(db) or .exec(ctx) to execute, same as am_create!.
+/// By default the returned models are reconstructed in memory, no round trip
+/// after the bulk INSERT. Chain .returning() when the row needs to reflect
+/// db-side defaults or triggers (custom db) the client can't see, this uses
+/// RETURNING on postgres and an extra SELECT by id on other backends.
+#[proc_macro]
+pub fn am_create_many(item: TokenStream) -> TokenStream {
+    expr_array_am_wrapper(item, "ActiveModel", "AmCreate")
+}
+
+/// Helper to quickly create an AmUpdateMany from a model name and an array of
+/// field-only blocks, e.g. am_update_many!(Todo, [{ id: "1", done: true }]).
+/// Call .exec_without_ctx(db) or .exec(ctx) to execute, same as am_update!.
+/// Each item can carry a different id and fields, sea_orm has no single-statement
+/// bulk update for that, so this runs one UPDATE per row under the hood.
+#[proc_macro]
+pub fn am_update_many(item: TokenStream) -> TokenStream {
+    expr_array_am_wrapper(item, "ActiveModel", "AmUpdate")
+}
+
+/// Helper to quickly create an AmSoftDeleteMany from a model name and an array of
+/// field-only blocks, e.g. am_soft_delete_many!(Todo, [{ id: "1" }, { id: "2" }]).
+/// Call .exec_without_ctx(db) or .exec(ctx) to execute, same as am_soft_delete!.
+/// Runs one UPDATE per row under the hood, same reason as am_update_many!.
+#[proc_macro]
+pub fn am_soft_delete_many(item: TokenStream) -> TokenStream {
+    expr_array_am_wrapper(item, "ActiveModel", "AmSoftDelete")
 }
 
 /// Automatically derive ThisErr, GrandLineErrDerive, Debug.

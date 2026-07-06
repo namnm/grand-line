@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use syn::{Attribute, Item, ItemFn, Meta, Token, parse_file, punctuated::Punctuated};
+use syn::{Attribute, Item, ItemFn, Meta, parse_file, punctuated::Punctuated, token::Comma};
 
 // ============================================================================
 // Public API
@@ -162,8 +162,11 @@ fn scan_items(items: &[Item], query_types: &mut Vec<String>, mutation_types: &mu
 
 fn scan_fn(ifn: &ItemFn, query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
     let f = ifn.sig.ident.to_string();
-    let resolver_attrs: Vec<(String, &'static str, String)> =
-        ifn.attrs.iter().filter_map(detect_resolver_attr).collect();
+    let resolver_attrs = ifn
+        .attrs
+        .iter()
+        .filter_map(detect_resolver_attr)
+        .collect::<Vec<(String, &'static str, String)>>();
 
     if resolver_attrs.len() > 1 {
         let msg = format!("{f} has multiple resolver attributes; only one resolver attribute per function is valid");
@@ -221,9 +224,7 @@ fn detect_resolver_attr(attr: &Attribute) -> Option<(String, &'static str, Strin
 // Parse the first argument of an attribute as an identifier.
 // Handles #[search(Todo)], #[update(Todo, resolver_inputs)], etc.
 fn first_arg_ident(attr: &Attribute) -> Option<String> {
-    let args = attr
-        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
-        .ok()?;
+    let args = attr.parse_args_with(Punctuated::<Meta, Comma>::parse_terminated).ok()?;
 
     match args.into_iter().next()? {
         Meta::Path(p) => p.get_ident().map(|v| v.to_string()),

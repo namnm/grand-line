@@ -1,13 +1,15 @@
 # Important
 
 - Always use English in code and comments. Chat responses are in Vietnamese.
-- Do not use unwrap or expect or panic. Try to return result or something instead.
-- See ./tests/independently.sh to find a coresponding command and run to test your change.
 - Code need to be human readable, concise and focus. You can see the existing code base to know the current convention, follow exactly coding style, variable names, line break, block break..
-- Unit test names need to be meaningful semantic. Test data are all related to the Fringe TV series.
 - Comments and docs:
   - Should not have semicolon, use comma instead.
   - Should not have backtick, we dont need styling code in comment.
+
+- Do not use unwrap or expect or panic. Try to return result or something instead.
+- Use pretty_eq! macro for all assertions, including boolean. Always include an assertion description like: abc should xyz.
+- See ./tests/independently.sh to find a coresponding command and run to test your change.
+- Unit test names need to be meaningful semantic. Test data are all related to the Fringe TV series.
 
 # Formatting Rules
 

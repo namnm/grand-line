@@ -15,7 +15,7 @@ async fn register_with_existing_email_returns_email_exists() -> Res<()> {
             "password": "Str0ngP@ssw0rd?",
         },
     });
-    exec_assert_err(&s, Q_REGISTER, Some(v), &AuthErr::RegisterEmailExists).await;
+    exec_assert_err(&s, Q_REGISTER, Some(v), &AuthErr::RegisterEmailExists).await?;
 
     d.tmp.drop().await
 }

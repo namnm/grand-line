@@ -13,13 +13,15 @@ fn try_gen_field_names(attr: TokenStream, mut item: ItemStruct) -> SynRes<TokenS
     let mut fields = vec![];
     let mut idents = vec![];
 
-    for mut f in if let Fields::Named(f) = item.fields {
+    let named = if let Fields::Named(f) = item.fields {
         f.named
     } else {
         let msg = format!("{name} struct should be named fields");
         return Err(SynErr::new(name_span, msg));
-    } {
-        let attrs = Attr::from_field(&name.to_string(), &f, &|_| false)?;
+    };
+
+    for mut f in named {
+        let attrs = Attr::from_field(&name.to_string(), &f, |_: &str| false)?;
         if let Some(a) = attrs.iter().find(|a| a.is("field_names")) {
             f.attrs = attrs
                 .iter()

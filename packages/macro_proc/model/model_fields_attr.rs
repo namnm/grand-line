@@ -9,11 +9,11 @@ pub struct ModelFieldsAttr {
 }
 
 /// Parse macro attributes, extract and validate fields.
-pub fn model_fields_attr(model: &str, fields: &Punctuated<Field, Token![,]>) -> SynRes<ModelFieldsAttr> {
+pub fn model_fields_attr(model: &str, fields: &Punctuated<Field, Comma>) -> SynRes<ModelFieldsAttr> {
     let (mut defaults, mut virtuals, mut exprs, mut gql, mut sql) = (vec![], vec![], vec![], vec![], vec![]);
 
     for f in fields {
-        let attrs = Attr::from_field(model, f, &|a| ATTR_RAW.contains(a))?;
+        let attrs = Attr::from_field(model, f, |a: &str| ATTR_RAW.contains(a))?;
         attr_validate(&attrs)?;
         // default
         if let Some(def) = attrs.iter().find(|a| a.attr == AttrTy::Default) {

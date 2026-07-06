@@ -10,8 +10,8 @@ pub fn gen_gql_input(attr: TokenStream, item: TokenStream) -> TokenStream {
             Debug,
             Clone,
             Default,
-            Deserialize,
             Serialize,
+            Deserialize,
             InputObject,
         )]
         #attr

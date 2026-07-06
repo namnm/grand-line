@@ -90,7 +90,7 @@ pub async fn setup_with_col_policy(org1_admin: ColPolicy) -> Res<Setup> {
 }
 
 pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Res<Setup> {
-    let org_impl = authz_org_impl::<Org>();
+    let org_impl = Org::authz_default_impl();
 
     let tmp = tmp_db!(User, LoginSession, Org, Role, UserInRole, Task);
     let s = schema_q::<Query>(&tmp.db).data(org_impl);

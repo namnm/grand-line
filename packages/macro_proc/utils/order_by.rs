@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 struct Item {
     model: Ident,
-    fields: Punctuated<Ident, Token![,]>,
+    fields: Punctuated<Ident, Comma>,
 }
 
 impl Parse for Item {
@@ -10,7 +10,7 @@ impl Parse for Item {
         let model = input.parse::<Ident>()?;
         let c;
         bracketed!(c in input);
-        let fields = c.parse_terminated(Ident::parse, Token![,])?;
+        let fields = c.parse_terminated(Ident::parse, Comma)?;
         Ok(Self {
             model,
             fields,
@@ -27,7 +27,7 @@ pub fn gen_order_by(item: TokenStream) -> TokenStream {
 
 fn try_gen_order_by(item: Item) -> SynRes<TokenStream> {
     let order_by = ty_order_by(item.model)?;
-    let paths = item.fields.iter().map(|f| quote!(#order_by::#f,));
-    let r = quote!(vec![#(#paths)*]);
+    let paths = item.fields.iter().map(|f| quote!(#order_by::#f));
+    let r = quote!(vec![#(#paths,)*]);
     Ok(r.into())
 }

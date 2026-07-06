@@ -18,7 +18,7 @@ where
 {
     format!("{model}_Column").to_pascal_case().ts2_or_err()
 }
-pub fn ty_active_model<D>(model: D) -> SynRes<Ts2>
+pub fn ty_am<D>(model: D) -> SynRes<Ts2>
 where
     D: Display,
 {

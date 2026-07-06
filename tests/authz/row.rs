@@ -135,7 +135,7 @@ async fn script_error_masked_as_internal_server() -> Res<()> {
     };
     let d = row_setup(Some("any"), Some(c)).await?;
 
-    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await;
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
 
     d.tmp.drop().await
 }
@@ -151,7 +151,7 @@ async fn handler_wrong_type_returns_internal_server() -> Res<()> {
     };
     let d = row_setup(Some("any"), Some(c)).await?;
 
-    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await;
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
 
     d.tmp.drop().await
 }

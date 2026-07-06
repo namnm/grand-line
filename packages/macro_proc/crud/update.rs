@@ -25,12 +25,12 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         r.output = quote!(#output);
 
         let body = r.body;
-        let am = ty_active_model(&model)?;
+        let am = ty_am(&model)?;
 
         let into = if a.ra.has_auth() {
-            quote!(into_active_model(ctx).await?)
+            quote!(into_am(ctx).await?)
         } else {
-            quote!(into_active_model_without_ctx())
+            quote!(into_am_without_ctx())
         };
 
         let filter = ty_filter(&model)?;
@@ -47,7 +47,7 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
                 #authz_err,
             )
             .await?;
-            let am: ActiveModelWrapper<AmUpdate, #model, #am> = {
+            let am: AmWrapper<AmUpdate, #model, #am> = {
                 #body
             };
             #model::gql_update(

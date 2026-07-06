@@ -3,37 +3,61 @@ use super::prelude::*;
 /// Shortcuts so we can directly use the methods from trait definition instead of impl.
 pub trait BaseImplContext<'a> {
     /// Shortcuts so we can directly use the methods from trait definition instead of impl.
-    fn data_impl<D: Any + Send + Sync>(&self) -> GraphQLRes<&'a D>;
+    fn data_impl<D>(&self) -> GraphQLRes<&'a D>
+    where
+        D: Any + Send + Sync;
     /// Shortcuts so we can directly use the methods from trait definition instead of impl.
-    fn data_opt_impl<D: Any + Send + Sync>(&self) -> Option<&'a D>;
+    fn data_opt_impl<D>(&self) -> Option<&'a D>
+    where
+        D: Any + Send + Sync;
     /// Shortcuts so we can directly use the methods from trait definition instead of impl.
-    fn data_unchecked_impl<D: Any + Send + Sync>(&self) -> &'a D;
+    fn data_unchecked_impl<D>(&self) -> &'a D
+    where
+        D: Any + Send + Sync;
 }
 
 impl<'a> BaseImplContext<'a> for Context<'a> {
-    fn data_impl<D: Any + Send + Sync>(&self) -> GraphQLRes<&'a D> {
+    fn data_impl<D>(&self) -> GraphQLRes<&'a D>
+    where
+        D: Any + Send + Sync,
+    {
         self.data()
     }
 
-    fn data_opt_impl<D: Any + Send + Sync>(&self) -> Option<&'a D> {
+    fn data_opt_impl<D>(&self) -> Option<&'a D>
+    where
+        D: Any + Send + Sync,
+    {
         self.data_opt()
     }
 
-    fn data_unchecked_impl<D: Any + Send + Sync>(&self) -> &'a D {
+    fn data_unchecked_impl<D>(&self) -> &'a D
+    where
+        D: Any + Send + Sync,
+    {
         self.data_unchecked()
     }
 }
 
 impl<'a> BaseImplContext<'a> for ExtensionContext<'a> {
-    fn data_impl<D: Any + Send + Sync>(&self) -> GraphQLRes<&'a D> {
+    fn data_impl<D>(&self) -> GraphQLRes<&'a D>
+    where
+        D: Any + Send + Sync,
+    {
         self.data()
     }
 
-    fn data_opt_impl<D: Any + Send + Sync>(&self) -> Option<&'a D> {
+    fn data_opt_impl<D>(&self) -> Option<&'a D>
+    where
+        D: Any + Send + Sync,
+    {
         self.data_opt()
     }
 
-    fn data_unchecked_impl<D: Any + Send + Sync>(&self) -> &'a D {
+    fn data_unchecked_impl<D>(&self) -> &'a D
+    where
+        D: Any + Send + Sync,
+    {
         self.data_unchecked()
     }
 }

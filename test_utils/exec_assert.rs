@@ -7,7 +7,7 @@ where
     S: SubscriptionType + 'static,
 {
     let res = exec_assert_ok(s, q, v).await;
-    pretty_eq!(res.data, expected.clone());
+    pretty_eq!(res.data, expected.clone(), "response data should match");
 }
 
 pub async fn exec_assert_id<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, id: &str, expected: &GraphQLValue)
@@ -29,11 +29,11 @@ where
     S: SubscriptionType + 'static,
 {
     let res = exec(s, q, v).await;
-    assert!(res.errors.is_empty(), "{:#?}", res.errors);
+    pretty_eq!(res.errors.is_empty(), true, "response errors should be empty");
     res
 }
 
-pub async fn exec_assert_err<Q, M, S, E>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>, e: &E)
+pub async fn exec_assert_err<Q, M, S, E>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>, e: &E) -> Res<()>
 where
     Q: ObjectType + Default + 'static,
     M: ObjectType + Default + 'static,
@@ -41,10 +41,10 @@ where
     E: GrandLineErrImpl,
 {
     let res = exec(s, q, v).await;
-    check_err(&res, e);
+    check_err(&res, e)
 }
 
-pub async fn exec_assert_err_id<Q, M, S, E>(s: &GraphQLSchema<Q, M, S>, q: &str, id: &str, e: &E)
+pub async fn exec_assert_err_id<Q, M, S, E>(s: &GraphQLSchema<Q, M, S>, q: &str, id: &str, e: &E) -> Res<()>
 where
     Q: ObjectType + Default + 'static,
     M: ObjectType + Default + 'static,
@@ -54,7 +54,7 @@ where
     let v = value!({
         "id": id,
     });
-    exec_assert_err(s, q, Some(v), e).await;
+    exec_assert_err(s, q, Some(v), e).await
 }
 
 async fn exec<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>) -> Response

@@ -251,7 +251,7 @@ async fn delete_filter_no_match() -> Res<()> {
         }
     }
     ";
-    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await?;
 
     d.tmp.drop().await
 }
@@ -274,7 +274,7 @@ async fn delete_unauthorized_err_as_db404() -> Res<()> {
         }
     }
     ";
-    exec_assert_err_id(&d.schema, q, &d.task2_id, &CoreDbErr::Db404).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &CoreDbErr::Db404).await?;
 
     d.tmp.drop().await
 }
@@ -351,7 +351,7 @@ async fn update_filter_no_match() -> Res<()> {
         }
     }
     "#;
-    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await?;
 
     d.tmp.drop().await
 }
@@ -380,11 +380,15 @@ async fn update_authorized_changes_db_row() -> Res<()> {
     });
     exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
-    let task = Task::find_by_id(&d.task1_id)
-        .one(&d.tmp.db)
-        .await?
-        .ok_or(CoreDbErr::Db404)?;
-    assert_eq!(task.title, "Changed Title", "authorized update must change the db row");
+    let Some(task) = Task::find_by_id(&d.task1_id).one(&d.tmp.db).await? else {
+        return TestErr::expect("task1 should still exist after authorized update");
+    };
+
+    pretty_eq!(
+        task.title,
+        "Changed Title",
+        "task title should change after authorized update",
+    );
 
     d.tmp.drop().await
 }
@@ -406,16 +410,17 @@ async fn update_unauthorized_does_not_change_db_row() -> Res<()> {
         }
     }
     "#;
-    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await?;
 
     // task2 belongs to org2, the update was rejected, so title must still be "Interview the witness".
-    let task = Task::find_by_id(&d.task2_id)
-        .one(&d.tmp.db)
-        .await?
-        .ok_or(CoreDbErr::Db404)?;
-    assert_eq!(
-        task.title, "Interview the witness",
-        "unauthorized update must not change the db row"
+    let Some(task) = Task::find_by_id(&d.task2_id).one(&d.tmp.db).await? else {
+        return TestErr::expect("task2 should still exist after unauthorized update");
+    };
+
+    pretty_eq!(
+        task.title,
+        "Interview the witness",
+        "task title should not change after unauthorized update",
     );
 
     d.tmp.drop().await
@@ -445,11 +450,15 @@ async fn delete_soft_no_policy() -> Res<()> {
     exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     // Row must still exist but with deleted_at set.
-    let task = Task::find_by_id(&d.task1_id)
-        .one(&d.tmp.db)
-        .await?
-        .ok_or(CoreDbErr::Db404)?;
-    assert!(task.deleted_at.is_some(), "soft delete must set deleted_at");
+    let Some(task) = Task::find_by_id(&d.task1_id).one(&d.tmp.db).await? else {
+        return TestErr::expect("task1 should still exist after soft delete");
+    };
+
+    pretty_eq!(
+        task.deleted_at.is_some(),
+        true,
+        "task deleted_at should be set after soft delete",
+    );
 
     d.tmp.drop().await
 }
@@ -479,13 +488,14 @@ async fn delete_soft_filter_match() -> Res<()> {
     exec_assert_id(&d.schema, q, &d.task1_id, &expected).await;
 
     // Row must still exist but with deleted_at set.
-    let task = Task::find_by_id(&d.task1_id)
-        .one(&d.tmp.db)
-        .await?
-        .ok_or(CoreDbErr::Db404)?;
-    assert!(
+    let Some(task) = Task::find_by_id(&d.task1_id).one(&d.tmp.db).await? else {
+        return TestErr::expect("task1 should still exist after filter-matched soft delete");
+    };
+
+    pretty_eq!(
         task.deleted_at.is_some(),
-        "soft delete must set deleted_at when filter matches"
+        true,
+        "task deleted_at should be set when soft delete filter matches",
     );
 
     d.tmp.drop().await
@@ -509,16 +519,17 @@ async fn delete_soft_filter_no_match() -> Res<()> {
         }
     }
     ";
-    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await;
+    exec_assert_err_id(&d.schema, q, &d.task2_id, &AuthzErr::Unauthorized).await?;
 
     // Row must not be soft-deleted because the filter excluded it.
-    let task = Task::find_by_id(&d.task2_id)
-        .one(&d.tmp.db)
-        .await?
-        .ok_or(CoreDbErr::Db404)?;
-    assert!(
+    let Some(task) = Task::find_by_id(&d.task2_id).one(&d.tmp.db).await? else {
+        return TestErr::expect("task2 should still exist after filter-excluded soft delete");
+    };
+
+    pretty_eq!(
         task.deleted_at.is_none(),
-        "unauthorized soft delete must not set deleted_at"
+        true,
+        "task deleted_at should not be set after unauthorized soft delete",
     );
 
     d.tmp.drop().await

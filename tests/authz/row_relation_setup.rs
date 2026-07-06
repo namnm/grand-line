@@ -86,7 +86,7 @@ pub struct RowRelationSetup {
 }
 
 pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<RowRelationSetup> {
-    let org_impl = authz_org_impl::<Org>();
+    let org_impl = Org::authz_default_impl();
     let tmp = tmp_db!(
         User,
         LoginSession,
@@ -97,7 +97,7 @@ pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<Row
         Comment,
         PostMeta,
         Tag,
-        PostInTag
+        PostInTag,
     );
     let s = schema_q::<Q>(&tmp.db).data(org_impl).data(cfg);
 

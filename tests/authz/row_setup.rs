@@ -47,6 +47,7 @@ pub async fn row_setup_with_col(col_key: &str, row_script: Option<&str>, cfg: Op
     if let Some(c) = cfg {
         b = b.data(c);
     }
+
     Ok(RowSetup {
         schema: b.data(h).finish(),
         tmp: d.tmp,

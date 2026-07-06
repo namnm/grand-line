@@ -33,9 +33,7 @@ where
 
     fn get_header(&self, k: &str) -> Res<String> {
         let req_headers = self.try_headers()?.ok_or(MyErr::CtxHeaders404)?;
-        let v: Vec<String> = if let Some(v) = req_headers.get(k) {
-            v.clone()
-        } else {
+        let Some(v) = req_headers.get(k) else {
             return Ok(String::new());
         };
         if v.len() > 1 {

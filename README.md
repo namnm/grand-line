@@ -52,6 +52,10 @@ Rust macro framework for building GraphQL APIs on top of `sea-orm` and `async-gr
   - [Col policy structure](#col-policy-structure)
   - [Row policy and `authz_row`](#row-policy-and-authz_row)
 - [Debug macro outputs](#debug-macro-outputs)
+- [Design notes](#design-notes)
+  - [What GrandLine does well](#what-grandline-does-well)
+  - [Known limitations](#known-limitations)
+  - [Roadmap](#roadmap)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -199,16 +203,16 @@ When the function is named `resolver`, the GraphQL field defaults to `{model}{Op
 
 The input type for `#[create]` / `#[update]` is the PascalCase of the GraphQL field name.
 
-| Macro       | Body returns                                    | Injected locals                                 | Output              |
-| ----------- | ----------------------------------------------- | ----------------------------------------------- | ------------------- |
-| `#[search]` | `Search<TodoOrderBy>`                           | `filter`, `order_by`, `page`, `include_deleted` | `Vec<TodoGql>`      |
-| `#[count]`  | `Count`                                         | `filter`, `include_deleted`                     | `u64`               |
-| `#[detail]` | `Detail`                                        | `id`, `include_deleted`                         | `Option<TodoGql>`   |
-| `#[create]` | `ActiveModelWrapper<AmCreate, TodoActiveModel>` | `data: TodoCreate`                              | `TodoGql`           |
-| `#[update]` | `ActiveModelWrapper<AmUpdate, TodoActiveModel>` | `id`, `data: TodoUpdate`                        | `TodoGql`           |
-| `#[delete]` | nothing (pre-delete hook)                       | `id`, `permanent: Option<bool>`                 | `TodoGql` (id only) |
+| Macro       | Body returns                           | Injected locals                                 | Output              |
+| ----------- | -------------------------------------- | ----------------------------------------------- | ------------------- |
+| `#[search]` | `Search<TodoOrderBy>`                  | `filter`, `order_by`, `page`, `include_deleted` | `Vec<TodoGql>`      |
+| `#[count]`  | `Count`                                | `filter`, `include_deleted`                     | `u64`               |
+| `#[detail]` | `Detail`                               | `id`, `include_deleted`                         | `Option<TodoGql>`   |
+| `#[create]` | `AmWrapper<AmCreate, TodoActiveModel>` | `data: TodoCreate`                              | `TodoGql`           |
+| `#[update]` | `AmWrapper<AmUpdate, TodoActiveModel>` | `id`, `data: TodoUpdate`                        | `TodoGql`           |
+| `#[delete]` | nothing (pre-delete hook)              | `id`, `permanent: Option<bool>`                 | `TodoGql` (id only) |
 
-`am_create!`/`am_update!` (see [Active model helpers](#active-model-helpers)) already produce the `ActiveModelWrapper` type `#[create]`/`#[update]` expect - you rarely need to name it directly.
+`am_create!`/`am_update!` (see [Active model helpers](#active-model-helpers)) already produce the `AmWrapper` type `#[create]`/`#[update]` expect - you rarely need to name it directly.
 
 `Search<O>` / `Count` / `Detail` are what a resolver returns to add extra deleted-visibility/condition/ordering on top of what the client sent:
 
@@ -601,8 +605,8 @@ am_soft_delete!(Todo {
 
 am.exec(ctx).await?;                // insert/update, sets *_by_id from ctx.auth()
 am.exec_without_ctx(tx).await?;     // insert/update, no by_id fields
-am.into_active_model(ctx).await?;   // unwrap to raw sea-orm ActiveModel, sets *_by_id from ctx.auth()
-am.into_active_model_without_ctx(); // unwrap to raw sea-orm ActiveModel, no by_id fields
+am.into_am(ctx).await?;   // unwrap to raw sea-orm ActiveModel, sets *_by_id from ctx.auth()
+am.into_am_without_ctx(); // unwrap to raw sea-orm ActiveModel, no by_id fields
 
 Todo::soft_delete_by_id(&id)?.exec(tx).await?;
 Todo::soft_delete_many()?.filter(condition).exec(tx).await?;
@@ -973,7 +977,7 @@ let all = ColPolicyField {
         },
     }),
 };
-let col: ColPolicy = hashmap! {
+let col = hashmap! {
     "*".to_owned() => ColPolicyOperation {
         inputs: all.clone(),
         output: all,
@@ -984,7 +988,7 @@ let col: ColPolicy = hashmap! {
 **Restrict to specific fields:**
 
 ```rs
-let col: ColPolicy = hashmap! {
+let col = hashmap! {
     "taskSearch".to_owned() => ColPolicyOperation {
         inputs: ColPolicyField {
             allow: true,
@@ -1018,7 +1022,7 @@ let col: ColPolicy = hashmap! {
 Key is the GraphQL field path (e.g. `"tasks"` or `"users.posts"`). Value is an arbitrary string - the framework passes it to `execute_script` unchanged.
 
 ```rs
-let row: RowPolicy = hashmap! {
+let row = hashmap! {
     "tasks".to_owned() => "filter_by_assignee".to_owned(),
 };
 am_create!(Role {
@@ -1070,3 +1074,44 @@ Set `DEBUG_MACRO=1` and enable a feature flag:
 
 - `debug_macro_cli` - prints generated code to stdout during build
 - `debug_macro_file` - writes generated code to `target/grand-line/` during build
+
+---
+
+### Design notes
+
+#### What GrandLine does well
+
+1. **Boilerplate close to zero.** `#[model]` alone generates the sea-orm entity, the GraphQL object, the filter input, and the order-by enum; `#[search]`/`#[create]`/`#[update]`/`#[delete]`/`#[detail]`/`#[count]` turn that into full CRUD resolvers. The [simple_todo example](https://github.com/nongdan-dev/grand-line/blob/master/examples/simple_todo/src/main.rs) gets a complete CRUD API in about 100 lines.
+2. **Automatic GraphQL look-ahead.** `gql_select` inspects the actual requested fields and only selects those SQL columns - no `SELECT *`, no manual projection code. Most comparable frameworks don't do this.
+3. **N+1 handled for `has_one`/`belongs_to` by construction.** These relations batch through a per-request `DataLoader` automatically - nothing to opt into, nothing to hand-write (`has_many`/`many_to_many` don't batch this way, see [limitations](#known-limitations) below).
+4. **Transparent per-request transaction.** `GrandLineExtension` opens one transaction lazily on first use and commits/rolls back at the end of the request; resolvers never manage transaction lifecycle themselves.
+5. **Authorization is declarative, not `if`/`else` in every resolver.** Column-level policy (field allow/deny) and row-level policy (a runtime script that produces a filter) both attach via the `authz` attribute - e.g. `#[search(Task, authz(realm = "org"))]` - instead of hand-rolled checks scattered through resolver bodies.
+6. **Schema wiring generated from source, not maintained by hand.** `grand_line_build` scans your source at compile time and emits the `Query`/`Mutation` `MergedObject` for you - forgetting to register a new resolver isn't a class of bug here.
+7. **Fine-grained feature flags.** `model_created_at`, `resolver_tx`, `resolver_authz_row`, and friends let a project opt out of exactly the parts of the convention it doesn't want.
+
+#### Known limitations
+
+- **Macro-generated code is hard to debug by nature, not by neglect.** When something goes wrong inside generated code, the compiler error points into the expansion, not your source. `debug_macro_cli`/`debug_macro_file` (dump the generated code to stdout or `target/grand-line/`) are the standard mitigation available in the Rust macro ecosystem - `sqlx`, `diesel`, and `async-graphql` don't do meaningfully better here, this is a property of how proc-macros report errors, not a gap specific to this framework.
+- **One transaction per request, by convention, not by force.** All resolvers in a request share one `DatabaseTransaction` (see [Transactions](#transactions)) - sibling relation resolvers may run as concurrent futures but their SQL still serializes on that one connection. This is a recommendation, not an enforced constraint: the raw `Arc<DatabaseConnection>` is still reachable from `ctx` for any resolver that needs to run something outside the shared transaction (e.g. an operation that must commit independently of the rest of the request).
+- **`has_many`/`many_to_many` are not DataLoader-batched.** Only `has_one`/`belongs_to` get the batching treatment described above; a deeply nested search through a to-many relation can still hit N+1.
+- **The row-policy DSL is an opaque runtime string.** `RowPolicy` scripts are forwarded verbatim to your own `AuthzHandlers::execute_script` - there's no built-in type checking or test harness for the script format itself, since the format is entirely up to your implementation. Isolate and unit-test `execute_script` directly in your app rather than only exercising it through full GraphQL requests.
+- **No subscriptions yet.** `EmptySubscription` is used throughout - there's no real-time/push story today.
+- **Missing standard OSS project scaffolding.** No `LICENSE`, CI workflow, `CHANGELOG.md`, or `CONTRIBUTING.md` yet - worth adding before wider public use, independent of the framework's own code quality.
+
+A few things that look like limitations at first read but are intentional, documented trade-offs:
+
+- **`exec_without_ctx` skipping history/`*_by_id` fields is the documented contract, not a bug** - the name says exactly what it does; using it for seeding/batch jobs that don't have a GraphQL context is the intended use case (see [Active model helpers](#active-model-helpers)).
+- **No migrations tooling is a deliberate boundary, not an oversight.** Schema migration is a separate concern from GraphQL API generation - bring your own (`sea-orm-cli migrate`, `sqlx migrate`, `refinery`, etc.). Baking one in would couple this crate to a specific migration workflow for no benefit to the GraphQL/resolver layer itself.
+- **History recording and delete share one transaction, so there's no create-history-then-fail-delete race** - `History::add` runs inside the same `tx` as the delete it documents; if the delete fails afterward, the whole transaction (history record included) rolls back together.
+
+#### Roadmap
+
+Rough priority order for anyone picking this up next:
+
+1. **Migration-adjacent tooling** (optional, separate from core) - a thin wrapper around an existing migration tool, or schema-diff generation from entities, if the project wants an opinionated answer here at all.
+2. **`exec_with_by_id(db, Option<String>)`** - a history/audit-aware variant of `exec_without_ctx` for seeding and batch jobs that have a user id but no GraphQL `Context`.
+3. **Hook history into raw `Entity::insert_many` call sites**, or document clearly that bulk creates must go through the `Vec<AmWrapper<AmCreate, ..>>` exec path (which already records history per row) rather than calling `insert_many` directly.
+4. **Row-policy DSL: dedicated tests and docs** for `AuthzHandlers::execute_script`, with a pattern for unit-testing it independent of full GraphQL requests.
+5. **Subscriptions**, if real-time becomes a requirement - currently the largest capability gap.
+6. **Crate publishing readiness** - stabilize the public API surface, add rustdoc to the core traits (`EntityX`, `FilterX`, `OrderBy`, `AuthHandlers`, `AuthzHandlers`, ...), adopt semantic versioning.
+7. **Standard OSS scaffolding** - `LICENSE`, CI, `CHANGELOG.md`, `CONTRIBUTING.md`.

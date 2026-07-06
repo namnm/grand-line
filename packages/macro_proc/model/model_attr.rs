@@ -6,6 +6,7 @@ pub struct ModelAttr {
     pub updated_at: bool,
     pub deleted_at: bool,
     pub by_id: bool,
+    pub history: bool,
     #[field_names(skip)]
     pub inner: Attr,
 }
@@ -17,6 +18,7 @@ impl TryFrom<Attr> for ModelAttr {
             updated_at: a.bool(Self::FIELD_UPDATED_AT)?.unwrap_or(FEATURE_MODEL_UPDATED_AT),
             deleted_at: a.bool(Self::FIELD_DELETED_AT)?.unwrap_or(FEATURE_MODEL_DELETED_AT),
             by_id: a.bool(Self::FIELD_BY_ID)?.unwrap_or(FEATURE_MODEL_BY_ID),
+            history: a.bool(Self::FIELD_HISTORY)?.unwrap_or(false),
             inner: a,
         })
     }

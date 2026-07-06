@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 // search resolver returns all records and supports pagination.
 #[tokio::test]
@@ -41,11 +41,7 @@ async fn returns_all() -> Res<()> {
     let r = exec_assert_ok(&s, q, None).await;
     let r = r.data.to_json()?;
 
-    let arr = r.pointer("/userSearch").unwrap_or_default();
-    assert!(!arr.is_null(), "records should be in response");
-
-    let arr = Vec::<JsonValue>::from_json(arr.clone())?;
-    pretty_eq!(arr.len(), 2, "records length should be 2");
+    pretty_eq!(r.arr("/userSearch").len(), 2, "records length should be 2");
 
     tmp.drop().await
 }
@@ -88,7 +84,7 @@ async fn pagination_limit() -> Res<()> {
 
     let q = "
     query test {
-        userSearch(page: { limit: 2, offset: 0 }) {
+        userSearch(page: { limit: 1, offset: 0 }) {
             name
         }
     }
@@ -96,11 +92,7 @@ async fn pagination_limit() -> Res<()> {
     let r = exec_assert_ok(&s, q, None).await;
     let r = r.data.to_json()?;
 
-    let arr = r.pointer("/userSearch").unwrap_or_default();
-    assert!(!arr.is_null(), "records should be in response");
-
-    let arr = Vec::<JsonValue>::from_json(arr.clone())?;
-    pretty_eq!(arr.len(), 2, "page limit should restrict to 2 records");
+    pretty_eq!(r.arr("/userSearch").len(), 1, "page limit should restrict to 1 record");
 
     tmp.drop().await
 }

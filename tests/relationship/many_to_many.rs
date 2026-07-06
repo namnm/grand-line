@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[tokio::test]
 async fn resolver_default_name() -> Res<()> {

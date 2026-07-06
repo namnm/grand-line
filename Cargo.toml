@@ -26,6 +26,7 @@ default_flags = [
   "model_by_id",
   "resolver_tx",
   "resolver_ctx",
+  "resolver_relation_count",
   "resolver_include_deleted",
   "resolver_permanent_delete",
   "resolver_authz_row",
@@ -45,6 +46,7 @@ model_by_id = ["_core/model_by_id"]
 # resolver flags
 resolver_tx = ["_core/resolver_tx"]
 resolver_ctx = ["_core/resolver_ctx"]
+resolver_relation_count = ["_core/resolver_relation_count"]
 resolver_include_deleted = ["_core/resolver_include_deleted"]
 resolver_permanent_delete = ["_core/resolver_permanent_delete"]
 resolver_authz_row = ["_core/resolver_authz_row"]
@@ -92,7 +94,6 @@ approx_constant = "allow"
 arbitrary_source_item_ordering = "allow"
 arithmetic_side_effects = "allow"
 as_conversions = "allow"
-assertions_on_constants = "allow"
 assigning_clones = "allow"
 cargo_common_metadata = "allow"
 cast_possible_truncation = "allow"

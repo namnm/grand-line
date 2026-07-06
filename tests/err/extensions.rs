@@ -1,4 +1,4 @@
-pub use grand_line::prelude::*;
+use grand_line::prelude::*;
 
 #[grand_line_err]
 enum MyErr {
@@ -29,17 +29,17 @@ async fn should_only_expose_client_errors() -> Res<()> {
     let tmp = tmp_db().await?;
     let s = schema_q::<Query>(&tmp.db).finish();
 
-    check(&s, "{ client }", MyErr::Client).await;
-    check(&s, "{ server }", CoreGraphQLErr::InternalServer).await;
-    check(&s, "{ std }", CoreGraphQLErr::InternalServer).await;
+    check(&s, "{ client }", MyErr::Client).await?;
+    check(&s, "{ server }", CoreGraphQLErr::InternalServer).await?;
+    check(&s, "{ std }", CoreGraphQLErr::InternalServer).await?;
 
     tmp.drop().await
 }
 
-async fn check<T>(s: &GraphQLSchema<Query, EmptyMutation, EmptySubscription>, req: &str, e: T)
+async fn check<T>(s: &GraphQLSchema<Query, EmptyMutation, EmptySubscription>, req: &str, e: T) -> Res<()>
 where
     T: GrandLineErrImpl,
 {
     let r = s.execute(req).await;
-    check_err(&r, &e);
+    check_err(&r, &e)
 }

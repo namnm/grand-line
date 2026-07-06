@@ -59,7 +59,7 @@ pub struct RowCrudSetup {
 }
 
 pub async fn row_crud_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<RowCrudSetup> {
-    let org_impl = authz_org_impl::<Org>();
+    let org_impl = Org::authz_default_impl();
     let tmp = tmp_db!(User, LoginSession, Org, Role, UserInRole, Task);
     let s = schema_qm::<CrudQ, CrudM>(&tmp.db).data(org_impl).data(cfg);
 

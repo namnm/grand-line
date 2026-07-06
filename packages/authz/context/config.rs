@@ -46,7 +46,7 @@ where
     async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>>;
 }
 
-struct DefaultOrgImpl<O>(PhantomData<O>);
+pub struct DefaultOrgImpl<O>(pub(crate) PhantomData<O>);
 #[async_trait]
 impl<O> AuthzOrgImpl for DefaultOrgImpl<O>
 where
@@ -63,11 +63,4 @@ where
             .await?;
         Ok(r)
     }
-}
-
-pub fn authz_org_impl<O>() -> Box<dyn AuthzOrgImpl>
-where
-    O: AuthzOrg,
-{
-    Box::new(DefaultOrgImpl::<O>(PhantomData))
 }

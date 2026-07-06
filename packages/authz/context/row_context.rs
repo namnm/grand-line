@@ -9,7 +9,7 @@ where
     /// Results are cached per (filter type, field path) for the lifetime of the request.
     async fn authz_row<F>(&self) -> Res<Option<F>>
     where
-        F: Serialize + DeserializeOwned + Clone + Send + Sync + 'static,
+        F: DeserializeOwned + Clone + Send + Sync + 'static,
     {
         let path = self.authz_row_field_path().await?;
         let k = (TypeId::of::<F>(), path.clone());
@@ -34,7 +34,7 @@ where
     /// Get dsl script from the role row policy, execute it to get json and deserialize into target filter type.
     async fn authz_row_get_filter<F>(&self, path: &str) -> Res<Option<F>>
     where
-        F: Serialize + DeserializeOwned,
+        F: DeserializeOwned,
     {
         let r = self.authz_role().await?;
         let Some(script) = r.as_ref().role.row_policy.get(path) else {
@@ -66,7 +66,7 @@ where
     /// To make it graceful and can be used in relationship without root authz macro.
     async fn authz_row_graceful<F>(&self) -> Res<Option<F>>
     where
-        F: Serialize + DeserializeOwned + Clone + Send + Sync + 'static,
+        F: DeserializeOwned + Clone + Send + Sync + 'static,
     {
         match self.authz_row::<F>().await {
             Err(e) if e.0.code() == MyErr::MissingMacro.code() => Ok(None),

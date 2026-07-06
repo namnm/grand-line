@@ -1,7 +1,7 @@
 #![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 
-mod active_model;
 mod context;
+mod db;
 mod models;
 mod resolvers;
 mod schema;
@@ -10,8 +10,8 @@ mod utils;
 pub mod consts;
 
 pub mod export {
-    pub use crate::active_model::*;
     pub use crate::context::*;
+    pub use crate::db::*;
     pub use crate::models::*;
     pub use crate::resolvers::*;
     pub use crate::schema::*;

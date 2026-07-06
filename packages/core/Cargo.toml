@@ -23,6 +23,7 @@ model_by_id = ["_proc/model_by_id"]
 # resolver flags
 resolver_tx = ["_proc/resolver_tx"]
 resolver_ctx = ["_proc/resolver_ctx"]
+resolver_relation_count = ["_proc/resolver_relation_count"]
 resolver_include_deleted = ["_proc/resolver_include_deleted"]
 resolver_permanent_delete = ["_proc/resolver_permanent_delete"]
 resolver_authz_row = ["_proc/resolver_authz_row"]

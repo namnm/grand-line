@@ -14,7 +14,7 @@ async fn login_with_wrong_password_returns_login_incorrect() -> Res<()> {
             "password": "wrongpassword",
         },
     });
-    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::LoginIncorrect).await;
+    exec_assert_err(&s, Q_LOGIN, Some(v), &AuthErr::LoginIncorrect).await?;
 
     d.tmp.drop().await
 }

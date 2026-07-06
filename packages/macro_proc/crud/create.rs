@@ -22,7 +22,7 @@ fn try_gen_create(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         r.output = quote!(#output);
 
         let body = r.body;
-        let am = ty_active_model(&model)?;
+        let am = ty_am(&model)?;
 
         let exec = if a.ra.has_auth() {
             quote!(exec(ctx))
@@ -31,7 +31,7 @@ fn try_gen_create(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         };
 
         r.body = quote! {
-            let am: ActiveModelWrapper<AmCreate, #model, #am> = {
+            let am: AmWrapper<AmCreate, #model, #am> = {
                 #body
             };
             am.#exec.await?.into_gql(ctx).await?

@@ -62,13 +62,19 @@ impl Attr {
         Self::from_ts2(debug, attr, ts)?.try_into_with_validate()
     }
 
-    pub fn from_field(model: &str, f: &Field, raw: &dyn Fn(&str) -> bool) -> SynRes<Vec<Self>> {
+    pub fn from_field<F>(model: &str, f: &Field, raw: F) -> SynRes<Vec<Self>>
+    where
+        F: Fn(&str) -> bool,
+    {
         f.attrs
             .iter()
-            .map(|a| Self::from_field_attr(model, f, a, raw))
+            .map(|a| Self::from_field_attr(model, f, a, &raw))
             .collect::<SynRes<Vec<_>>>()
     }
-    fn from_field_attr(model: &str, f: &Field, a: &Attribute, raw: &dyn Fn(&str) -> bool) -> SynRes<Self> {
+    fn from_field_attr<F>(model: &str, f: &Field, a: &Attribute, raw: &F) -> SynRes<Self>
+    where
+        F: Fn(&str) -> bool,
+    {
         let attr = a.path().to_token_stream().to_string();
         let field = f.ident.to_token_stream();
         let debug = format!("{model}.{field}");

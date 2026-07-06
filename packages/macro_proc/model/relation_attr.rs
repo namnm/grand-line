@@ -1,45 +1,12 @@
 use crate::prelude::*;
 
-/// Parse a key that is either bare (true, default name) or a string (custom name),
-/// e.g. resolver or resolver = "custom_name". default_name builds the default
-/// ident from the field name, used when the key is bare or first_path.
-fn parse_resolver_ident<F>(a: &Attr, key: &str, default_name: F) -> SynRes<Option<Ident>>
-where
-    F: Fn(&str) -> String,
-{
-    let r1 = a.bool(key);
-    let r2 = a.str(key);
-    let make_err = || {
-        let msg = "must be true for default name or a string identifier for custom name";
-        a.err_by_key(key, msg)
-    };
-    if r1.is_err() && r2.is_err() {
-        return Err(make_err());
-    }
-    let make_default = || -> SynRes<Ident> {
-        let field = a.field_name()?;
-        Ok(format_ident!("{}", default_name(&field)))
-    };
-    let r = if a.first_path.clone().unwrap_or_default() == key {
-        Some(make_default()?)
-    } else if let Some(default) = r1.unwrap_or_default() {
-        if !default {
-            return Err(make_err());
-        }
-        Some(make_default()?)
-    } else {
-        r2?.map(|custom| format_ident!("{custom}"))
-    };
-    Ok(r)
-}
-
 #[field_names]
 pub struct RelationAttr {
     pub resolver: Option<Ident>,
     pub include_deleted: bool,
-    pub authz_row: bool,
     pub count: bool,
     pub count_resolver: Option<Ident>,
+    pub authz_row: bool,
     #[field_names(skip)]
     pub inner: Attr,
     #[field_names(key_only)]
@@ -60,9 +27,9 @@ impl TryFrom<Attr> for RelationAttr {
             include_deleted: a
                 .bool(Self::FIELD_INCLUDE_DELETED)?
                 .unwrap_or(FEATURE_RESOLVER_INCLUDE_DELETED),
-            authz_row: a.bool(Self::FIELD_AUTHZ_ROW)?.unwrap_or(FEATURE_RESOLVER_AUTHZ_ROW),
-            count: a.bool(Self::FIELD_COUNT)?.unwrap_or(false),
+            count: a.bool(Self::FIELD_COUNT)?.unwrap_or(FEATURE_RESOLVER_RELATION_COUNT),
             count_resolver,
+            authz_row: a.bool(Self::FIELD_AUTHZ_ROW)?.unwrap_or(FEATURE_RESOLVER_AUTHZ_ROW),
             inner: a,
         })
     }
@@ -135,4 +102,37 @@ impl RelationAttr {
         let msg = format!("{d} key {k}: should not access this key in this attr (programmer error)");
         SynErr::new(self.inner.span, msg)
     }
+}
+
+/// Parse a key that is either bare (true, default name) or a string (custom name),
+/// e.g. resolver or resolver = "custom_name". default_name builds the default
+/// ident from the field name, used when the key is bare or first_path.
+fn parse_resolver_ident<F>(a: &Attr, key: &str, default_name: F) -> SynRes<Option<Ident>>
+where
+    F: Fn(&str) -> String,
+{
+    let r1 = a.bool(key);
+    let r2 = a.str(key);
+    let make_err = || {
+        let msg = "must be true for default name or a string identifier for custom name";
+        a.err_by_key(key, msg)
+    };
+    if r1.is_err() && r2.is_err() {
+        return Err(make_err());
+    }
+    let make_default = || -> SynRes<Ident> {
+        let field = a.field_name()?;
+        Ok(format_ident!("{}", default_name(&field)))
+    };
+    let r = if a.first_path.clone().unwrap_or_default() == key {
+        Some(make_default()?)
+    } else if let Some(default) = r1.unwrap_or_default() {
+        if !default {
+            return Err(make_err());
+        }
+        Some(make_default()?)
+    } else {
+        r2?.map(|custom| format_ident!("{custom}"))
+    };
+    Ok(r)
 }

@@ -20,16 +20,11 @@ async fn delete_sets_deleted_at_by_default() -> Res<()> {
     });
     exec_assert_id(&d.s, q, &d.id1, &expected).await;
 
-    match User::find_by_id(&d.id1).one(&d.tmp.db).await? {
-        Some(u) => assert!(
-            u.deleted_at.is_some(),
-            "it should be soft delete by default, found deleted_at=None",
-        ),
-        None => assert!(
-            false,
-            "it should be soft delete by default, found None returned from db",
-        ),
-    }
+    let Some(u) = User::find_by_id(&d.id1).one(&d.tmp.db).await? else {
+        return TestErr::expect("user should still exist after soft delete");
+    };
+
+    pretty_eq!(u.deleted_at.is_some(), true, "user should be soft deleted by default");
 
     d.tmp.drop().await
 }

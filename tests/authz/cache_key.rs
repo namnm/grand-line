@@ -43,7 +43,7 @@ async fn alias_attack() -> Res<()> {
         }
     }
     ";
-    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await;
+    exec_assert_err(&s, q, None, &AuthzErr::Unauthorized).await?;
 
     tmp.drop().await
 }
@@ -131,10 +131,14 @@ async fn multiple_ops_one_err() -> Res<()> {
     });
     let res = s.execute(q).await;
 
-    assert_eq!(res.errors.len(), 1, "{:#?}", res.errors);
-    check_err(&res, &AuthzErr::Unauthorized);
+    pretty_eq!(res.errors.len(), 1, "response should have 1 error");
+    check_err(&res, &AuthzErr::Unauthorized)?;
     // async-graphql omits errored fields from data rather than setting them null.
-    pretty_eq!(res.data, v);
+    pretty_eq!(
+        res.data,
+        v,
+        "response data should still include the unrelated authorized field",
+    );
 
     tmp.drop().await
 }
@@ -160,10 +164,14 @@ async fn alias_ok_other_err() -> Res<()> {
     });
     let res = s.execute(q).await;
 
-    assert_eq!(res.errors.len(), 1, "{:#?}", res.errors);
-    check_err(&res, &AuthzErr::Unauthorized);
+    pretty_eq!(res.errors.len(), 1, "response should have 1 error");
+    check_err(&res, &AuthzErr::Unauthorized)?;
     // async-graphql omits errored fields from data rather than setting them null.
-    pretty_eq!(res.data, v);
+    pretty_eq!(
+        res.data,
+        v,
+        "response data should still include the aliased authorized field",
+    );
 
     tmp.drop().await
 }

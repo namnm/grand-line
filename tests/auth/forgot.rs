@@ -15,14 +15,13 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
     let r = exec_assert_ok(&s, Q_FORGOT, Some(v)).await;
     let r = r.data.to_json()?;
 
-    let secret = r
-        .pointer("/forgot/secret")
-        .unwrap_or_default()
-        .as_str()
-        .unwrap_or_default();
-    assert!(!secret.is_empty(), "secret should be in response");
+    let secret = r.str("/forgot/secret");
+    pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let t = AuthOtp::find().one_or_404(&d.tmp.db).await?;
+    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("AuthOtp row should be created by forgot");
+    };
+
     let v = value!({
         "data": {
             "id": t.id,
@@ -40,13 +39,15 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
     });
     exec_assert(&s, Q_FORGOT_RESOLVE, Some(v), &expected).await;
 
-    let u = User::find()
-        .filter(UserColumn::Email.eq("olivia@example.com"))
-        .one_or_404(&d.tmp.db)
-        .await?;
+    let f = filter!(User {
+        email: "olivia@example.com",
+    });
+    let Some(u) = f.into_select().one(&d.tmp.db).await? else {
+        return TestErr::expect("User row for olivia@example.com should exist after forgot resolve");
+    };
 
     let password_eq = rand_utils::password_eq(&u.password_hashed, "Str0ngP@ssw0rd?");
-    assert!(password_eq, "password should be updated");
+    pretty_eq!(password_eq, true, "password should be updated");
 
     d.tmp.drop().await
 }
