@@ -17,11 +17,13 @@ pub struct FormulaDepNode {
 }
 
 impl FormulaDepNode {
-    pub fn new(
-        name: impl Into<String>,
-        deps: impl IntoIterator<Item = impl Into<String>>,
-        resolver: impl FormulaResolver + 'static,
-    ) -> Self {
+    pub fn new<N, D, DN, R>(name: N, deps: D, resolver: R) -> Self
+    where
+        N: Into<String>,
+        D: IntoIterator<Item = DN>,
+        DN: Into<String>,
+        R: FormulaResolver + 'static,
+    {
         Self {
             name: name.into(),
             deps: deps.into_iter().map(Into::into).collect(),
@@ -46,7 +48,10 @@ impl FormulaDepGraph {
     /// Build and validate the graph. Returns Err(FormulaErr::CyclicDep) when
     /// a cycle is detected, or Err(FormulaErr::UnknownDep) when a dep name
     /// is not present among the nodes.
-    pub fn new(nodes: impl IntoIterator<Item = FormulaDepNode>) -> Result<Self, FormulaErr> {
+    pub fn new<N>(nodes: N) -> Result<Self, FormulaErr>
+    where
+        N: IntoIterator<Item = FormulaDepNode>,
+    {
         let nodes: HashMap<String, FormulaDepNode> = nodes.into_iter().map(|n| (n.name.clone(), n)).collect();
         let topo_order = topo_sort(&nodes)?;
         Ok(Self {
