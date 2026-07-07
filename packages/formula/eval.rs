@@ -19,15 +19,18 @@ use tokio::task::spawn_blocking;
 /// Variables are supplied via graph (async dep-graph resolvers) and the
 /// built-in scope (current_user, current_org). The locale value is
 /// forwarded to resolvers via FormulaCtx.
-pub async fn eval_formula(
+pub async fn eval_formula<F>(
     script: &str,
     user_id: Option<&str>,
     org_id: Option<&str>,
     locale: &str,
     graph: &FormulaDepGraph,
     opts: &FormulaOptions,
-    register_fns: impl FnOnce(&mut Engine) + Send,
-) -> Res<JsonValue> {
+    register_fns: F,
+) -> Res<JsonValue>
+where
+    F: FnOnce(&mut Engine) + Send,
+{
     let script_deps = parse_and_cache(script)?;
 
     // Validate variable references (skip locally-defined let variables).
