@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// One model's fields split by role: defaults, virtual (computed) fields, sql-expr
+/// virtual fields, regular gql-exposed fields, and the full sql column set.
 pub struct ModelFieldsAttr {
     pub defaults: Vec<Attr>,
     pub virtuals: Vec<(Field, Vec<Attr>)>,

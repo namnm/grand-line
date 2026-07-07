@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Add every applicable comparison filter field (eq, ne, is_in, gt/gte/lt/lte,
+/// like/ilike, starts_with/ends_with, ...) for one model field, which operators
+/// apply depends on the field's unwrapped type, bool and id/_id fields get fewer.
 pub fn filter(f: &Field, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>) -> SynRes<()> {
     push(f, struk, query, "eq")?;
     push(f, struk, query, "ne")?;

@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// HTTP-level helpers for reading and writing the login session cookie.
 #[async_trait]
 pub trait AuthHttpContext<'a>
 where

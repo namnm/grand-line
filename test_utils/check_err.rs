@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Assert the response's first error matches e, both message and extensions code.
 pub fn check_err<E>(r: &Response, e: &E) -> Res<()>
 where
     E: GrandLineErrImpl,

@@ -60,6 +60,12 @@ pub fn attr_graphql_info(attrs: &[Attribute]) -> (Option<String>, Ts2) {
 
 // ============================================================================
 
+// ---------------------------------------------------------------------------
+// Regular field codegen
+// ---------------------------------------------------------------------------
+
+/// Per-field codegen output for a model's regular gql fields: struct fields,
+/// resolvers, defaults, entity-to-gql conversion, and SQL column/select maps.
 pub struct GqlAttr {
     pub struk: Vec<Ts2>,
     pub struk_fields: Vec<String>,
@@ -71,6 +77,8 @@ pub struct GqlAttr {
     pub get_string: Vec<Ts2>,
 }
 
+/// Build the per-field GqlAttr codegen output for a model's regular (non-virtual)
+/// gql fields, gql_fields pairs each struct Field with its parsed #[gql] attrs.
 pub fn gql_attr(gql_fields: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttr> {
     let (mut struk, mut struk_fields, mut defaults, mut resolver, mut into, mut cols, mut select, mut get_string) =
         (vec![], vec![], vec![], vec![], vec![], vec![], vec![], vec![]);
@@ -140,10 +148,17 @@ pub fn gql_attr(gql_fields: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttr> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Virtual resolver select map
+// ---------------------------------------------------------------------------
+
+/// GQL-name to SQL-dependency select map for virtual (non-column) resolver fields.
 pub struct GqlAttrVirtuals {
     pub select: Vec<Ts2>,
 }
 
+/// Build the select map for virtual resolver fields, so GQL_SELECT still knows
+/// which SQL columns a virtual field's sql_dep needs loaded.
 pub fn gql_attr_virtuals(virtual_resolvers: &[Box<dyn VirtualResolverFn>]) -> SynRes<GqlAttrVirtuals> {
     let mut select = vec![];
     for v in virtual_resolvers {
@@ -159,6 +174,12 @@ pub fn gql_attr_virtuals(virtual_resolvers: &[Box<dyn VirtualResolverFn>]) -> Sy
     })
 }
 
+// ---------------------------------------------------------------------------
+// SQL expression virtual field codegen
+// ---------------------------------------------------------------------------
+
+/// Per-field codegen output for a model's #[sql_expr] virtual fields: struct
+/// fields, resolvers, defaults, select map, and the raw SQL expression per field.
 pub struct GqlAttrExprs {
     pub struk: Vec<Ts2>,
     pub struk_fields: Vec<String>,
@@ -168,6 +189,8 @@ pub struct GqlAttrExprs {
     pub exprs: Vec<Ts2>,
 }
 
+/// Build the per-field GqlAttrExprs codegen output for a model's #[sql_expr]
+/// virtual fields, exprs pairs each Field with its parsed VirtualTy attrs.
 pub fn gql_exprs_ts2(exprs: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttrExprs> {
     let (mut struk, mut struk_fields, mut defaults, mut resolver, mut select, mut gql_exprs) =
         (vec![], vec![], vec![], vec![], vec![], vec![]);

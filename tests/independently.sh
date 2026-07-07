@@ -8,3 +8,5 @@ cargo test --no-default-features --features test_utils,sqlite --test soft_delete
 
 cargo test --no-default-features --features test_utils,sqlite,axum,auth --test auth
 cargo test --no-default-features --features test_utils,sqlite,axum,authz --test authz
+
+cargo test --no-default-features --features test_utils,sqlite,i18n --test i18n

@@ -1,11 +1,15 @@
 use crate::prelude::*;
 
+/// Proc-macro entry for #[field_resolver], wraps the annotated fn body into an
+/// async resolver returning the fn's own declared output type.
 pub fn gen_field_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let ifn = parse_macro_input!(item as ItemFn);
     try_gen_field_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+/// Parsed arguments of #[field_resolver(parent = "Model")], parent fixes the
+/// generated resolver's parent type, when omitted it stays generic over any GqlModel.
 #[field_names]
 pub struct FieldResolverAttr {
     pub parent: Option<String>,

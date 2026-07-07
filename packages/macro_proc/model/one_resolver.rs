@@ -1,11 +1,16 @@
 use crate::prelude::*;
 
+/// Proc-macro entry for #[one_resolver], wraps the annotated fn body into an
+/// async resolver returning Option of the target model's gql filter type.
 pub fn gen_one_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let ifn = parse_macro_input!(item as ItemFn);
     try_gen_one_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+/// Parsed arguments of #[one_resolver(Model, parent = "Parent")], model is the
+/// target entity the resolver loads, parent fixes the generated resolver's
+/// parent type, when omitted it stays generic over any GqlModel.
 #[field_names]
 pub struct OneResolverAttr {
     #[field_names(skip)]

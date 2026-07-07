@@ -20,26 +20,36 @@ use crate::prelude::*;
 // ============================================================================
 // model
 
+/// Derives the full CRUD type family (sea_orm entity, GraphQL type,
+/// ActiveModel, Filter, OrderBy) for a model struct.
 #[proc_macro_attribute]
 pub fn model(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_model(attr, item)
 }
 
+/// Turns a fn into a relation/field resolver returning Res<Search<..>>, parent,
+/// ctx, and tx are auto injected, the fn should take no declared inputs.
 #[proc_macro_attribute]
 pub fn many_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_many_resolver(attr, item)
 }
 
+/// Turns a fn into a relation/field resolver returning Res<Count>, parent,
+/// ctx, and tx are auto injected, the fn should take no declared inputs.
 #[proc_macro_attribute]
 pub fn count_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_count_resolver(attr, item)
 }
 
+/// Turns a fn into a plain field resolver, parent, ctx, and tx are auto
+/// injected, the fn should take no declared inputs.
 #[proc_macro_attribute]
 pub fn field_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_field_resolver(attr, item)
 }
 
+/// Turns a fn into a relation/field resolver returning Res<Detail>, parent,
+/// ctx, and tx are auto injected, the fn should take no declared inputs.
 #[proc_macro_attribute]
 pub fn one_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_one_resolver(attr, item)
@@ -48,11 +58,15 @@ pub fn one_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
 // ============================================================================
 // resolver
 
+/// Registers the annotated fn as a root Query field, inputs/output/body are
+/// used as written.
 #[proc_macro_attribute]
 pub fn query(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_query(attr, item)
 }
 
+/// Registers the annotated fn as a root Mutation field, inputs/output/body
+/// are used as written.
 #[proc_macro_attribute]
 pub fn mutation(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_mutation(attr, item)
@@ -61,31 +75,44 @@ pub fn mutation(attr: TokenStream, item: TokenStream) -> TokenStream {
 // ============================================================================
 // crud
 
+/// Registers a create mutation for a model, default inputs are
+/// data: <Model>Create and the output is the model's Gql type.
 #[proc_macro_attribute]
 pub fn create(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_create(attr, item)
 }
 
+/// Registers a list query for a model, default inputs are
+/// filter/order_by/page and the output is Vec<Gql>.
 #[proc_macro_attribute]
 pub fn search(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_search(attr, item)
 }
 
+/// Registers a count query for a model, default input is filter and the
+/// output is u64.
 #[proc_macro_attribute]
 pub fn count(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_count(attr, item)
 }
 
+/// Registers a single-row query for a model, default input is id and the
+/// output is Option<Gql>.
 #[proc_macro_attribute]
 pub fn detail(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_detail(attr, item)
 }
 
+/// Registers an update mutation for a model, default inputs are
+/// id/data: <Model>Update and the output is the model's Gql type.
 #[proc_macro_attribute]
 pub fn update(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_update(attr, item)
 }
 
+/// Registers a delete mutation for a model, default input is id (plus
+/// permanent when permanent_delete is enabled) and the output is the model's
+/// Gql type.
 #[proc_macro_attribute]
 pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_delete(attr, item)
@@ -94,16 +121,20 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
 // ============================================================================
 // utils
 
+/// Attaches the derives needed for a db-backed String enum (gql_enum,
+/// EnumIter, DeriveActiveEnum, stored as a snake_case String column).
 #[proc_macro_attribute]
 pub fn sql_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_sql_enum(attr, item)
 }
 
+/// Attaches the derives needed for a GraphQL-facing Copy enum.
 #[proc_macro_attribute]
 pub fn gql_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_gql_enum(attr, item)
 }
 
+/// Attaches the derives needed for a GraphQL input struct.
 #[proc_macro_attribute]
 pub fn gql_input(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_gql_input(attr, item)

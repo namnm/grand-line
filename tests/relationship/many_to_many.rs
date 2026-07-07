@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Custom resolver naming
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn resolver_default_name() -> Res<()> {
     mod test {
@@ -162,6 +166,10 @@ async fn resolver_custom_fn() -> Res<()> {
     exec_assert_id(&s, q, &u.id, &expected).await;
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Basic many_to_many relation
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn many_to_many_returns_related() -> Res<()> {

@@ -23,12 +23,18 @@ where
     fn get_not(&self) -> Option<Self>;
 }
 
-/// Automatically implement FilterXImpl for Option<FilterX>.
+// ---------------------------------------------------------------------------
+// FilterXImpl, deleted_at check with nested and/or/not combined in
+// ---------------------------------------------------------------------------
+
+/// Extension trait exposing has_deleted_at with nested and/or/not combined in,
+/// implemented below for any FilterX and for Option<FilterX>.
 pub trait FilterXImpl {
     /// Check if there is deleted_at in this filter.
     fn has_deleted_at(&self) -> bool;
 }
 
+/// Automatically implement FilterXImpl for any type implementing FilterX.
 impl<F> FilterXImpl for F
 where
     Self: FilterX,

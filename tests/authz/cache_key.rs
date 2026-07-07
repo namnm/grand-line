@@ -7,6 +7,10 @@ fn finish(d: Setup) -> (GraphQLSchema<Query, EmptyMutation, EmptySubscription>, 
     (d.s.data(h).finish(), d.tmp)
 }
 
+// ---------------------------------------------------------------------------
+// Alias and cache-key isolation
+// ---------------------------------------------------------------------------
+
 // Alias: response key uses the alias, authz cache key resolves from path correctly.
 #[tokio::test]
 async fn alias_ok() -> Res<()> {

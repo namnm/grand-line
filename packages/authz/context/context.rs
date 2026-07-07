@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Umbrella trait combining every authz context trait, the entry point used
+/// by the #[authz] macro.
 #[async_trait]
 pub trait AuthzContext<'a>
 where
@@ -11,6 +13,9 @@ where
         + AuthzColContext<'a>
         + AuthzRowContext<'a>,
 {
+    /// Return the org id resolved by the current operation's authz check.
+    /// Errors if #[authz] was not applied, the check failed, or the check
+    /// did not require org scoping.
     async fn authz(&self) -> Res<String> {
         let k = self.authz_cache_key().await?;
         let m = self.authz_cache_or_init().await?;

@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-/// Helper trait to combine order_by and order_by_default with an initial value if all are empty.
+/// Trait implemented by entity-specific order_by enums, provides query chaining and a default value.
 pub trait OrderBy
 where
     Self: ChainSelect<Self::E> + Clone + Copy + Serialize + Send + Sync,

@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
+/// Parses a string into a proc_macro2 token stream.
 pub trait StringToTs2 {
+    /// Parses self as Rust tokens, returning a syn error on invalid syntax.
     fn ts2_or_err(&self) -> SynRes<Ts2>;
 }
 

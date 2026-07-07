@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Individual graphql attribute overrides
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn name_override() -> Res<()> {
     mod test {
@@ -124,19 +128,25 @@ async fn deprecation() -> Res<()> {
     let s = schema_q::<UserDetailQuery>(&tmp.db).finish();
     let sdl = s.sdl();
 
+    // Check the directive is on field x specifically, with the given reason
+    // attached, not just present anywhere in the sdl (e.g. on field y instead).
     pretty_eq!(
-        sdl.contains("@deprecated"),
+        sdl.contains(r#"x: Int! @deprecated(reason: "use y instead")"#),
         true,
-        "sdl should contain the deprecated directive: {sdl}",
+        "field x should carry the deprecated directive with its reason: {sdl}",
     );
     pretty_eq!(
-        sdl.contains("use y instead"),
-        true,
-        "sdl should contain the deprecation reason: {sdl}",
+        sdl.contains("y: Int! @deprecated"),
+        false,
+        "field y should stay a plain, non-deprecated field: {sdl}",
     );
 
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Combined attribute overrides
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn name_override_with_extra() -> Res<()> {
@@ -180,10 +190,12 @@ async fn name_override_with_extra() -> Res<()> {
     exec_assert_id(&s, q, &u.id, &expected).await;
 
     let sdl = s.sdl();
+    // Check the directive and reason are on the renamed field y specifically,
+    // not just present anywhere in the sdl.
     pretty_eq!(
-        sdl.contains("@deprecated"),
+        sdl.contains(r#"y: Int! @deprecated(reason: "should not use")"#),
         true,
-        "sdl should contain the deprecated directive: {sdl}",
+        "renamed field y should carry the deprecated directive with its reason: {sdl}",
     );
 
     tmp.drop().await

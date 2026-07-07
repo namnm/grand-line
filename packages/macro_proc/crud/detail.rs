@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Entry point for the #[detail] attribute macro, builds a single-row query
+/// resolver returning Option<Gql>, defaulting inputs to id (plus
+/// include_deleted when enabled), unless resolver_inputs/resolver_output opt out.
 pub fn gen_detail(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);

@@ -45,6 +45,12 @@ impl Extension for GrandLineExtensionImpl {
             }
         }
         for e in &mut r.errors {
+            // source is None for errors that never reached a resolver, e.g. GraphQL
+            // parse errors, unknown field, or a variable type mismatch. Those are
+            // reports about the client's own malformed request, not internal server
+            // detail, so passing the message through as-is is correct, not a masking
+            // gap: no GrandLineErr can ever attach a source to these, they are raised
+            // by async-graphql itself before any resolver body runs.
             if e.source.is_none() {
                 continue;
             }

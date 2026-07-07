@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Build a schema with only Q as query, wired with the db connection and extension.
 pub fn schema_q<Q>(db: &DatabaseConnection) -> SchemaBuilder<Q, EmptyMutation, EmptySubscription>
 where
     Q: ObjectType + Default + 'static,
@@ -7,6 +8,7 @@ where
     let sb = GraphQLSchema::build(Q::default(), EmptyMutation, EmptySubscription);
     extension(sb, db)
 }
+/// Build a schema with only M as mutation, wired with the db connection and extension.
 pub fn schema_m<M>(db: &DatabaseConnection) -> SchemaBuilder<EmptyQuery, M, EmptySubscription>
 where
     M: ObjectType + Default + 'static,
@@ -15,6 +17,7 @@ where
     extension(sb, db)
 }
 
+/// Build a schema with both Q and M, wired with the db connection and extension.
 pub fn schema_qm<Q, M>(db: &DatabaseConnection) -> SchemaBuilder<Q, M, EmptySubscription>
 where
     Q: ObjectType + Default + 'static,

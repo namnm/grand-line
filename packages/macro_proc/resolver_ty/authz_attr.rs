@@ -1,10 +1,14 @@
 use crate::prelude::*;
 
+/// Parsed authz(...) attribute for a root resolver.
 #[field_names]
 #[derive(Clone)]
 pub struct AuthzAttr {
+    /// Authorization realm name checked against the caller's grants.
     pub realm: String,
+    /// When true, skips the org-level authz check for this resolver.
     pub skip_org: bool,
+    /// When true, skips the user-level authz check for this resolver.
     pub skip_user: bool,
 }
 impl TryFrom<Attr> for AuthzAttr {

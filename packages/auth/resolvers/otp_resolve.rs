@@ -15,6 +15,10 @@ fn auth_otp_resolve(ty: AuthOtpTy, data: AuthOtpResolve) -> AuthOtpGql {
     auth_otp_ensure_resolve(ctx, tx, ty, data).await?.into_gql(ctx).await?
 }
 
+/// Consumes one resolve attempt on the matching OTP row and validates the code and secret.
+/// Returns MyErr::OtpResolveInvalid if the id/type does not exist, the code or secret does
+/// not match, the attempt count is exceeded, or the OTP has expired. On success, resets the
+/// attempt counter to 0.
 pub async fn auth_otp_ensure_resolve(
     ctx: &Context<'_>,
     tx: &DatabaseTransaction,
@@ -71,6 +75,8 @@ pub async fn auth_otp_ensure_resolve(
     Ok(t)
 }
 
+/// Enforces the re-request cooldown for a given email/type, and deletes the stale OTP row
+/// once the cooldown has passed so a fresh one can be created. No-op if no row exists.
 pub async fn auth_otp_ensure_re_request(
     ctx: &Context<'_>,
     tx: &DatabaseTransaction,

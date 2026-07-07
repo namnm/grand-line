@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Row-level policy filter resolution: runs the role's row policy dsl script
+/// for the current field path and caches the result for the request.
 #[async_trait]
 pub trait AuthzRowContext<'a>
 where
@@ -46,6 +48,13 @@ where
         let Some(script) = script.as_str() else {
             return Err(MyErr::RowScript404.into());
         };
+        // If execute_script returns None (the AuthzHandlers default, or the host
+        // app's own handler declining to handle this script), the row policy
+        // resolves to no filter, i.e. unrestricted access, same as if no row
+        // policy entry existed for this path at all. This is intentional: a row
+        // policy the host app has not wired a handler for is treated as "not
+        // enforced yet" rather than "deny everything," so integrating authz_row
+        // incrementally never blocks access before the handler is implemented.
         let h = &self.authz_config().handlers;
         let Some(json) = self.authz_execute_script(h, script).await? else {
             return Ok(None);

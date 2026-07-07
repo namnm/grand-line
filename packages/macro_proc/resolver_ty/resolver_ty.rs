@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Assembles a resolver method into its own module with a dedicated zero-sized
+/// struct implementing #[Object], this is the shared codegen backend for
+/// #[query], #[mutation], and all the crud macros.
 pub struct ResolverTy {
     ty: Ts2,
     name: Ts2,
@@ -8,6 +11,9 @@ pub struct ResolverTy {
 }
 
 impl ResolverTy {
+    /// Builds the final module + struct + #[Object] impl token stream for one
+    /// resolver, this is the common tail called by every resolver-generating
+    /// attribute macro after it has filled in ty/name/ra/item.
     pub fn g(ty: Ts2, name: Ts2, ra: ResolverTyAttr, item: ResolverTyItem) -> SynRes<TokenStream> {
         let g = Self {
             ty,

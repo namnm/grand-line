@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Implementation of the field_names attribute macro, see macro_utils_proc::field_names.
 pub fn gen_field_names(attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as ItemStruct);
     try_gen_field_names(attr, item).unwrap_or_else(|e| e.to_compile_error().into())

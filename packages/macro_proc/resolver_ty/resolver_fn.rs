@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Describes the pieces of one generated resolver method, implementors supply
+/// the raw fn signature/body parts, resolver_fn assembles them into the final
+/// async fn token stream with auth/authz/tx/ctx wiring applied.
 pub trait ResolverFn
 where
     Self: AttrDebug,
@@ -10,19 +13,26 @@ where
     fn output(&self) -> SynRes<Ts2>;
     fn body(&self) -> SynRes<Ts2>;
 
+    /// Name of the root operation type (Query/Mutation/Subscription) this
+    /// resolver belongs to, None for non-root resolvers, authz is only
+    /// available when this returns Some.
     fn root_operation_ty(&self) -> SynRes<Option<String>> {
         Ok(None)
     }
 
+    /// Whether the generated resolver opens a db transaction, true by default.
     fn tx(&self) -> bool {
         true
     }
+    /// Whether the generated resolver receives the ctx parameter, true by default.
     fn ctx(&self) -> bool {
         true
     }
+    /// Auth requirement to enforce before the body runs, None means no check.
     fn auth(&self) -> Option<AuthAttr> {
         None
     }
+    /// Authz requirement to enforce before the body runs, None means no check.
     fn authz(&self) -> Option<AuthzAttr> {
         None
     }
@@ -40,6 +50,10 @@ where
         quote!()
     }
 
+    /// Builds the complete async fn token stream for this resolver: wraps the
+    /// body with auth/authz checks and a transaction as configured, injects
+    /// ctx into the input list, wraps the output in Res<..>, and attaches the
+    /// #[graphql(..)] attribute and doc comments.
     fn resolver_fn(&self) -> SynRes<Ts2> {
         let mut body = self.body()?;
         let ctx = self.ctx();

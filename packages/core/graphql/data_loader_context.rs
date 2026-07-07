@@ -7,6 +7,7 @@ pub trait DataLoaderContext<'a>
 where
     Self: GrandLineDataContext<'a>,
 {
+    /// Returns the cached DataLoader for key, creating and caching a new one on first use.
     async fn data_loader<E>(
         &self,
         key: String,

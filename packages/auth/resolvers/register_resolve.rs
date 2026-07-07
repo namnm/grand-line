@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Resolves a Register-type OTP, creates the user with the data captured at request time,
+/// and logs them in with a fresh session.
 pub async fn register_resolve_impl<U>(ctx: &Context<'_>, data: AuthOtpResolve) -> Res<LoginSessionWithSecret>
 where
     U: AuthUser,

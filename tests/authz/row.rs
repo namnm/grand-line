@@ -10,6 +10,10 @@ query {
 }
 ";
 
+// ---------------------------------------------------------------------------
+// Baseline: no filter applied
+// ---------------------------------------------------------------------------
+
 // No row_policy entry for this resolver -> all tasks returned.
 #[tokio::test]
 async fn no_row_policy_returns_all() -> Res<()> {
@@ -47,6 +51,10 @@ async fn script_none_returns_all() -> Res<()> {
 
     d.tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Filter handlers by field source
+// ---------------------------------------------------------------------------
 
 // Handler reads ctx.auth() to get the current user, filters tasks by assignee.
 #[tokio::test]
@@ -89,23 +97,62 @@ async fn script_filters_tasks_by_org() -> Res<()> {
 }
 
 // Handler reads both user and org from ctx, filters by both assignee and org.
+// row_setup's own two tasks (user1/org1, user2/org2) cannot tell a real assignee
+// AND org filter apart from either field applied alone, since both single-field
+// filters already narrow down to just task1. This test builds its own fixture
+// with a third task that shares task1's assignee but not its org, so only a
+// correct AND of both conditions excludes it.
 #[tokio::test]
 async fn script_filters_tasks_by_assignee_and_org() -> Res<()> {
+    let wc = col_policy_field(col_policy_fields_wildcard_nested());
+    let col = col_policy("tasks".to_owned(), wc.clone(), wc);
+    let row = row_policy("tasks".to_owned(), "any".to_owned());
+    let d = setup_with_policy(col, row).await?;
+
+    am_create!(Task {
+        title: "Analyze the tissue sample",
+        assignee_id: d.user_id1.clone(),
+        org_id: d.org_id1.clone(),
+    })
+    .exec_without_ctx(&d.tmp.db)
+    .await?;
+    am_create!(Task {
+        title: "Investigate the pattern",
+        assignee_id: d.user_id2.clone(),
+        org_id: d.org_id2.clone(),
+    })
+    .exec_without_ctx(&d.tmp.db)
+    .await?;
+    // Same assignee as task1, different org - an assignee-only (or org-only)
+    // filter would wrongly include this, only a real AND excludes it.
+    am_create!(Task {
+        title: "Cross reference the Cortexiphan files",
+        assignee_id: d.user_id1.clone(),
+        org_id: d.org_id2.clone(),
+    })
+    .exec_without_ctx(&d.tmp.db)
+    .await?;
+
     let c = AuthzConfig {
         handlers: Arc::new(BothHandler),
         ..Default::default()
     };
-    let d = row_setup(Some("any"), Some(c)).await?;
+    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let schema = d.s.data(c).data(h).finish();
 
     let expected = value!({
         "tasks": [{
             "title": "Analyze the tissue sample",
         }],
     });
-    exec_assert(&d.schema, Q, None, &expected).await;
+    exec_assert(&schema, Q, None, &expected).await;
 
     d.tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Script string forwarding
+// ---------------------------------------------------------------------------
 
 // The script string stored in row_policy is forwarded verbatim to execute_script.
 #[tokio::test]
@@ -125,6 +172,10 @@ async fn script_string_forwarded_verbatim() -> Res<()> {
 
     d.tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Handler error and malformed responses
+// ---------------------------------------------------------------------------
 
 // An error from execute_script is masked as InternalServer in the GQL response.
 #[tokio::test]
@@ -179,6 +230,10 @@ async fn handler_unknown_field_silently_ignored_returns_all() -> Res<()> {
 
     d.tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Wildcard column policy key
+// ---------------------------------------------------------------------------
 
 // Col policy with wildcard key "*" still applies the row filter correctly.
 #[tokio::test]

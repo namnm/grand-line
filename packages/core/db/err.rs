@@ -1,5 +1,7 @@
 use super::prelude::*;
 
+/// Error type for the core db layer, re-exported as CoreDbErr,
+/// variants marked client are safe to expose to callers, the rest are internal server errors.
 #[grand_line_err]
 pub enum MyErr {
     // ========================================================================

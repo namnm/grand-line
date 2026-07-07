@@ -1,11 +1,16 @@
 use crate::prelude::*;
 
+/// Proc-macro entry for #[count_resolver], wraps the annotated fn body into an
+/// async resolver returning a Count for the target model.
 pub fn gen_count_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let ifn = parse_macro_input!(item as ItemFn);
     try_gen_count_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+/// Parsed arguments of #[count_resolver(Model, parent = "Parent")], model is the
+/// target entity the resolver counts, parent fixes the generated resolver's
+/// parent type, when omitted it stays generic over any GqlModel.
 #[field_names]
 pub struct CountResolverAttr {
     #[field_names(skip)]

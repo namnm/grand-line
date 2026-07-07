@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Checks a GraphQL field's arguments and selected output against a role's
+/// ColPolicyField allow-tree.
 pub trait AuthzColContext<'a>
 where
     Self: ImplContext<'a>,
@@ -25,6 +27,10 @@ where
 
 impl<'a> AuthzColContext<'a> for Context<'a> {
 }
+
+// ---------------------------------------------------------------------------
+// Allow-tree matching helpers
+// ---------------------------------------------------------------------------
 
 /// Check a single key-value argument pair against parent.
 /// Dispatches on value shape:

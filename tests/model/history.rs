@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// History recorded for each mutating operation
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn history_record_create() -> Res<()> {
     mod test {
@@ -74,7 +78,9 @@ async fn history_record_create_many() -> Res<()> {
         return TestErr::expect("2 episodes should be created");
     };
 
-    // exec_without_ctx skips history
+    // Bulk exec_without_ctx skips history entirely, unlike single-row
+    // exec_without_ctx which still auto-records with by_id none (see
+    // history_record_create above). This is a known, tracked gap, not a bug,
     let exists = History::find().exists(&tmp.db).await?;
     pretty_eq!(
         exists,
@@ -288,6 +294,10 @@ async fn history_record_permanent_delete() -> Res<()> {
 
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// History disabled by default
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn history_flag_false_by_default() -> Res<()> {

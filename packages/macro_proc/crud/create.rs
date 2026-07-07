@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Entry point for the #[create] attribute macro, builds a create mutation
+/// resolver, defaulting inputs to data: <Model>Create and the output to the
+/// model's Gql type unless resolver_inputs/resolver_output opt out.
 pub fn gen_create(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);

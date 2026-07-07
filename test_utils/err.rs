@@ -9,6 +9,7 @@ pub enum TestErr {
 }
 
 impl TestErr {
+    /// Build an Err carrying message, useful as an early return for a failed assertion.
     pub fn expect<T>(message: &str) -> Res<T> {
         let err = Self::Expect {
             message: message.into(),

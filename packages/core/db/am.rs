@@ -53,6 +53,9 @@ where
     /// We need to have this method instead to get default values on update.
     /// This will be used together with the macro am_update!.
     fn set_defaults_on_update(mut self) -> Self {
+        // !is_set() intentionally: every update should attribute updated_by_id
+        // to the current actor, including when the ActiveModel came from
+        // ..model.into_active_model() and the field is Unchanged rather than NotSet.
         if E::col_updated_at().is_some() && !self.get_updated_at().is_set() {
             // do not call now() if there is no column
             self = self.set_updated_at(Some(now()));

@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Rewrites a Model { field: expr, .. } struct literal into
+/// Model#suf { field: wrap(expr), .. }, optionally chaining .method() on the
+/// result, backs concise-syntax macros like filter!.
 pub fn expr_struct(item: TokenStream, suf: &str, wrap: &str, method: &str) -> TokenStream {
     let struk = match parse_struct(item) {
         Ok(struk) => struk,
@@ -29,6 +32,9 @@ fn try_expr_struct(struk: &ExprStruct, suf: &str, wrap: &str, method: &str) -> S
     Ok(r.into())
 }
 
+/// Same rewrite as expr_struct with wrap fixed to Set, then wraps the result
+/// in AmWrapper::<op_ty, Entity, _>::new(..), backs the am_create!/am_update!/
+/// am_soft_delete! macros.
 pub fn expr_struct_am_wrapper(item: TokenStream, suf: &str, op_ty: &str) -> TokenStream {
     let item = match parse_struct(item) {
         Ok(item) => item,
@@ -84,6 +90,9 @@ impl Parse for ManyInput {
     }
 }
 
+/// Parses a Model, [ { field: expr, .. }, .. ] input, applies the same
+/// Set-wrapping as expr_struct_am_wrapper to each element, and collects them
+/// into the matching *Many wrapper, backs the am_*_many! macros.
 pub fn expr_array_am_wrapper(item: TokenStream, suf: &str, op_ty: &str) -> TokenStream {
     let input = parse_macro_input!(item as ManyInput);
     try_expr_array_am_wrapper(&input, suf, op_ty).unwrap_or_else(|e| e.to_compile_error().into())

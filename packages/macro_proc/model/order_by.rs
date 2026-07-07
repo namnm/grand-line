@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Add the Asc and Desc order_by variants for one model field.
 pub fn order_by(f: &Field, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>) -> SynRes<()> {
     push(f, struk, query, "asc")?;
     push(f, struk, query, "desc")?;

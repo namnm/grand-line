@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Parsed arguments common to belongs_to / has_one / has_many / many_to_many
+/// relation attributes, key / through / other_key are validated here but resolved
+/// with their type-specific defaults by the key_str / through / other_key methods.
 #[field_names]
 pub struct RelationAttr {
     pub resolver: Option<Ident>,
@@ -51,16 +54,22 @@ impl AttrValidate for RelationAttr {
 }
 
 impl RelationAttr {
+    /// Target entity type of this relation.
     pub fn to(&self) -> SynRes<Ts2> {
         self.inner.field_ty()?.ts2_or_err()
     }
+    /// Gql type of the target entity.
     pub fn gql_to(&self) -> SynRes<Ts2> {
         ty_gql(self.to()?)
     }
+    /// This relation field's name.
     pub fn name(&self) -> SynRes<Ts2> {
         self.inner.field_name()?.ts2_or_err()
     }
 
+    /// FK column name for this relation: the explicit key = "..." override, or a
+    /// default, <field>_id for belongs_to (fk lives on self), <model>_id otherwise
+    /// (fk lives on the target, or on the join table for many_to_many).
     pub fn key_str(&self) -> SynRes<String> {
         if let Some(v) = self.inner.str(Self::FIELD_KEY)? {
             return Ok(v);
@@ -75,6 +84,8 @@ impl RelationAttr {
         };
         Ok(r)
     }
+    /// Join entity for many_to_many: the explicit through = "..." override, or a
+    /// default <model>_in_<target> pascal-cased ident, only valid for ManyToMany.
     pub fn through(&self) -> SynRes<Ts2> {
         if let Some(v) = self.inner.str(Self::FIELD_THROUGH)? {
             return v.ts2_or_err();
@@ -86,6 +97,8 @@ impl RelationAttr {
         }
         format!("{model}_in_{ty}").to_pascal_case().ts2_or_err()
     }
+    /// Join-table column referencing the target row for many_to_many: the explicit
+    /// other_key = "..." override, or a default <target>_id, only valid for ManyToMany.
     pub fn other_key(&self) -> SynRes<Ts2> {
         if let Some(v) = self.inner.str(Self::FIELD_OTHER_KEY)? {
             return v.ts2_or_err();

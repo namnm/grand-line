@@ -17,6 +17,7 @@ default_without_db = [
   "axum",
   "auth",
   "authz",
+  "i18n",
   "default_flags",
 ]
 default_flags = [
@@ -53,6 +54,7 @@ resolver_authz_row = ["_core/resolver_authz_row"]
 # main packages
 auth = ["dep:_auth", "_core/auth", "rand_utils"]
 authz = ["auth", "dep:_authz", "_core/authz"]
+i18n = ["dep:_i18n"]
 # others
 http = ["dep:_http"]
 axum = ["http", "_http/axum"]
@@ -66,6 +68,7 @@ _auth = { path = "./packages/auth", optional = true, default-features = false }
 _authz = { path = "./packages/authz", optional = true, default-features = false }
 _core = { path = "./packages/core", default-features = false }
 _http = { path = "./packages/http", optional = true, default-features = false }
+_i18n = { path = "./packages/i18n", optional = true, default-features = false }
 _rand_utils = { path = "./packages/rand_utils", optional = true, default-features = false }
 _tracing = { path = "./packages/tracing", optional = true, default-features = false }
 _utils = { path = "./packages/macro_utils", default-features = false }
@@ -108,6 +111,7 @@ else_if_without_else = "allow"
 exhaustive_enums = "allow"
 exhaustive_structs = "allow"
 field_scoped_visibility_modifiers = "allow"
+implicit_hasher = "allow"
 implicit_return = "allow"
 integer_division = "allow"
 integer_division_remainder_used = "allow"

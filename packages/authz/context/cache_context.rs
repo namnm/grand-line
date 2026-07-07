@@ -1,10 +1,18 @@
 use crate::prelude::*;
 
+/// Per-request cache for authz role/org lookups, plus the alias-to-schema
+/// path map used by nested resolvers to find their row policy entry.
 #[async_trait]
 pub trait AuthzCacheContext<'a>
 where
     Self: AuthContext<'a> + AuthzHttpContext<'a> + AuthzColContext<'a>,
 {
+    // ---------------------------------------------------------------------------
+    // Cache lookup and population
+    // ---------------------------------------------------------------------------
+
+    /// Return the cached authz result for the current field, computing and
+    /// storing it via authz_without_cache on first access.
     async fn authz_with_cache(&self, check: AuthzEnsure) -> Res<Option<Arc<AuthzCacheItem>>> {
         let field = self.field_impl();
         let name = field.name();
@@ -48,6 +56,10 @@ where
         Ok(v)
     }
 
+    /// Resolve the role matching the request headers, realm, org and user
+    /// constraints in check, then verify it grants access to the current
+    /// field's inputs and output via its col_policy. Returns None when no
+    /// role matches or the matched role's col_policy denies the field.
     async fn authz_without_cache(&self, check: AuthzEnsure) -> Res<Option<AuthzCacheItem>> {
         let k = self.authz_config().role_id_header_key;
         let role_id = self.get_header(k)?.trim().to_owned();
@@ -93,6 +105,10 @@ where
         };
 
         let map = ColPolicy::from_json(role.col_policy.clone())?;
+        // "*" is checked before the specific operation entry, so a "*" grant always
+        // wins over a stricter per-operation entry. This is intentional: col_policy
+        // is allow-only today, there is no deny entry to express "grant everything
+        // via * except this one operation." Deny-mode to be implemented later.
         if let Some(p) = map.get("*").or_else(|| map.get(self.field_impl().name()))
             && self.authz_col_check_inputs(&p.inputs)
             && self.authz_col_check_output(&p.output)
@@ -107,13 +123,23 @@ where
         Ok(None)
     }
 
+    // ---------------------------------------------------------------------------
+    // Cache initialization helpers
+    // ---------------------------------------------------------------------------
+
+    /// Get or create the per-request authz role/org cache.
     async fn authz_cache_or_init(&self) -> Res<Arc<AuthzCache>> {
         self.cache(async || Ok(Mutex::new(HashMap::new()))).await
     }
 
+    /// Get or create the per-request alias-to-schema path map.
     async fn authz_path_map_or_init(&self) -> Res<Arc<AuthzPathMap>> {
         self.cache(async || Ok(AuthzPathMap(Mutex::new(HashMap::new())))).await
     }
+
+    // ---------------------------------------------------------------------------
+    // Path and cache key resolution
+    // ---------------------------------------------------------------------------
 
     /// Translate the current resolver's alias-based path to schema field names.
     /// The root resolver pre-builds the full alias->schema path map for its entire

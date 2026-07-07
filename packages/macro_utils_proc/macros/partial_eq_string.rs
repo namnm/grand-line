@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Implementation of the PartialEqString derive macro, see macro_utils_proc::partial_eq_string.
 pub fn gen_partial_eq_string(input: TokenStream) -> TokenStream {
     let ty = parse_macro_input!(input as DeriveInput).ident;
     quote! {

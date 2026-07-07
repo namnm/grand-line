@@ -3,6 +3,8 @@ use crate::prelude::*;
 // ============================================================================
 // AmExecCtx - resolves ctx, builds active model, runs db operation
 
+/// Resolves the context's audit id, builds the active model, and runs the db operation,
+/// recording a History entry when the target entity has history enabled.
 #[async_trait]
 pub trait AmExecCtx
 where

@@ -1,5 +1,6 @@
 use super::prelude::*;
 
+/// Errors produced by the core graphql context, data loader, cache and extension layer.
 #[grand_line_err]
 pub enum MyErr {
     // ========================================================================

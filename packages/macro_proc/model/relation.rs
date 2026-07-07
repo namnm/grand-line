@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// One relation field of a model, ready to generate its resolver, filter fields,
+/// and optional count resolver, ty selects belongs_to / has_one / has_many / many_to_many.
 pub struct GenRelation {
     pub ty: RelationTy,
     pub a: RelationAttr,

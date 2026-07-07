@@ -4,6 +4,7 @@ use crate::prelude::*;
 /// Checked once at the operation root resolver before any DB work.
 pub type ColPolicy = HashMap<String, ColPolicyOperation>;
 
+/// Combined input and output allow-tree for a single GraphQL operation.
 #[gql_input]
 pub struct ColPolicyOperation {
     /// Controls which GraphQL arguments callers may pass.

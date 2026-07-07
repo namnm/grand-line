@@ -2,6 +2,10 @@
 
 pub use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Test models and schema
+// ---------------------------------------------------------------------------
+
 #[model]
 pub struct User {
     pub name: String,
@@ -56,6 +60,10 @@ pub struct UserInOrg {
 pub struct Query(UserDetailQuery, UserSearchQuery, UserCountQuery, PersonDetailQuery);
 #[derive(Default, MergedObject)]
 pub struct Mutation(UserDeleteMutation);
+
+// ---------------------------------------------------------------------------
+// Test fixture setup
+// ---------------------------------------------------------------------------
 
 pub struct Setup {
     pub tmp: TmpDb,
@@ -144,6 +152,10 @@ pub async fn setup() -> Res<Setup> {
         pid2: p2.id,
     })
 }
+
+// ---------------------------------------------------------------------------
+// Query helpers
+// ---------------------------------------------------------------------------
 
 pub fn include_all_filter() -> GraphQLValue {
     value!({

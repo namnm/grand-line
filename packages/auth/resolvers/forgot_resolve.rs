@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Resolves a Forgot-type OTP, sets the new password for the user captured at request time,
+/// and logs them in with a fresh session.
 pub async fn forgot_resolve_impl<U>(
     ctx: &Context<'_>,
     data: AuthOtpResolve,

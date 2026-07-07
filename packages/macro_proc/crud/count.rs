@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Entry point for the #[count] attribute macro, builds a count query resolver
+/// returning u64, defaulting inputs to filter (plus include_deleted when
+/// enabled), unless resolver_inputs/resolver_output opt out.
 pub fn gen_count(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);

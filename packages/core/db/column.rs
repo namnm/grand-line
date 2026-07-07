@@ -6,6 +6,7 @@ where
     Self: ColumnTrait,
 {
     type E: EntityX;
+    /// Format this column as model name and column name joined by a dot, e.g. task.title.
     fn to_string_with_model_name(&self) -> String {
         let model = Self::E::model_name();
         let col = self.as_str();
@@ -20,6 +21,8 @@ where
         s
     }
 
+    /// Build a data loader cache key from model, column, requested look ahead fields and suffix,
+    /// so calls that select different field sets do not collide in the loader cache.
     fn to_loader_key(&self, look_ahead: &[LookaheadX<Self::E>], suffix: &str) -> String {
         let model = Self::E::model_name();
         let col = self.as_str();

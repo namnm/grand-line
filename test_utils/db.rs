@@ -1,6 +1,11 @@
 use crate::prelude::*;
 use core::time::Duration;
 
+// ---------------------------------------------------------------------------
+// Entry point -- create a fresh temporary database for the active backend
+// ---------------------------------------------------------------------------
+
+/// Create a temporary database using the URI matching the compiled backend feature.
 pub async fn tmp_db() -> Res<TmpDb> {
     let tmp = TmpDb::new(db_uri()).await?;
     Ok(tmp)
@@ -19,6 +24,7 @@ const fn db_uri() -> &'static str {
 // ============================================================================
 // create temporary db and automatically clean up on drop
 
+/// A temporary, isolated database for a single test, call drop() when done.
 pub struct TmpDb {
     ty: TmpDbTy,
     name: String,
@@ -34,6 +40,8 @@ enum TmpDbTy {
 }
 
 impl TmpDb {
+    /// Create an isolated Postgres schema, MySQL database, or in-memory
+    /// Sqlite database, based on the scheme of uri.
     pub async fn new(uri: &str) -> Res<Self> {
         match get_uri_scheme(uri).as_str() {
             "postgres" => Self::new_postgres(uri).await,
@@ -91,6 +99,8 @@ impl TmpDb {
         })
     }
 
+    /// Tear down the temporary schema/database and close the connection,
+    /// must be called explicitly, this is not the std Drop trait.
     pub async fn drop(&self) -> Res<()> {
         match &self.ty {
             TmpDbTy::Postgres => {
@@ -160,6 +170,7 @@ async fn exec(db: &DatabaseConnection, be: DbBackend, stmt: &str) -> Res<()> {
     Ok(())
 }
 
+/// Create the table for an entity in the given database, using its schema.
 pub async fn create_table<E>(db: &DatabaseConnection, e: E) -> Res<()>
 where
     E: EntityX,

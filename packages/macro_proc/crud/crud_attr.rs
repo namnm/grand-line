@@ -1,9 +1,16 @@
 use crate::prelude::*;
 
+/// Parsed attribute for the create/search/count/detail/update/delete macros.
 #[field_names]
 pub struct CrudAttr {
+    /// When true, the resolver body supplies its own inputs instead of the
+    /// generated ones (e.g. id/data for update, filter/order_by/page for search).
     pub resolver_inputs: bool,
+    /// When true, the resolver body supplies its own output instead of the
+    /// generated model-based one.
     pub resolver_output: bool,
+    /// When true (delete only), adds a permanent: Option<bool> input so callers
+    /// can request a hard delete instead of a soft delete.
     pub permanent_delete: bool,
     #[field_names(skip)]
     pub model: String,
@@ -44,6 +51,9 @@ impl AttrValidate for CrudAttr {
 }
 
 impl CrudAttr {
+    /// Checks that the resolver item's inputs/output shape agrees with the
+    /// resolver_inputs/resolver_output flags and that tx/ctx are consistent,
+    /// returns an Err describing the mismatch otherwise.
     pub fn validate(&self, r: &ResolverTyItem) -> SynRes<()> {
         let ResolverTyItem {
             gql_name,
@@ -72,7 +82,7 @@ impl CrudAttr {
             );
             return Err(SynErr::new(*span, msg));
         }
-        if !self.ra.tx && !self.ra.ctx {
+        if self.ra.tx && !self.ra.ctx {
             let msg = format!("{gql_name} tx requires ctx");
             return Err(SynErr::new(*span, msg));
         }

@@ -5,6 +5,7 @@ pub trait AuthContext<'a>
 where
     Self: AuthConfigContext<'a> + AuthHttpContext<'a> + AuthCacheContext<'a> + AuthEnsureContext<'a>,
 {
+    /// Returns the authenticated user id, or MyErr::Unauthenticated if no valid session exists.
     async fn auth(&self) -> Res<String> {
         let user_id = self
             .auth_unchecked()

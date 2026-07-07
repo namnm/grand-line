@@ -9,12 +9,15 @@ use super::prelude::*;
 // client-side. Opt into returning() when the row needs to reflect DB-side
 // defaults/triggers (custom db) that the client can't see.
 
+/// Bulk-create request, wrapped active models plus the returning opt-in flag
+/// described above.
 pub struct AmCreateMany<E, A> {
     items: Vec<AmWrapper<AmCreate, E, A>>,
     returning: bool,
 }
 
 impl<E, A> AmCreateMany<E, A> {
+    /// Build a bulk-create request from wrapped active models, returning defaults to false.
     pub const fn new(items: Vec<AmWrapper<AmCreate, E, A>>) -> Self {
         Self {
             items,
@@ -22,11 +25,14 @@ impl<E, A> AmCreateMany<E, A> {
         }
     }
 
+    /// Opt into reading rows back after insert, needed when DB-side defaults or
+    /// triggers must be reflected in the returned models.
     pub const fn returning(mut self) -> Self {
         self.returning = true;
         self
     }
 
+    /// Split into the wrapped items and the returning flag.
     pub fn into_parts(self) -> (Vec<AmWrapper<AmCreate, E, A>>, bool) {
         (self.items, self.returning)
     }

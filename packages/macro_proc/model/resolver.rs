@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// One #[resolver(...)] field of a model, ready to generate its resolver fn
+/// by delegating to the user function named in a.f.
 pub struct GenResolver {
     pub a: ResolverAttr,
     pub field_attrs: Vec<Attribute>,

@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Add the and / or / NOT composite filter fields to a model's Filter struct,
+/// each takes a nested list (or single, for NOT) of the same filter type f.
 pub fn filter_and_or_not(f: &Ts2, struk: &mut Vec<Ts2>, query: &mut Vec<Ts2>) -> SynRes<()> {
     push_and_or(f, struk, query, "and")?;
     push_and_or(f, struk, query, "or")?;

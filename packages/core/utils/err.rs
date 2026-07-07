@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Errors produced by the core utils helpers, currently json (de)serialization failures.
 #[grand_line_err]
 pub enum MyErr {
     // ========================================================================

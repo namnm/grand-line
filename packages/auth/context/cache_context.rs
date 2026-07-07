@@ -1,15 +1,20 @@
 use crate::prelude::*;
 
+/// Provides request-scoped, cached access to the current login session.
 #[async_trait]
 pub trait AuthCacheContext<'a>
 where
     Self: AuthHttpContext<'a>,
 {
+    /// Returns the current login session, if any, cached for the lifetime of the request.
     async fn auth_unchecked(&self) -> Res<Arc<Option<LoginSessionSql>>> {
         let arc = self.cache(|| self.auth_unchecked_without_cache()).await?;
         Ok(arc)
     }
 
+    /// Resolves the login session from the request token, without using the cache.
+    /// Returns None if the token is missing or invalid, the session secret does not match,
+    /// or the session is expired.
     async fn auth_unchecked_without_cache(&self) -> Res<Option<LoginSessionSql>> {
         let mut t = self.get_authorization_token()?;
         if t.is_empty() {

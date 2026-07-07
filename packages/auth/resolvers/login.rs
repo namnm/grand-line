@@ -6,11 +6,15 @@ pub struct Login {
     pub password: String,
 }
 
+/// Request metadata captured for a login session, ua is a map of request headers
+/// such as user-agent or sec-ch-ua...
 pub struct LoginSessionData {
     pub ip: String,
     pub ua: HashMap<String, String>,
 }
 
+/// Validates email/password and creates a new login session, or returns
+/// MyErr::LoginIncorrect if the email is not found or the password does not match.
 pub async fn login_impl<U>(ctx: &Context<'_>, data: Login) -> Res<LoginSessionWithSecret>
 where
     U: AuthUser,
@@ -39,6 +43,7 @@ where
     Ok(ls)
 }
 
+/// Creates a login session row for the given user and sets the login session cookie.
 pub async fn login_session_create(
     ctx: &Context<'_>,
     tx: &DatabaseTransaction,

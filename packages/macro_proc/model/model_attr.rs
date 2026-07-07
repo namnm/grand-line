@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Parsed arguments of #[model(...)] on the struct itself: which standard
+/// columns/features to generate, created_at / updated_at / deleted_at timestamps,
+/// by_id lookup helper, and history (audit trail) support.
 #[field_names]
 pub struct ModelAttr {
     pub created_at: bool,

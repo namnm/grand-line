@@ -6,6 +6,8 @@ pub struct Register {
     pub password: String,
 }
 
+/// Starts registration, creates a Register-type OTP row and returns it with its secret,
+/// the caller must resolve it with the OTP code to actually create the user.
 pub async fn register_impl<U>(ctx: &Context<'_>, data: Register) -> Res<AuthOtpWithSecret>
 where
     U: AuthUser,

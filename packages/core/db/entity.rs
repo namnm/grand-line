@@ -6,16 +6,30 @@ pub trait EntityX
 where
     Self: EntityTrait<Model = Self::M, ActiveModel = Self::A, Column = Self::C> + Send + Sync,
 {
+    // ---------------------------------------------------------------------------
+    // Associated types and entity metadata
+    // ---------------------------------------------------------------------------
+
+    /// Sea_orm model type for this entity.
     type M: ModelX<Self>;
+    /// Sea_orm active model type for this entity.
     type A: ActiveModelX<Self>;
+    /// Column enum type for this entity.
     type C: ColumnX<E = Self>;
+    /// Graphql filter input type for this entity.
     type F: FilterX<E = Self>;
+    /// Graphql order_by enum type for this entity.
     type O: OrderBy<E = Self>;
+    /// Graphql output model type for this entity.
     type G: GqlModel<Self>;
 
     /// Get entity model name.
     /// To clarify model name in case of error.
     fn model_name() -> &'static str;
+
+    // ---------------------------------------------------------------------------
+    // Column accessors
+    // ---------------------------------------------------------------------------
 
     /// Get column id.
     /// Should be generated in the model macro.
@@ -38,6 +52,10 @@ where
     /// Get column deleted_by_id.
     /// Should be generated in the model macro.
     fn col_deleted_by_id() -> Option<Self::C>;
+
+    // ---------------------------------------------------------------------------
+    // GraphQL field lookahead metadata
+    // ---------------------------------------------------------------------------
 
     /// Get sql columns map with rust snake field name, for gql look ahead.
     /// Exclude all columns skipped with #[graphql(skip)].
@@ -88,6 +106,10 @@ where
         Ok(r)
     }
 
+    // ---------------------------------------------------------------------------
+    // Condition and soft-delete builders
+    // ---------------------------------------------------------------------------
+
     /// Quickly build condition id eq.
     fn cond_id(id: &str) -> Condition {
         Condition::all().add(Self::col_id().eq(id))
@@ -120,6 +142,10 @@ where
         let r = Self::update_many().set(am);
         Ok(r)
     }
+
+    // ---------------------------------------------------------------------------
+    // GraphQL resolver helpers
+    // ---------------------------------------------------------------------------
 
     /// Helper to use in resolver body of the macro search.
     async fn gql_search<D>(

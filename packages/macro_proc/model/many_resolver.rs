@@ -1,11 +1,16 @@
 use crate::prelude::*;
 
+/// Proc-macro entry for #[many_resolver], wraps the annotated fn body into an
+/// async resolver returning a Search of the target model's order_by type.
 pub fn gen_many_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let ifn = parse_macro_input!(item as ItemFn);
     try_gen_many_resolver(a, &ifn).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+/// Parsed arguments of #[many_resolver(Model, parent = "Parent")], model is the
+/// target entity the resolver searches, parent fixes the generated resolver's
+/// parent type, when omitted it stays generic over any GqlModel.
 #[field_names]
 pub struct ManyResolverAttr {
     #[field_names(skip)]

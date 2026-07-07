@@ -1,6 +1,7 @@
 use super::prelude::*;
 use dataloader::Loader;
 
+/// Batch loader for entity E, keyed by the string value of col.
 pub struct LoaderX<E>
 where
     E: EntityX,

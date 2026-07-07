@@ -2,6 +2,10 @@
 mod setup;
 use setup::*;
 
+// ---------------------------------------------------------------------------
+// Wildcard access for both realms
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn ok_org_realm() -> Res<()> {
     let d = setup_with_col_wildcard().await?;
@@ -70,6 +74,10 @@ async fn ok_system_realm() -> Res<()> {
 
     d.tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Cross-org role rejection
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn role_from_other_org_returns_unauthorized() -> Res<()> {

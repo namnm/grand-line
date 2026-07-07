@@ -1,5 +1,9 @@
 use super::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Raw context data access shortcuts
+// ---------------------------------------------------------------------------
+
 /// Shortcuts so we can directly use the methods from trait definition instead of impl.
 pub trait BaseImplContext<'a> {
     /// Shortcuts so we can directly use the methods from trait definition instead of impl.
@@ -62,6 +66,10 @@ impl<'a> BaseImplContext<'a> for ExtensionContext<'a> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Field, path and header shortcuts
+// ---------------------------------------------------------------------------
+
 /// Shortcuts so we can directly use the methods from trait definition instead of impl.
 pub trait ImplContext<'a>
 where
@@ -74,6 +82,7 @@ where
     /// Shortcuts so we can directly use the methods from trait definition instead of impl.
     fn append_http_header_impl(&self, k: &'static str, v: &str) -> bool;
 
+    /// Returns the current field path joined by dots, with numeric list index segments removed.
     fn field_path_without_number_index(&self) -> String {
         let Some(node) = self.path_node_impl() else {
             return self.field_impl().name().to_owned();

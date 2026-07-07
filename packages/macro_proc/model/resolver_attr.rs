@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Parsed arguments of #[resolver(fn_path, sql_dep = "...", ...)] on a model
+/// field, f is the function to call (defaults to resolve_<field>), sql_dep lists
+/// the entity columns the resolver depends on for GQL_SELECT.
 #[field_names]
 pub struct ResolverAttr {
     #[field_names(skip)]

@@ -1,6 +1,9 @@
 use crate::prelude::*;
 use std::env;
 
+/// Prints (debug_macro_cli feature) or writes to target/grand-line/<name>.rs
+/// (debug_macro_file feature) the generated token stream for a macro
+/// expansion named name, no-op unless the DEBUG_MACRO=1 env var is set.
 pub fn debug_macro(name: &str, ts: &Ts2) {
     if env::var("DEBUG_MACRO").unwrap_or_default() != "1" {
         return;

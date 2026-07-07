@@ -3,9 +3,14 @@ use super::prelude::*;
 // ============================================================================
 // exec_without_ctx
 
+/// Execute a single active-model wrapper without a Ctx, persisting the row
+/// (insert, update, or soft delete depending on the operation kind) and
+/// returning the resulting model.
 #[async_trait]
 pub trait AmExecWithoutCtx {
     type Model: Send + Sync;
+
+    /// Persist this wrapper's active model via tx and return the saved model.
     async fn exec_without_ctx<D>(self, tx: &D) -> Res<Self::Model>
     where
         D: ConnectionTrait;
@@ -75,6 +80,10 @@ where
         Ok(r)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared helper for bulk multi-item exec
+// ---------------------------------------------------------------------------
 
 /// Run exec_without_ctx on each item in order, collecting the results.
 /// Shared by AmUpdateMany / AmSoftDeleteMany, sea_orm has no single-statement

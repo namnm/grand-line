@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// The fn item annotated by a resolver-generating attribute macro, parsed into
+/// its GraphQL-facing name plus the raw token pieces needed to rebuild it.
 pub struct ResolverTyItem {
     pub gql_name: String,
     pub inputs: Ts2,
@@ -21,6 +23,9 @@ impl Default for ResolverTyItem {
 }
 
 impl ResolverTyItem {
+    /// Fills in the default gql_name for the reserved "resolver" fn name
+    /// (crud_model + crud, camelCased) and derives the generated struct type
+    /// and fn name identifiers, returns (self, ty, name).
     pub fn init(mut self, operation: &str, crud: &str, crud_model: &str) -> SynRes<(Self, Ts2, Ts2)> {
         if self.gql_name == "resolver" {
             if crud.is_empty() {

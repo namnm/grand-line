@@ -1,5 +1,9 @@
 use crate::prelude::*;
 
+// ---------------------------------------------------------------------------
+// OTP model and type
+// ---------------------------------------------------------------------------
+
 #[model(updated_at = false, deleted_at = false, by_id = false)]
 pub struct AuthOtp {
     pub email: String,
@@ -7,14 +11,18 @@ pub struct AuthOtp {
     #[graphql(skip)]
     pub ty: AuthOtpTy,
 
+    /// Hash of the opaque secret returned to the client with the row id, checked
+    /// alongside the OTP code so the resolve endpoint cannot be guessed by id alone.
     #[graphql(skip)]
     pub secret_hashed: String,
 
+    /// Salt and hash of the one-time password code delivered to the user, e.g. by email.
     #[graphql(skip)]
     pub otp_salt: String,
     #[graphql(skip)]
     pub otp_hashed: String,
 
+    /// Type-specific payload, see AuthOtpDataRegister and AuthOtpDataForgot.
     #[graphql(skip)]
     pub data: JsonValue,
 
@@ -36,15 +44,25 @@ pub enum AuthOtpTy {
     Forgot,
 }
 
+// ---------------------------------------------------------------------------
+// Type-specific OTP payloads
+// ---------------------------------------------------------------------------
+
+/// Payload stored in AuthOtp.data for a Register-type OTP.
 #[derive(Serialize, Deserialize)]
 pub struct AuthOtpDataRegister {
     pub password_hashed: String,
 }
 
+/// Payload stored in AuthOtp.data for a Forgot-type OTP.
 #[derive(Serialize, Deserialize)]
 pub struct AuthOtpDataForgot {
     pub user_id: String,
 }
+
+// ---------------------------------------------------------------------------
+// GraphQL resolver fields for OTP
+// ---------------------------------------------------------------------------
 
 async fn resolve_remaining_attempt(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<i64> {
     let c = ctx.auth_config();
@@ -64,6 +82,10 @@ async fn resolve_can_re_request_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<Dat
     let d = duration_ms(c.otp_re_request_ms);
     Ok(t + d)
 }
+
+// ---------------------------------------------------------------------------
+// OTP with secret exposed
+// ---------------------------------------------------------------------------
 
 /// To only expose secret in some operations, not the others.
 pub struct AuthOtpWithSecret {

@@ -1,7 +1,13 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Todo model and GraphQL resolvers
+// ---------------------------------------------------------------------------
+
 // create a sea orm model and graphql object
 // id, created_at, updated_at, deleted_at... are inserted automatically
+
+/// A todo item, persisted in the database and exposed over GraphQL.
 #[model]
 pub struct Todo {
     pub content: String,
@@ -44,6 +50,8 @@ fn resolver() {
 }
 
 // create a new Todo
+
+/// Input payload for creating a new Todo.
 #[gql_input]
 pub struct TodoCreate {
     pub content: String,
@@ -58,6 +66,8 @@ fn resolver() {
 }
 
 // update a Todo content
+
+/// Input payload for updating a Todo's content.
 #[gql_input]
 pub struct TodoUpdate {
     pub content: String,

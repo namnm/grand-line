@@ -1,5 +1,6 @@
 use super::prelude::*;
 
+/// Access to the per-request database transaction stored in GrandLineData.
 #[async_trait]
 pub trait TxContext<'a>
 where

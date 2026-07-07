@@ -24,6 +24,9 @@ async fn logout_deletes_session_when_authenticated() -> Res<()> {
     let id = r.str("/logout/id");
     pretty_eq!(id.is_empty(), false, "logout should return the session id");
 
+    let deleted = LoginSession::find_by_id(id).one(&d.tmp.db).await?;
+    pretty_eq!(deleted.is_none(), true, "logout should delete the session row");
+
     d.tmp.drop().await
 }
 

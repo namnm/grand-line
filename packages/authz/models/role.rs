@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// A named permission bundle: which columns and rows an assigned actor may access.
 #[model]
 pub struct Role {
     pub name: String,

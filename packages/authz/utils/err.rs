@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Errors surfaced by the authz package, split into client-facing and
+/// server-only variants.
 #[grand_line_err]
 pub enum MyErr {
     // ========================================================================

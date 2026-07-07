@@ -1,5 +1,9 @@
 use crate::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Relation shape resolution
+// ---------------------------------------------------------------------------
+
 /// Column mapping for a belongs_to / has_one / has_many / many_to_many relation.
 /// self_col is the column on the owning entity, to_col is the column on the target
 /// entity, such that self.self_col and target.to_col correlate one relation instance.
@@ -10,6 +14,8 @@ pub struct RelationShape {
     pub to_col: Ts2,
 }
 
+/// Compute the self_col / to_col pair for a relation, based on its RelationTy,
+/// see RelationShape for what the two columns mean.
 pub fn relation_shape(ty: &RelationTy, a: &RelationAttr) -> SynRes<RelationShape> {
     match ty {
         RelationTy::BelongsTo => {
@@ -33,6 +39,12 @@ pub fn relation_shape(ty: &RelationTy, a: &RelationAttr) -> SynRes<RelationShape
     }
 }
 
+// ---------------------------------------------------------------------------
+// Condition and subquery builders
+// ---------------------------------------------------------------------------
+
+/// Build a Condition::all() matching column::col against the owning row's id,
+/// bound as id in the caller's scope, used by has_many list and count resolvers.
 pub fn has_many_condition(column: &Ts2, col: &Ts2) -> Ts2 {
     quote! {
         Condition::all().add(#column::#col.eq(id))

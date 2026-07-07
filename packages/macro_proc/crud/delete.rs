@@ -1,5 +1,9 @@
 use crate::prelude::*;
 
+/// Entry point for the #[delete] attribute macro, builds a delete mutation
+/// resolver, defaulting inputs to id (plus permanent when permanent_delete is
+/// enabled) and the output to the model's Gql type, unless resolver_inputs/
+/// resolver_output opt out.
 pub fn gen_delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);

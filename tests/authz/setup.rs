@@ -26,6 +26,10 @@ pub use col_policy::*;
 mod row_policy;
 pub use row_policy::*;
 
+// ---------------------------------------------------------------------------
+// Query resolvers
+// ---------------------------------------------------------------------------
+
 #[query(authz(realm = "org"))]
 fn org_primitive() -> i64 {
     0
@@ -65,6 +69,10 @@ pub struct Query(
     SystemPrimitiveQuery,
     SystemQuery,
 );
+
+// ---------------------------------------------------------------------------
+// Base two-org fixture
+// ---------------------------------------------------------------------------
 
 pub struct Setup {
     pub tmp: TmpDb,
@@ -209,6 +217,10 @@ pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Re
         role_id2: r2.id,
     })
 }
+
+// ---------------------------------------------------------------------------
+// Single-org admin seed
+// ---------------------------------------------------------------------------
 
 pub struct OrgAdminSeed {
     pub user_id: String,

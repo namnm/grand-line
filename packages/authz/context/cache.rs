@@ -1,10 +1,13 @@
 use crate::prelude::*;
 
+/// Minimal org projection loaded during authz checks, only the id is selected.
 #[derive(FromQueryResult)]
 pub struct OrgMinimal {
     pub id: String,
 }
 
+/// Cached result of a passed authz check, the matched role and, if the check
+/// required org scoping, the resolved org.
 pub struct AuthzCacheItem {
     pub role: RoleSql,
     pub org: Option<Arc<OrgMinimal>>,

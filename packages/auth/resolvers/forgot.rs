@@ -5,6 +5,9 @@ pub struct Forgot {
     pub email: Email,
 }
 
+/// Starts the forgot-password flow, creates a Forgot-type OTP row for the user with this
+/// email and returns it with its secret, the caller must resolve it to set a new password.
+/// Errors with a 404 if no user has this email.
 pub async fn forgot_impl<U>(ctx: &Context<'_>, data: Forgot) -> Res<AuthOtpWithSecret>
 where
     U: AuthUser,

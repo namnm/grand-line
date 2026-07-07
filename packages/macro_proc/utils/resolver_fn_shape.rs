@@ -1,5 +1,9 @@
 use crate::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Generic parent type parts
+// ---------------------------------------------------------------------------
+
 /// Build the generic params, parent type, and where-clause fragment for a
 /// resolver function's parent argument. With a parent model name, the parent
 /// is that concrete gql type. Without one, the parent is generic over any
@@ -23,6 +27,10 @@ pub fn parent_ty_parts(parent: Option<&String>) -> SynRes<(Ts2, Ts2, Ts2)> {
     };
     Ok(r)
 }
+
+// ---------------------------------------------------------------------------
+// Resolver signature validation
+// ---------------------------------------------------------------------------
 
 /// Reject an fn signature with declared inputs - many_resolver/count_resolver/one_resolver/
 /// field_resolver generate the full parameter list (parent, ctx, tx) themselves, so the user

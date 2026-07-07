@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// GraphQL mutations for register/login/forgot wired to the host app's user entity U.
 pub struct AuthUserImplMutation<U>(PhantomData<U>)
 where
     U: AuthUser;
@@ -44,6 +45,11 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Merged schema roots
+// ---------------------------------------------------------------------------
+
+/// Combined GraphQL query root for the auth package, merge into the host schema.
 #[derive(Default, MergedObject)]
 pub struct AuthMergedQuery(
     LoginSessionCurrentQuery,
@@ -51,6 +57,7 @@ pub struct AuthMergedQuery(
     LoginSessionCountQuery,
 );
 
+/// Combined GraphQL mutation root for the auth package, merge into the host schema.
 #[derive(Default, MergedObject)]
 pub struct AuthMergedMutation<U>(
     LoginSessionDeleteMutation,

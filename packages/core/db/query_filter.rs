@@ -7,6 +7,7 @@ where
 {
     type E: EntityX;
 
+    /// Apply the filter only if c is Some, otherwise return self unchanged.
     fn filter_option<C>(self, c: Option<C>) -> Self
     where
         C: IntoCondition,

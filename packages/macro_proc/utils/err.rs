@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+/// Entry point for the #[grand_line_err] attribute macro, attaches the
+/// Debug, ThisErr, and GrandLineErrDerive derives to the annotated enum.
 pub fn gen_grand_line_err(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr = Into::<Ts2>::into(attr);
     let item = Into::<Ts2>::into(item);
@@ -16,6 +18,9 @@ pub fn gen_grand_line_err(attr: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Entry point for the GrandLineErrDerive derive macro, implements
+/// GrandLineErrImpl for an enum, reading each variant's optional #[code]
+/// (defaults to the variant name) and #[client] attributes.
 pub fn gen_grand_line_err_derive(item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as DeriveInput);
     let name = &item.ident;

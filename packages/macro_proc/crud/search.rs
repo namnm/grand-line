@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Entry point for the #[search] attribute macro, builds a list query resolver
+/// returning Vec<Gql>, defaulting inputs to filter/order_by/page (plus
+/// include_deleted when enabled), unless resolver_inputs/resolver_output opt out.
 pub fn gen_search(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);

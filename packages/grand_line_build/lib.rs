@@ -43,6 +43,7 @@ pub struct SchemaBuilder {
 }
 
 impl SchemaBuilder {
+    /// Creates an empty builder with no scan dirs or extra query/mutation types.
     pub const fn new() -> Self {
         Self {
             dirs: vec![],

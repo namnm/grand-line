@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// has_many count
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn has_many_count() -> Res<()> {
     mod test {
@@ -214,6 +218,10 @@ async fn has_many_count_custom_resolver_uses_parent_field() -> Res<()> {
 
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// many_to_many count
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn many_to_many_count() -> Res<()> {

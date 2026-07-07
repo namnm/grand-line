@@ -1,18 +1,25 @@
 use crate::prelude::*;
 
+/// Parsed attribute shared by #[query]/#[mutation] and the crud macros.
 #[field_names]
 pub struct ResolverTyAttr {
+    /// Whether the generated resolver opens a db transaction.
     pub tx: bool,
+    /// Whether the generated resolver receives the ctx: &Context<'_> parameter.
     pub ctx: bool,
+    /// Whether to add an include_deleted input controlling soft-deleted rows.
     pub include_deleted: bool,
     pub auth: Option<AuthAttr>,
     pub authz: Option<AuthzAttr>,
+    /// Whether to apply the caller's authz row filter to this resolver's query.
     pub authz_row: bool,
     #[field_names(skip)]
     pub inner: Attr,
 }
 
 impl ResolverTyAttr {
+    /// True when either auth is set to a check other than unauthenticated, or
+    /// authz is set, meaning the resolver requires an authenticated caller.
     pub fn has_auth(&self) -> bool {
         let auth = self.auth.as_ref();
         let auth = auth.is_some() && !auth.is_some_and(|v| v.unauthenticated);

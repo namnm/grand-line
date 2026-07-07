@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Search resolver
+// ---------------------------------------------------------------------------
+
 // search resolver returns all records and supports pagination.
 #[tokio::test]
 async fn returns_all() -> Res<()> {
@@ -96,6 +100,10 @@ async fn pagination_limit() -> Res<()> {
 
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Count resolver
+// ---------------------------------------------------------------------------
 
 // count resolver returns the correct count.
 #[tokio::test]

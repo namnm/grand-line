@@ -1,6 +1,8 @@
 use crate::prelude::*;
 use validator::ValidateEmail;
 
+/// A validated, lowercased email address. Validation and normalization only happen
+/// when parsed from a GraphQL input, constructing this directly bypasses both.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Email(pub String);
 

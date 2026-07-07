@@ -1,5 +1,11 @@
 use super::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Filter, condition plus include_deleted override
+// ---------------------------------------------------------------------------
+
+/// Extra condition and include_deleted override contributed by a resolver handler
+/// or authz row policy, ANDed with the client-supplied filter.
 #[derive(Clone)]
 pub struct Filter {
     pub include_deleted: bool, // used if the client didn't pass includeDeleted
@@ -26,6 +32,9 @@ impl Filter {
         }
     }
 
+    /// Whether soft-deleted rows should be included, true if this Filter was
+    /// configured with it, the client requested it, or the client filter already
+    /// references deleted_at directly.
     pub fn include_deleted<F>(&self, include_deleted: Option<bool>, filter: Option<&F>) -> bool
     where
         F: FilterX,
@@ -68,6 +77,11 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Search, filter plus default order_by
+// ---------------------------------------------------------------------------
+
+/// Filter plus the default order_by to apply when the client did not request one.
 #[derive(Clone)]
 pub struct Search<O>
 where
@@ -97,6 +111,7 @@ where
         self
     }
 
+    /// Delegates to the inner Filter, see Filter::include_deleted.
     pub fn include_deleted<F>(&self, include_deleted: Option<bool>, filter: Option<&F>) -> bool
     where
         F: FilterX,
@@ -181,5 +196,11 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Resolver-specific filter aliases
+// ---------------------------------------------------------------------------
+
+/// Extra filter passed to the macro count resolver, see gql_count.
 pub type Count = Filter;
+/// Extra filter passed to the macro detail resolver, see gql_detail.
 pub type Detail = Filter;

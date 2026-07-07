@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Join table assigning a role to a user, optionally scoped to an org.
 #[model]
 pub struct UserInRole {
     pub user_id: String,

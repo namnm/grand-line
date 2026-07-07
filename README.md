@@ -1103,6 +1103,9 @@ A few things that look like limitations at first read but are intentional, docum
 - **`exec_without_ctx` skipping history/`*_by_id` fields is the documented contract, not a bug** - the name says exactly what it does; using it for seeding/batch jobs that don't have a GraphQL context is the intended use case (see [Active model helpers](#active-model-helpers)).
 - **No migrations tooling is a deliberate boundary, not an oversight.** Schema migration is a separate concern from GraphQL API generation - bring your own (`sea-orm-cli migrate`, `sqlx migrate`, `refinery`, etc.). Baking one in would couple this crate to a specific migration workflow for no benefit to the GraphQL/resolver layer itself.
 - **History recording and delete share one transaction, so there's no create-history-then-fail-delete race** - `History::add` runs inside the same `tx` as the delete it documents; if the delete fails afterward, the whole transaction (history record included) rolls back together.
+- **`col_policy`'s `"*"` wildcard always wins over a specific operation entry, by design of an allow-only model.** `ColPolicy` only grants access, it has no deny entry, so there is currently no way to express "`*` allows everything except this one operation." Checking `"*"` first is a direct consequence of that, not an inverted-precedence bug. Revisit if a deny-mode policy entry is ever added (see Roadmap).
+- **A row policy entry with no wired-up handler behaves as unrestricted, not as a deny.** `AuthzHandlers::execute_script` defaults to `Ok(None)`, and `authz_row` treats that identically to "no row policy entry for this path" - both mean no filter is applied. This lets a host app introduce `row_policy` entries incrementally without `authz_row` blocking access before `execute_script` is actually implemented for that script. If you need row policies to fail closed while a handler is unimplemented, check for that explicitly in your own `execute_script`.
+- **`forgot`'s email-not-found path is a distinguishable 404, so the endpoint currently allows registered-email enumeration.** Most production forgot-password flows return an identical response regardless of whether the email exists, to avoid leaking which emails are registered. Tracked as a to-review tradeoff, not fixed by default, since some deployments intentionally prefer a clear "no account" message over enumeration resistance.
 
 #### Roadmap
 
@@ -1112,6 +1115,7 @@ Rough priority order for anyone picking this up next:
 2. **`exec_with_by_id(db, Option<String>)`** - a history/audit-aware variant of `exec_without_ctx` for seeding and batch jobs that have a user id but no GraphQL `Context`.
 3. **Hook history into raw `Entity::insert_many` call sites**, or document clearly that bulk creates must go through the `Vec<AmWrapper<AmCreate, ..>>` exec path (which already records history per row) rather than calling `insert_many` directly.
 4. **Row-policy DSL: dedicated tests and docs** for `AuthzHandlers::execute_script`, with a pattern for unit-testing it independent of full GraphQL requests.
-5. **Subscriptions**, if real-time becomes a requirement - currently the largest capability gap.
-6. **Crate publishing readiness** - stabilize the public API surface, add rustdoc to the core traits (`EntityX`, `FilterX`, `OrderBy`, `AuthHandlers`, `AuthzHandlers`, ...), adopt semantic versioning.
-7. **Standard OSS scaffolding** - `LICENSE`, CI, `CHANGELOG.md`, `CONTRIBUTING.md`.
+5. **`col_policy` deny-mode entry** - a way to express "allow via `*` except this one operation," so wildcard grants can be narrowed without restructuring the whole policy into explicit per-operation entries.
+6. **Subscriptions**, if real-time becomes a requirement - currently the largest capability gap.
+7. **Crate publishing readiness** - stabilize the public API surface, add rustdoc to the core traits (`EntityX`, `FilterX`, `OrderBy`, `AuthHandlers`, `AuthzHandlers`, ...), adopt semantic versioning.
+8. **Standard OSS scaffolding** - `LICENSE`, CI, `CHANGELOG.md`, `CONTRIBUTING.md`.

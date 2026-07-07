@@ -1,7 +1,9 @@
 use crate::prelude::*;
 
+/// Type-erased, cheaply cloneable wrapper around any core error implementing GrandLineErrImpl.
 #[derive(Clone)]
 pub struct GrandLineErr(pub Arc<dyn GrandLineErrImpl>);
+/// Result alias using GrandLineErr as the error type, used throughout the core crate.
 pub type Res<T> = Result<T, GrandLineErr>;
 
 impl Display for GrandLineErr {

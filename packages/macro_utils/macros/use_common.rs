@@ -15,6 +15,8 @@ macro_rules! use_common_std {
     };
 }
 
+/// Internal macro to reuse common proc-macro authoring imports (heck, maplit,
+/// proc_macro2, quote, syn).
 #[macro_export]
 macro_rules! use_common_macro_utils {
     () => {

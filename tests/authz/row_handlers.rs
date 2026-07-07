@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Basic row filter handlers
+// ---------------------------------------------------------------------------
+
 pub struct NoneHandler;
 #[async_trait]
 impl AuthzHandlers for NoneHandler {
@@ -46,6 +50,10 @@ impl AuthzHandlers for BothHandler {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Script-value dependent handler
+// ---------------------------------------------------------------------------
+
 pub const SCRIPT_ALPHA: &str = "mock alpha script";
 pub struct ScriptCheckHandler;
 #[async_trait]
@@ -64,6 +72,10 @@ impl AuthzHandlers for ScriptCheckHandler {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Script evaluation error handler
+// ---------------------------------------------------------------------------
+
 #[grand_line_err]
 pub enum ScriptErr {
     #[error("evaluation failed")]
@@ -77,6 +89,10 @@ impl AuthzHandlers for ErrorHandler {
         Err(ScriptErr::Failed.into())
     }
 }
+
+// ---------------------------------------------------------------------------
+// Malformed filter response handlers
+// ---------------------------------------------------------------------------
 
 // Handler returning wrong JSON type: org_id expects String but receives a number.
 // TaskFilter::from_json will fail deserialization -> InternalServer in GQL response.

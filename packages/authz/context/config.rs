@@ -1,5 +1,9 @@
 use crate::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Authz runtime configuration
+// ---------------------------------------------------------------------------
+
 #[derive(Clone)]
 pub struct AuthzConfig {
     pub org_id_header_key: &'static str,
@@ -20,12 +24,20 @@ impl Default for AuthzConfig {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Pluggable script execution handlers
+// ---------------------------------------------------------------------------
+
+/// Extension points for authz behavior that depends on the host application,
+/// e.g. running row policy dsl scripts. The default implementation is a no-op.
 #[allow(unused_variables)]
 #[async_trait]
 pub trait AuthzHandlers
 where
     Self: Send + Sync,
 {
+    /// Execute a row policy dsl script and return the resulting json, or
+    /// None if the script is not handled.
     async fn execute_script(&self, ctx: &Context<'_>, script: &str) -> Res<Option<JsonValue>> {
         Ok(None)
     }
@@ -35,6 +47,10 @@ struct DefaultHandlers;
 #[async_trait]
 impl AuthzHandlers for DefaultHandlers {
 }
+
+// ---------------------------------------------------------------------------
+// Org lookup abstraction
+// ---------------------------------------------------------------------------
 
 /// Org lookup callbacks, non-generic: method signatures use only primitives
 /// so the trait needs no type parameter.
@@ -46,6 +62,7 @@ where
     async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>>;
 }
 
+/// Default AuthzOrgImpl backed by any model type O implementing AuthzOrg.
 pub struct DefaultOrgImpl<O>(pub(crate) PhantomData<O>);
 #[async_trait]
 impl<O> AuthzOrgImpl for DefaultOrgImpl<O>

@@ -7,6 +7,10 @@ pub use grand_line::prelude::*;
 mod user;
 pub use user::*;
 
+// ---------------------------------------------------------------------------
+// Auth GraphQL query fixtures
+// ---------------------------------------------------------------------------
+
 pub const Q_LOGIN: &str = "
 mutation test($data: Login!) {
     login(data: $data) {
@@ -53,10 +57,18 @@ mutation test($data: AuthOtpResolve!, $password: String!) {
 }
 ";
 
+// ---------------------------------------------------------------------------
+// Query and mutation root types
+// ---------------------------------------------------------------------------
+
 #[derive(Default, MergedObject)]
 pub struct Query(AuthMergedQuery);
 #[derive(Default, MergedObject)]
 pub struct Mutation(AuthMergedMutation<User>);
+
+// ---------------------------------------------------------------------------
+// Test fixture setup
+// ---------------------------------------------------------------------------
 
 pub struct Setup {
     pub tmp: TmpDb,
@@ -105,6 +117,10 @@ pub async fn setup() -> Res<Setup> {
         token,
     })
 }
+
+// ---------------------------------------------------------------------------
+// Mock auth handlers
+// ---------------------------------------------------------------------------
 
 pub struct MockAuthHandlers;
 #[async_trait]

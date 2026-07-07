@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+/// Implementation of the attr_default_flag! macro, see macro_utils_proc::attr_default_flag.
 pub fn gen_attr_default_flag(input: TokenStream) -> TokenStream {
     let f_str = parse_macro_input!(input as Ident).to_string();
     try_gen_attr_default_flag(&f_str).unwrap_or_else(|e| e.to_compile_error().into())

@@ -1,5 +1,8 @@
 use crate::prelude::*;
 
+/// Proc-macro entry for #[model(...)], generates the full sea_orm entity module
+/// for the annotated struct: Model/ActiveModel/Column/Entity, the Gql/Filter/
+/// OrderBy types, and the EntityX/ModelX/ActiveModelX glue impls.
 pub fn gen_model(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr = parse_macro_input!(attr as AttrParse);
     let item = parse_macro_input!(item as ItemStruct);

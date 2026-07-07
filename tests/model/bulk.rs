@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+// ---------------------------------------------------------------------------
+// Bulk create, update, and soft delete
+// ---------------------------------------------------------------------------
+
 #[tokio::test]
 async fn create_many_inserts_all_episodes_in_one_call() -> Res<()> {
     mod test {
@@ -196,6 +200,10 @@ async fn create_many_with_returning_reflects_db_state() -> Res<()> {
 
     tmp.drop().await
 }
+
+// ---------------------------------------------------------------------------
+// Missing id returns err
+// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn update_without_id_returns_err() -> Res<()> {
