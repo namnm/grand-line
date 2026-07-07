@@ -234,7 +234,7 @@ async fn history_record_soft_delete() -> Res<()> {
 }
 
 #[tokio::test]
-async fn history_record_permanent_delete() -> Res<()> {
+async fn history_record_delete_permanent() -> Res<()> {
     mod test {
         use super::*;
 

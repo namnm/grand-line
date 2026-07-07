@@ -1,4 +1,4 @@
-use super::prelude::*;
+use crate::prelude::*;
 
 #[grand_line_err]
 pub enum MyErr {

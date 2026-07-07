@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 // ============================================================================
 // Field attribute helpers
+// ============================================================================
 
 /// Extract doc-comment strings from a field's attributes.
 /// Each /// line becomes one String entry (with the leading space preserved).

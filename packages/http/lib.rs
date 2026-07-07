@@ -1,13 +1,13 @@
 #![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 
 mod context;
-mod err;
+mod utils;
 
-pub mod consts;
+pub use utils::consts;
 
 pub mod export {
     pub use crate::context::*;
-    pub use crate::err::MyErr as HttpErr;
+    pub use crate::utils::*;
     #[cfg(feature = "axum")]
     pub use _http_axum::export::*;
 }
@@ -25,6 +25,6 @@ pub mod prelude {
     pub use _http_axum::prelude::*;
 
     pub(crate) use crate::consts::*;
-    pub(crate) use crate::err::MyErr;
+    pub(crate) use crate::export::HttpErr as MyErr;
     pub(crate) use _core::prelude::*;
 }

@@ -76,10 +76,19 @@ pub mod prelude {
 // Feature flag validation
 // ---------------------------------------------------------------------------
 
-#[cfg(not(any(feature = "postgres", feature = "mysql", feature = "sqlite")))]
+#[cfg(all(
+    // do not enforce in tests
+    not(feature = "test_utils"),
+    not(any(feature = "postgres", feature = "mysql", feature = "sqlite")),
+))]
 compile_error!("should enable one of features: postgres, mysql, sqlite");
 
-#[cfg(all(feature = "http", not(any(feature = "axum"))))]
+#[cfg(all(
+    // do not enforce in tests
+    not(feature = "test_utils"),
+    feature = "http",
+    not(any(feature = "axum")),
+))]
 compile_error!("should enable one of features: axum");
 
 // ---------------------------------------------------------------------------

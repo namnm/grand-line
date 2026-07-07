@@ -2,6 +2,7 @@ use super::prelude::*;
 
 // ============================================================================
 // IntoAmWithoutCtx impls for bulk operations (e.g. Entity::insert_many)
+// ============================================================================
 
 /// Convert a bulk-operation wrapper into its underlying active model, applying
 /// the create, update, or soft-delete specific defaults without needing a Ctx.

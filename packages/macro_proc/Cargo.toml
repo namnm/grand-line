@@ -24,7 +24,7 @@ resolver_tx = []
 resolver_ctx = []
 resolver_relation_count = []
 resolver_include_deleted = []
-resolver_permanent_delete = []
+resolver_delete_permanent = []
 resolver_authz_row = []
 # biz
 auth = []

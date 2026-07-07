@@ -7,6 +7,7 @@ use syn::{Attribute, Item, ItemFn, Meta, parse_file, punctuated::Punctuated, tok
 
 // ============================================================================
 // Public API
+// ============================================================================
 
 /// Scan src/ of the current crate and generate $OUT_DIR/grand_line_schema.rs
 /// containing pub struct Query(...) and pub struct Mutation(...).
@@ -120,6 +121,7 @@ impl Default for SchemaBuilder {
 
 // ============================================================================
 // File scanning - uses syn for accurate AST parsing
+// ============================================================================
 
 fn scan_dir(dir: &Path, query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
     if !dir.exists() {
@@ -191,6 +193,7 @@ fn scan_fn(ifn: &ItemFn, query_types: &mut Vec<String>, mutation_types: &mut Vec
 
 // ============================================================================
 // Attribute detection
+// ============================================================================
 
 const CRUD_MACROS: &[(&str, &str, &str)] = &[
     ("search", "search", "query"),
@@ -236,6 +239,7 @@ fn first_arg_ident(attr: &Attribute) -> Option<String> {
 
 // ============================================================================
 // Name computation - mirrors resolver_ty_item.rs::init exactly
+// ============================================================================
 
 fn resolver_struct_name(f: &str, crud: &str, model: &str, operation: &str) -> String {
     let gql_name = if f == "resolver" && !crud.is_empty() {
@@ -249,6 +253,7 @@ fn resolver_struct_name(f: &str, crud: &str, model: &str, operation: &str) -> St
 
 // ============================================================================
 // Deduplication
+// ============================================================================
 
 fn dedup_warn(types: Vec<String>, kind: &str) -> Vec<String> {
     let mut seen = HashSet::new();
@@ -268,6 +273,7 @@ fn dedup_warn(types: Vec<String>, kind: &str) -> Vec<String> {
 
 // ============================================================================
 // Code generation
+// ============================================================================
 
 fn generate(query_types: &[String], mutation_types: &[String]) -> String {
     let mut out: Vec<String> = vec![];

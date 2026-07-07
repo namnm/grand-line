@@ -265,7 +265,7 @@ fn resolver() {
     Todo::find_by_id(&id).exists_or_404(tx).await?;
 }
 
-#[delete(Todo, permanent_delete = false)] // remove the permanent option
+#[delete(Todo, permanent = false)] // remove the permanent option
 fn resolver() {
 }
 ```

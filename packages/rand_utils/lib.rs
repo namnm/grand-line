@@ -1,23 +1,13 @@
 #![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 
-mod b64;
-mod eq;
-mod err;
-mod otp;
-mod password;
-mod qs;
-mod secret;
+mod libs;
+mod utils;
 
 pub mod export {
-    pub use crate::err::MyErr as AuthUtilsErr;
     pub mod rand_utils {
-        pub use crate::b64::*;
-        pub use crate::eq::*;
-        pub use crate::otp::*;
-        pub use crate::password::*;
-        pub use crate::qs::*;
-        pub use crate::secret::*;
+        pub use crate::libs::*;
     }
+    pub use crate::utils::*;
 }
 
 pub mod reexport {
@@ -36,7 +26,7 @@ pub mod prelude {
     pub use crate::export::*;
     pub use crate::reexport::*;
 
-    pub(crate) use crate::export::AuthUtilsErr as MyErr;
+    pub(crate) use crate::export::RandUtilsErr as MyErr;
     pub(crate) use crate::export::rand_utils::*;
     pub(crate) use _core::prelude::*;
 }

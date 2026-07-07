@@ -2,6 +2,7 @@ use super::prelude::*;
 
 // ============================================================================
 // Operation type markers
+// ============================================================================
 
 pub struct AmCreate;
 pub struct AmUpdate;
@@ -9,6 +10,8 @@ pub struct AmSoftDelete;
 
 // ============================================================================
 // Wrapper struct
+// ============================================================================
+
 // T = operation type (AmCreate | AmUpdate | AmSoftDelete)
 // E = entity (EntityX)
 // A = sea-orm ActiveModel

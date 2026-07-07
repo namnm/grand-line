@@ -28,7 +28,7 @@ impl ResolverTy {
 
         let r = quote! {
             mod #m {
-                pub use super::*;
+                use super::*;
 
                 #[derive(Default)]
                 pub struct #ty;
