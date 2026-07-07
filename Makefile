@@ -1,7 +1,7 @@
 fmt:
 	@cargo +nightly fmt --all \
 	&& doctoc --loglevel warn --github README.md \
-	&& dprint fmt;
+	&& dprint fmt --log-level warn;
 
 check:
 	@make fmt \
@@ -19,7 +19,7 @@ test_sqlite:
 	@make fmt \
 	&& cargo test --no-default-features --features test_utils,default_without_db,sqlite;
 
-test_sqlite_independently:
+test_each:
 	@make fmt \
 	&& bash ./tests/independently.sh;
 

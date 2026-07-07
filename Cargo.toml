@@ -18,6 +18,7 @@ default_without_db = [
   "auth",
   "authz",
   "i18n",
+  "formula",
   "default_flags",
 ]
 default_flags = [
@@ -55,6 +56,7 @@ resolver_authz_row = ["_core/resolver_authz_row"]
 auth = ["dep:_auth", "_core/auth", "rand_utils"]
 authz = ["auth", "dep:_authz", "_core/authz"]
 i18n = ["dep:_i18n"]
+formula = ["i18n", "dep:_formula"]
 # others
 http = ["dep:_http"]
 axum = ["http", "_http/axum"]
@@ -67,6 +69,7 @@ test_utils = ["default_flags", "dep:pretty_assertions", "dep:serde", "dep:thiser
 _auth = { path = "./packages/auth", optional = true, default-features = false }
 _authz = { path = "./packages/authz", optional = true, default-features = false }
 _core = { path = "./packages/core", default-features = false }
+_formula = { path = "./packages/formula", optional = true, default-features = false }
 _http = { path = "./packages/http", optional = true, default-features = false }
 _i18n = { path = "./packages/i18n", optional = true, default-features = false }
 _rand_utils = { path = "./packages/rand_utils", optional = true, default-features = false }

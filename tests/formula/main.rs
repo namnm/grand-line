@@ -1,0 +1,1 @@
+mod intl_template;
