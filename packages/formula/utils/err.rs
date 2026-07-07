@@ -2,6 +2,13 @@ use _core::prelude::*;
 
 #[grand_line_err]
 pub enum MyErr {
+    // ========================================================================
+    // client errors
+    //
+
+    // ========================================================================
+    // server errors
+    //
     #[error("formula compile error: {inner}")]
     Compile {
         inner: String,

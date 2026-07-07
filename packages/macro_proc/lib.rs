@@ -19,6 +19,7 @@ use crate::prelude::*;
 
 // ============================================================================
 // model
+// ============================================================================
 
 /// Derives the full CRUD type family (sea_orm entity, GraphQL type,
 /// ActiveModel, Filter, OrderBy) for a model struct.
@@ -57,6 +58,7 @@ pub fn one_resolver(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 // ============================================================================
 // resolver
+// ============================================================================
 
 /// Registers the annotated fn as a root Query field, inputs/output/body are
 /// used as written.
@@ -74,6 +76,7 @@ pub fn mutation(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 // ============================================================================
 // crud
+// ============================================================================
 
 /// Registers a create mutation for a model, default inputs are
 /// data: <Model>Create and the output is the model's Gql type.
@@ -119,6 +122,7 @@ pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 // ============================================================================
 // utils
+// ============================================================================
 
 /// Attaches the derives needed for a db-backed String enum (gql_enum,
 /// EnumIter, DeriveActiveEnum, stored as a snake_case String column).

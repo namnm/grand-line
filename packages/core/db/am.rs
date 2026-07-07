@@ -2,6 +2,7 @@ use super::prelude::*;
 
 // ============================================================================
 // ActiveModelX trait
+// ============================================================================
 
 /// Abstract extra active model methods implementation.
 #[async_trait]

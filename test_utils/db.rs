@@ -23,6 +23,7 @@ const fn db_uri() -> &'static str {
 
 // ============================================================================
 // create temporary db and automatically clean up on drop
+// ============================================================================
 
 /// A temporary, isolated database for a single test, call drop() when done.
 pub struct TmpDb {
@@ -129,6 +130,7 @@ impl TmpDb {
 
 // ============================================================================
 // helpers
+// ============================================================================
 
 fn new_db_name() -> String {
     let id = ulid();
