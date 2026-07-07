@@ -3,12 +3,15 @@ use chrono::Utc;
 use rhai::Dynamic;
 
 /// Context passed to each FormulaResolver::resolve call.
+///
+/// Deliberately minimal: no user_id/org_id (resolvers do not need the request
+/// identity, current_user/current_org are pushed straight into the Rhai scope
+/// by eval_formula instead) and no db transaction (row-formula db access goes
+/// through the sync FormulaDbAccessor track, called from inside the script via
+/// db_find_one / db_find_many, not through this async pre-fetch track).
 pub struct FormulaCtx<'a> {
-    pub user_id: Option<&'a str>,
-    pub org_id: Option<&'a str>,
     /// BCP 47 locale tag for this eval (e.g. "en", "vi", "ja").
     pub locale: &'a str,
-    pub tx: &'a DatabaseTransaction,
     /// Values already resolved by earlier nodes in the dependency graph.
     /// A resolver for node B that declares deps: ["a"] can read
     /// ctx.resolved["a"] and is guaranteed to find it present.

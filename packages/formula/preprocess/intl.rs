@@ -201,10 +201,18 @@ fn extract_backtick_body(script: &str, start: usize) -> (String, Option<usize>) 
         } else if *bi == b'`' {
             return (content, Some(i + 1));
         } else {
-            let next = bytes[i..]
+            // The byte at i is neither a closing backtick nor the start of a
+            // valid escaped-backtick sequence (it may itself be a lone
+            // backslash, e.g. "a\b"), so it is ordinary content. Search for
+            // the next special byte starting at i + 1, not i, searching from
+            // i here would immediately match a lone backslash against
+            // itself, produce next == i, and loop forever without advancing.
+            let next = bytes
+                .get(i + 1..)
+                .unwrap_or_default()
                 .iter()
                 .position(|b| *b == b'\\' || *b == b'`')
-                .map_or(bytes.len(), |p| i + p);
+                .map_or(bytes.len(), |p| i + 1 + p);
             content.push_str(&script[i..next]);
             i = next;
         }

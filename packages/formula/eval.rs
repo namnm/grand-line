@@ -24,7 +24,6 @@ pub async fn eval_formula(
     user_id: Option<&str>,
     org_id: Option<&str>,
     locale: &str,
-    tx: &DatabaseTransaction,
     graph: &FormulaDepGraph,
     opts: &FormulaOptions,
     register_fns: impl FnOnce(&mut Engine) + Send,
@@ -50,10 +49,7 @@ pub async fn eval_formula(
             .ok_or_else(|| FormulaErr::UnknownVar(name.clone()))?;
         let val = {
             let ctx = FormulaCtx {
-                user_id,
-                org_id,
                 locale,
-                tx,
                 resolved: &resolved,
             };
             node.resolver.resolve(name, &ctx).await?

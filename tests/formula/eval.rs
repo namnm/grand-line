@@ -21,34 +21,22 @@ impl FormulaResolver for DependentResolver {
     }
 }
 
-async fn tx(db: &DatabaseConnection) -> Res<DatabaseTransaction> {
-    let t = db.begin().await?;
-    Ok(t)
-}
-
 // ---------------------------------------------------------------------------
 // Basic evaluation
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn eval_basic_arithmetic() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
-    let r = eval_formula("1 + 1", None, None, "en", &t, &graph, &opts, |_| {}).await?;
+    let r = eval_formula("1 + 1", None, None, "en", &graph, &opts, |_| {}).await?;
 
     pretty_eq!(r, JsonValue::from(2), "1 + 1 should evaluate to 2");
-
-    tmp.drop().await
+    Ok(())
 }
 
 #[tokio::test]
 async fn eval_uses_current_user_and_org() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
     let r = eval_formula(
@@ -56,7 +44,6 @@ async fn eval_uses_current_user_and_org() -> Res<()> {
         Some("olivia"),
         Some("fringe_division"),
         "en",
-        &t,
         &graph,
         &opts,
         |_| {},
@@ -68,8 +55,7 @@ async fn eval_uses_current_user_and_org() -> Res<()> {
         JsonValue::from("olivia@fringe_division"),
         "current_user and current_org should be available as builtin scope vars",
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -78,48 +64,30 @@ async fn eval_uses_current_user_and_org() -> Res<()> {
 
 #[tokio::test]
 async fn eval_unknown_var_returns_err() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
-    let r = eval_formula(
-        "walter_bishop_secret_formula",
-        None,
-        None,
-        "en",
-        &t,
-        &graph,
-        &opts,
-        |_| {},
-    )
-    .await;
+    let r = eval_formula("walter_bishop_secret_formula", None, None, "en", &graph, &opts, |_| {}).await;
 
     pretty_eq!(
         r.is_err(),
         true,
         "referencing a var with no matching graph node or builtin should return an error",
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 #[tokio::test]
 async fn eval_let_bound_var_is_not_unknown() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
-    let r = eval_formula("let x = 41; x + 1", None, None, "en", &t, &graph, &opts, |_| {}).await?;
+    let r = eval_formula("let x = 41; x + 1", None, None, "en", &graph, &opts, |_| {}).await?;
 
     pretty_eq!(
         r,
         JsonValue::from(42),
         "a let-bound local var should not require a graph node"
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -128,21 +96,19 @@ async fn eval_let_bound_var_is_not_unknown() -> Res<()> {
 
 #[tokio::test]
 async fn eval_try_catch_binds_caught_error_locally() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
-    let script = r#"try { throw "the pattern"; } catch (err) { err }"#;
-    let r = eval_formula(script, None, None, "en", &t, &graph, &opts, |_| {}).await?;
+    // try/catch is a statement, it evaluates to () regardless of the catch
+    // body's last expression, so assign err to an outer var to observe it.
+    let script = r#"let result = ""; try { throw "the pattern"; } catch (err) { result = err; } result"#;
+    let r = eval_formula(script, None, None, "en", &graph, &opts, |_| {}).await?;
 
     pretty_eq!(
         r,
         JsonValue::from("the pattern"),
         "the catch variable should be locally bound, not flagged as an unknown external var",
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -151,40 +117,32 @@ async fn eval_try_catch_binds_caught_error_locally() -> Res<()> {
 
 #[tokio::test]
 async fn eval_default_graph_exposes_now() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let graph = FormulaDepGraph::default();
     let opts = FormulaOptions::default();
-    let r = eval_formula("now > 0", None, None, "en", &t, &graph, &opts, |_| {}).await?;
+    let r = eval_formula("now > 0", None, None, "en", &graph, &opts, |_| {}).await?;
 
     pretty_eq!(
         r,
         JsonValue::from(true),
         "the default graph's now node should resolve to a positive timestamp"
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 #[tokio::test]
 async fn eval_resolver_sees_earlier_resolved_values() -> Res<()> {
-    let tmp = tmp_db!();
-    let t = tx(&tmp.db).await?;
-
     let base = FormulaDepNode::new("base", [] as [&str; 0], FixedResolver(41));
     let derived = FormulaDepNode::new("derived", ["base"], DependentResolver);
     let graph = FormulaDepGraph::new([base, derived])?;
     let opts = FormulaOptions::default();
-    let r = eval_formula("derived", None, None, "en", &t, &graph, &opts, |_| {}).await?;
+    let r = eval_formula("derived", None, None, "en", &graph, &opts, |_| {}).await?;
 
     pretty_eq!(
         r,
         JsonValue::from(42),
         "derived's resolver should see base's already-resolved value"
     );
-
-    tmp.drop().await
+    Ok(())
 }
 
 #[test]
