@@ -1,4 +1,4 @@
-use crate::opts::FormulaOptions;
+use crate::prelude::*;
 use rhai::{Engine, ImmutableString, Map as RhaiMap, OptimizationLevel};
 use std::sync::LazyLock;
 

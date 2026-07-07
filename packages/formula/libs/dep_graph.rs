@@ -1,6 +1,4 @@
-use crate::err::FormulaErr;
-use crate::resolver::{FormulaResolver, NowResolver};
-use _core::prelude::*;
+use crate::prelude::*;
 use std::collections::VecDeque;
 
 /// A single node in a FormulaDepGraph.
@@ -104,7 +102,10 @@ fn topo_sort(nodes: &HashMap<String, FormulaDepNode>) -> Result<Vec<String>, For
     for (name, node) in nodes {
         for dep in &node.deps {
             if !nodes.contains_key(dep.as_str()) {
-                return Err(FormulaErr::UnknownDep(dep.clone()));
+                return Err(FormulaErr::UnknownDep {
+                    node: name.clone(),
+                    dep: dep.clone(),
+                });
             }
             adj.entry(dep.as_str()).or_default().push(name.as_str());
         }
@@ -130,7 +131,9 @@ fn topo_sort(nodes: &HashMap<String, FormulaDepNode>) -> Result<Vec<String>, For
 
     if order.len() != nodes.len() {
         let cycle: Vec<&str> = in_degree.iter().filter(|&(_, &d)| d > 0).map(|(k, _)| *k).collect();
-        return Err(FormulaErr::CyclicDep(cycle.join(", ")));
+        return Err(FormulaErr::CyclicDep {
+            nodes: cycle.join(", "),
+        });
     }
     Ok(order)
 }

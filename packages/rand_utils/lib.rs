@@ -1,22 +1,12 @@
 #![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 
-mod b64;
-mod eq;
 mod err;
-mod otp;
-mod password;
-mod qs;
-mod secret;
+mod libs;
 
 pub mod export {
     pub use crate::err::MyErr as AuthUtilsErr;
     pub mod rand_utils {
-        pub use crate::b64::*;
-        pub use crate::eq::*;
-        pub use crate::otp::*;
-        pub use crate::password::*;
-        pub use crate::qs::*;
-        pub use crate::secret::*;
+        pub use crate::libs::*;
     }
 }
 

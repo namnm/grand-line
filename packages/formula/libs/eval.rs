@@ -1,10 +1,4 @@
-use crate::cache::{map_rhai_pos, parse_and_cache};
-use crate::dep_graph::FormulaDepGraph;
-use crate::engine::{BUILTIN_SCOPE_VARS, make_base_engine};
-use crate::err::FormulaErr;
-use crate::opts::FormulaOptions;
-use crate::resolver::FormulaCtx;
-use _core::prelude::*;
+use crate::prelude::*;
 use rhai::{Dynamic, Engine, Scope};
 use tokio::task::spawn_blocking;
 
@@ -39,7 +33,10 @@ where
             continue;
         }
         if !BUILTIN_SCOPE_VARS.contains(&name.as_str()) && !graph.contains(name) {
-            return Err(FormulaErr::UnknownVar(name.clone()).into());
+            return Err(FormulaErr::UnknownVar {
+                name: name.clone(),
+            }
+            .into());
         }
     }
 
@@ -47,9 +44,9 @@ where
     // Each resolver sees previously resolved values in ctx.resolved.
     let mut resolved: HashMap<String, Dynamic> = HashMap::new();
     for name in graph.topo_order() {
-        let node = graph
-            .get_node(name)
-            .ok_or_else(|| FormulaErr::UnknownVar(name.clone()))?;
+        let node = graph.get_node(name).ok_or_else(|| FormulaErr::UnknownVar {
+            name: name.clone(),
+        })?;
         let val = {
             let ctx = FormulaCtx {
                 locale,
@@ -84,7 +81,9 @@ where
     // multi_thread runtimes.
     let eval_result = spawn_blocking(move || engine.eval_ast_with_scope::<Dynamic>(&mut scope, &ast))
         .await
-        .map_err(|e| FormulaErr::Eval(format!("eval thread panicked: {e}")))?;
+        .map_err(|e| FormulaErr::Eval {
+            inner: format!("eval thread panicked: {e}"),
+        })?;
 
     let dynamic = eval_result.map_err(|e| {
         let hint = script_deps
@@ -92,9 +91,13 @@ where
             .as_ref()
             .and_then(|sm| map_rhai_pos(sm, e.position()))
             .unwrap_or_default();
-        FormulaErr::Eval(format!("{e}{hint}"))
+        FormulaErr::Eval {
+            inner: format!("{e}{hint}"),
+        }
     })?;
 
-    let json = dynamic.to_json().map_err(|e| FormulaErr::Serialize(e.to_string()))?;
+    let json = dynamic.to_json().map_err(|e| FormulaErr::Serialize {
+        inner: e.to_string(),
+    })?;
     Ok(json)
 }

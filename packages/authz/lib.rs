@@ -6,7 +6,7 @@ mod resolvers;
 mod schema;
 mod utils;
 
-pub mod consts;
+pub use utils::consts;
 
 pub mod export {
     pub use crate::context::*;

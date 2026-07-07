@@ -91,22 +91,20 @@ async fn eval_let_bound_var_is_not_unknown() -> Res<()> {
 }
 
 // ---------------------------------------------------------------------------
-// try/catch: caught error variable must not be treated as an unknown var
+// try/catch is disallowed
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn eval_try_catch_binds_caught_error_locally() -> Res<()> {
+async fn eval_try_catch_returns_err() -> Res<()> {
     let graph = FormulaDepGraph::empty();
     let opts = FormulaOptions::default();
-    // try/catch is a statement, it evaluates to () regardless of the catch
-    // body's last expression, so assign err to an outer var to observe it.
-    let script = r#"let result = ""; try { throw "the pattern"; } catch (err) { result = err; } result"#;
-    let r = eval_formula(script, None, None, "en", &graph, &opts, |_| {}).await?;
+    let script = r#"try { throw "the pattern"; } catch (err) { err }"#;
+    let r = eval_formula(script, None, None, "en", &graph, &opts, |_| {}).await;
 
     pretty_eq!(
-        r,
-        JsonValue::from("the pattern"),
-        "the catch variable should be locally bound, not flagged as an unknown external var",
+        r.is_err(),
+        true,
+        "try/catch should be rejected, formula scripts stay restricted expressions",
     );
     Ok(())
 }

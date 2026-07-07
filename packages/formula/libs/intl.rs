@@ -1,8 +1,6 @@
-use std::borrow::Cow;
-
+use crate::prelude::*;
 use sourcemap::{SourceMap, SourceMapBuilder};
-
-use super::CodeScanner;
+use std::borrow::Cow;
 
 // ---------------------------------------------------------------------------
 // preprocess_intl_template

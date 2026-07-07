@@ -1,6 +1,3 @@
-mod intl;
-pub use intl::*;
-
 // Minimal lexer state for scanning Rhai source in context-aware mode.
 // Tracks whether the current position is inside a string literal or comment.
 pub struct CodeScanner<'a> {
