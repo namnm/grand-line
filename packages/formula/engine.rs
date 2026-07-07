@@ -2,8 +2,22 @@ use crate::opts::FormulaOptions;
 use rhai::{Engine, ImmutableString, Map as RhaiMap, OptimizationLevel};
 use std::sync::LazyLock;
 
+// ---------------------------------------------------------------------------
+// Built-in intl() function
+// ---------------------------------------------------------------------------
+
+/// Scope variable names every eval_formula call injects itself, before the
+/// dependency graph's own resolved values. Referencing one of these in a
+/// script does not require a matching FormulaDepGraph node.
 pub static BUILTIN_SCOPE_VARS: &[&str] = &["current_user", "current_org"];
 
+// A lightweight {varName} substitution, not the full ICU MessageFormat engine
+// in the i18n package (no date/number/plural formatting, no locale). A row
+// formula runs synchronously inside Rhai with no IntlFormatter/locale plumbed
+// through, so this stays deliberately simple, plain substitution only. The
+// formula Cargo feature pulling in i18n is for intl-tagged template
+// preprocessing (see preprocess/intl.rs), not for wiring this function to
+// i18n's intl().
 fn intl_substitute(template: &str, vars: &RhaiMap) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
@@ -28,6 +42,14 @@ fn intl_substitute(template: &str, vars: &RhaiMap) -> String {
     out
 }
 
+// ---------------------------------------------------------------------------
+// Engine construction
+// ---------------------------------------------------------------------------
+
+/// Build a raw Rhai engine with the intl() function registered and the given
+/// runtime limits applied, plus a fixed set of language restrictions (no
+/// looping, no shadowing, no anonymous functions, ...) that make this engine
+/// a restricted expression evaluator rather than a general scripting sandbox.
 pub fn make_base_engine(opts: &FormulaOptions) -> Engine {
     let mut engine = Engine::new_raw();
     // 1-arg: template with no placeholders -- return as-is.

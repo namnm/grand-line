@@ -193,6 +193,26 @@ fn intl_tag_adjacent_to_expression() {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-byte UTF-8 content
+// ---------------------------------------------------------------------------
+
+#[test]
+fn multibyte_content_before_and_after_var() {
+    // Regression test: template content must be copied as whole UTF-8 chars,
+    // not byte by byte, or multi-byte chars like these get mangled.
+    let tpl = "intl`Z\u{00fc}rich {name} caf\u{00e9}`";
+    let expected = "intl(\"Z\u{00fc}rich {name} caf\u{00e9}\", #{name: name})";
+    pretty_eq!(pp(tpl), expected);
+}
+
+#[test]
+fn multibyte_content_no_vars() {
+    let tpl = "intl`\u{1f600} party`"; // U+1F600 is a 4-byte UTF-8 char.
+    let expected = "intl(\"\u{1f600} party\")";
+    pretty_eq!(pp(tpl), expected);
+}
+
+// ---------------------------------------------------------------------------
 // Unclosed backtick -> no transformation
 // ---------------------------------------------------------------------------
 

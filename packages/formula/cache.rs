@@ -6,20 +6,30 @@ use rhai::{AST, ASTNode, Expr, Position, Stmt};
 use sourcemap::SourceMap;
 use std::sync::RwLock;
 
+/// Parsed and analyzed form of a formula script: its compiled AST plus the
+/// external variable names it references and the local names it binds itself.
 pub struct ScriptDeps {
     pub ast: Arc<AST>,
-    /// Variables referenced in the script (`Expr::Variable` nodes).
+    /// Variables referenced in the script (Expr::Variable nodes).
     pub var_deps: Arc<HashSet<String>>,
-    /// Variables declared with `let` in the script (`Stmt::Var` nodes).
-    /// Excluded from validation -- locally defined, not external scope requirements.
+    /// Variables declared with let or const, or bound by a try/catch clause
+    /// (Stmt::Var and Stmt::TryCatch nodes). Excluded from validation --
+    /// locally defined, not external scope requirements.
     pub local_vars: Arc<HashSet<String>>,
     /// Source map from preprocessed script positions back to original positions.
-    /// Present only when `preprocess_intl_template_with_map` transformed the script.
+    /// Present only when preprocess_intl_template_with_map transformed the script.
     pub source_map: Option<SourceMap>,
 }
 
+// Cached for the lifetime of the process, keyed by raw script text, with no
+// eviction. This assumes formula scripts come from a bounded set of app-defined
+// templates (e.g. row_policy scripts configured per role), not from arbitrary
+// unbounded user input -- feeding this cache directly from untrusted per-request
+// text would grow it without limit. Add an eviction policy before doing that.
 static SCRIPT_CACHE: LazyLock<RwLock<HashMap<String, Arc<ScriptDeps>>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
+/// Preprocess, compile, and analyze script, caching the result for future calls
+/// with the same script text (see SCRIPT_CACHE for the caching tradeoff).
 pub fn parse_and_cache(script: &str) -> Res<Arc<ScriptDeps>> {
     {
         let guard = SCRIPT_CACHE.read().map_err(|e| FormulaErr::Eval(e.to_string()))?;
@@ -48,6 +58,18 @@ pub fn parse_and_cache(script: &str) -> Res<Arc<ScriptDeps>> {
             }
             Some(ASTNode::Stmt(Stmt::Var(data, _, _))) => {
                 local_vars.insert(data.0.name.to_string());
+            }
+            // try { .. } catch (err) { .. }: the catch variable binding lives in
+            // flow.expr, which rhai's own Stmt::walk does not recurse into (it
+            // only walks flow.body and flow.branch), so it is never visited as
+            // a plain Expr::Variable node. Without this arm, a script that uses
+            // the caught error inside the catch block would incorrectly fail
+            // validation with UnknownVar, since var_deps would pick up the use
+            // from inside flow.branch with nothing to mark it as locally bound.
+            Some(ASTNode::Stmt(Stmt::TryCatch(flow, _))) => {
+                if let Expr::Variable(data, _, _) = &flow.expr {
+                    local_vars.insert(data.1.to_string());
+                }
             }
             _ => {}
         }

@@ -8,11 +8,11 @@ use super::CodeScanner;
 // preprocess_intl_template
 // ---------------------------------------------------------------------------
 //
-// Transforms `intl`...`` tagged templates into `intl("...", #{var: var})` calls.
+// Transforms intl-tagged templates (intl`...`) into intl("...", #{var: var}) calls.
 //
-// The tagged template content (between backticks) is an ICU MessageFormat string.
-// Top-level `{varName}` and `{varName, type, ...}` placeholders are extracted,
-// the corresponding Rhai identifiers are passed as a map literal.
+// The tagged template content (between the backticks) is an ICU MessageFormat
+// string. Top-level {varName} and {varName, type, ...} placeholders are
+// extracted, the corresponding Rhai identifiers are passed as a map literal.
 //
 // Generated forms:
 //   intl`No vars` -> intl("No vars")
@@ -20,25 +20,26 @@ use super::CodeScanner;
 //   intl`{a} and {b}` -> intl("{a} and {b}", #{a: a, b: b})
 //
 // Rules:
-//   - The character before `intl` must not be alnum or `_` (word boundary).
-//   - `intl`` inside string literals or comments is NOT transformed.
-//   - `\`` inside the template is an escaped backtick, becomes literal `` ` `` in
-//     the generated string literal (the `\` is dropped).
+//   - The character before intl must not be alnum or underscore (word boundary).
+//   - An intl-tagged template inside a string literal or comment is NOT transformed.
+//   - A backslash followed by a backtick inside the template is an escaped
+//     backtick, it becomes a literal backtick in the generated string literal
+//     and the backslash is dropped.
 //   - Duplicate ICU var names produce a single entry in the map.
 //   - An unclosed backtick is left untouched (no partial replacement).
 
-/// Preprocess a Rhai script, transforming `intl`...`` tagged templates.
+/// Preprocess a Rhai script, transforming intl-tagged templates (intl`...`).
 /// Returns the possibly-transformed script (borrowed when unchanged).
 pub fn preprocess_intl_template(script: &str) -> Cow<'_, str> {
     preprocess_intl_template_with_map(script).0
 }
 
-/// Like `preprocess_intl_template`, but also returns a Source Map v3 object
+/// Like preprocess_intl_template, but also returns a Source Map v3 object
 /// mapping positions in the generated output back to the original script.
 ///
-/// The source map is `None` when no transformation occurred (the output is
+/// The source map is None when no transformation occurred (the output is
 /// identical to the input, so positions are already correct).
-/// When `Some`, use `SourceMap::lookup_token(line, col)` with 0-indexed
+/// When present, use SourceMap::lookup_token(line, col) with 0-indexed
 /// coordinates to translate a generated position to the original source.
 pub fn preprocess_intl_template_with_map(script: &str) -> (Cow<'_, str>, Option<SourceMap>) {
     let bytes = script.as_bytes();
@@ -57,7 +58,7 @@ pub fn preprocess_intl_template_with_map(script: &str) -> (Cow<'_, str>, Option<
 
         let pos = scanner.pos;
 
-        // Detect `intl`` in code context: 4-byte keyword followed by backtick.
+        // Detect the intl keyword followed by a backtick (the tag start) in code context.
         if bytes.get(pos) == Some(&b'i')
             && bytes.get(pos + 1) == Some(&b'n')
             && bytes.get(pos + 2) == Some(&b't')
@@ -75,7 +76,7 @@ pub fn preprocess_intl_template_with_map(script: &str) -> (Cow<'_, str>, Option<
 
             if !preceded_by_ident {
                 let tpl_start = pos + 5; // first byte after the opening backtick
-                let (tpl, end) = extract_backtick_body(bytes, tpl_start);
+                let (tpl, end) = extract_backtick_body(script, tpl_start);
 
                 if let Some(end_pos) = end {
                     let out = result.get_or_insert_with(|| String::with_capacity(script.len() + 64));
@@ -85,7 +86,7 @@ pub fn preprocess_intl_template_with_map(script: &str) -> (Cow<'_, str>, Option<
                     let segment = &script[last_copy..pos];
                     flush_segment(b, segment, out, &mut out_pos, &mut in_pos);
 
-                    // Map the start of the generated intl(...) call -> intl` in input.
+                    // Map the start of the generated intl(...) call to the tag start in input.
                     b.add(out_pos.line, out_pos.col, in_pos.line, in_pos.col, None, None, false);
 
                     // Emit the generated call and advance the output column.
@@ -95,7 +96,7 @@ pub fn preprocess_intl_template_with_map(script: &str) -> (Cow<'_, str>, Option<
                     let added_cols = out[before..].chars().count() as u32;
                     out_pos.col += added_cols;
 
-                    // Advance in_pos past the original intl`...` span.
+                    // Advance in_pos past the original intl-tagged template span.
                     advance_pos(&mut in_pos, &script[pos..end_pos]);
 
                     last_copy = end_pos;
@@ -134,8 +135,8 @@ struct Pos {
     col: u32,
 }
 
-// Append an unchanged segment to `out` while recording per-line source map
-// mappings. Both `out_pos` and `in_pos` advance by the same amount through
+// Append an unchanged segment to out while recording per-line source map
+// mappings. Both out_pos and in_pos advance by the same amount through
 // unchanged text; they only diverge at transformation boundaries.
 fn flush_segment(builder: &mut SourceMapBuilder, segment: &str, out: &mut String, out_pos: &mut Pos, in_pos: &mut Pos) {
     if segment.is_empty() {
@@ -161,7 +162,7 @@ fn flush_segment(builder: &mut SourceMapBuilder, segment: &str, out: &mut String
 }
 
 // Advance a position counter through an arbitrary string (used for the
-// original intl`...` span that is replaced in the output).
+// original intl-tagged template span that is replaced in the output).
 fn advance_pos(pos: &mut Pos, s: &str) {
     for ch in s.chars() {
         if ch == '\n' {
@@ -177,10 +178,19 @@ fn advance_pos(pos: &mut Pos, s: &str) {
 // Template body extraction and call emission
 // ---------------------------------------------------------------------------
 
-// Collect template content starting at `start`, up to the unescaped closing backtick.
-// `\`` -> literal `` ` `` (escaped backtick inside a template).
+// Collect template content starting at start, up to the unescaped closing backtick.
+// A backslash followed by a backtick is an escaped backtick inside a template,
+// it becomes a literal backtick in the collected content.
 // Returns (content_string, Some(pos_after_closing_backtick)) or (_, None) if unclosed.
-fn extract_backtick_body(bytes: &[u8], start: usize) -> (String, Option<usize>) {
+//
+// Operates on script (not raw bytes) so multi-byte UTF-8 runs are copied via str
+// slicing rather than byte-by-byte, casting an individual byte to char would
+// mangle any character outside the ASCII range. Scanning for the backslash or
+// backtick delimiter bytes is still safe on the byte view, both are single-byte ASCII and
+// can never occur as a continuation byte or non-initial byte of a longer
+// sequence, so every slice boundary below lands on a valid char boundary.
+fn extract_backtick_body(script: &str, start: usize) -> (String, Option<usize>) {
+    let bytes = script.as_bytes();
     let mut i = start;
     let mut content = String::new();
 
@@ -191,15 +201,19 @@ fn extract_backtick_body(bytes: &[u8], start: usize) -> (String, Option<usize>) 
         } else if *bi == b'`' {
             return (content, Some(i + 1));
         } else {
-            content.push(*bi as char);
-            i += 1;
+            let next = bytes[i..]
+                .iter()
+                .position(|b| *b == b'\\' || *b == b'`')
+                .map_or(bytes.len(), |p| i + p);
+            content.push_str(&script[i..next]);
+            i = next;
         }
     }
 
     (content, None) // unclosed
 }
 
-// Write `intl("escaped_tpl")` or `intl("escaped_tpl", #{v1: v1, v2: v2})`.
+// Write intl("escaped_tpl") or intl("escaped_tpl", #{v1: v1, v2: v2}).
 fn emit_intl_call(out: &mut String, template: &str) {
     let vars = extract_icu_vars(template);
     let escaped = escape_for_double_quote(template);
@@ -225,11 +239,11 @@ fn emit_intl_call(out: &mut String, template: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers (also used by lib.rs)
+// Helpers (also exported as public crate API)
 // ---------------------------------------------------------------------------
 
 // Extract top-level ICU placeholder variable names from a template string.
-// For `{varName}` and `{varName, type, ...}` returns `varName`.
+// For {varName} and {varName, type, ...} returns varName.
 // Nested braces (ICU plural/select sub-patterns) are skipped.
 // Result is ordered and deduplicated.
 pub fn extract_icu_vars(template: &str) -> Vec<String> {

@@ -2,7 +2,7 @@
 
 mod accessor;
 mod cache;
-mod context;
+mod config;
 mod dep_graph;
 mod engine;
 mod err;
@@ -13,7 +13,7 @@ mod resolver;
 
 pub mod export {
     pub use crate::accessor::*;
-    pub use crate::context::*;
+    pub use crate::config::*;
     pub use crate::dep_graph::*;
     pub use crate::err::*;
     pub use crate::eval::*;

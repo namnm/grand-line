@@ -1,7 +1,7 @@
 /// Runtime limits applied to each Rhai evaluation engine.
 ///
 /// All fields default to the values used historically. Override individual
-/// limits by constructing `FormulaOptions { max_operations: 500, ..Default::default() }`.
+/// limits by constructing FormulaOptions { max_operations: 500, ..Default::default() }.
 #[derive(Clone)]
 pub struct FormulaOptions {
     pub max_array_size: usize,

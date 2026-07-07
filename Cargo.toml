@@ -30,7 +30,7 @@ default_flags = [
   "resolver_ctx",
   "resolver_relation_count",
   "resolver_include_deleted",
-  "resolver_permanent_delete",
+  "resolver_delete_permanent",
   "resolver_authz_row",
 ]
 # db
@@ -50,7 +50,7 @@ resolver_tx = ["_core/resolver_tx"]
 resolver_ctx = ["_core/resolver_ctx"]
 resolver_relation_count = ["_core/resolver_relation_count"]
 resolver_include_deleted = ["_core/resolver_include_deleted"]
-resolver_permanent_delete = ["_core/resolver_permanent_delete"]
+resolver_delete_permanent = ["_core/resolver_delete_permanent"]
 resolver_authz_row = ["_core/resolver_authz_row"]
 # main packages
 auth = ["dep:_auth", "_core/auth", "rand_utils"]

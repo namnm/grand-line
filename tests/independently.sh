@@ -10,4 +10,4 @@ cargo test --no-default-features --features test_utils,sqlite,axum,auth --test a
 cargo test --no-default-features --features test_utils,sqlite,axum,authz --test authz;
 
 cargo test --no-default-features --features test_utils,i18n --test i18n;
-cargo test --no-default-features --features test_utils,formula --test formula;
+cargo test --no-default-features --features test_utils,sqlite,formula --test formula;

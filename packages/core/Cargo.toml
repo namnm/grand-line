@@ -25,7 +25,7 @@ resolver_tx = ["_proc/resolver_tx"]
 resolver_ctx = ["_proc/resolver_ctx"]
 resolver_relation_count = ["_proc/resolver_relation_count"]
 resolver_include_deleted = ["_proc/resolver_include_deleted"]
-resolver_permanent_delete = ["_proc/resolver_permanent_delete"]
+resolver_delete_permanent = ["_proc/resolver_delete_permanent"]
 resolver_authz_row = ["_proc/resolver_authz_row"]
 # packages
 tracing = ["async-graphql/tracing"]

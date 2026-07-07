@@ -10,15 +10,15 @@ use tokio::task::spawn_blocking;
 
 /// Compile, validate, resolve, and evaluate a formula script.
 ///
-/// Returns the script's result as a `JsonValue`.
+/// Returns the script's result as a JsonValue.
 ///
-/// `register_fns` is called once per eval to register functions on a fresh
-/// Rhai engine. Pass an empty closure `|_| {}` when no functions are needed.
-/// Use `register_db_fns` to add `db_find_one` / `db_find_many` support.
+/// register_fns is called once per eval to register functions on a fresh
+/// Rhai engine. Pass an empty closure |_| {} when no functions are needed.
+/// Use register_db_fns to add db_find_one / db_find_many support.
 ///
-/// Variables are supplied via `graph` (async dep-graph resolvers) and the
-/// built-in scope (`current_user`, `current_org`). The `locale` value is
-/// forwarded to resolvers via `FormulaCtx`.
+/// Variables are supplied via graph (async dep-graph resolvers) and the
+/// built-in scope (current_user, current_org). The locale value is
+/// forwarded to resolvers via FormulaCtx.
 pub async fn eval_formula(
     script: &str,
     user_id: Option<&str>,
@@ -31,7 +31,7 @@ pub async fn eval_formula(
 ) -> Res<JsonValue> {
     let script_deps = parse_and_cache(script)?;
 
-    // Validate variable references (skip locally-defined `let` variables).
+    // Validate variable references (skip locally-defined let variables).
     for name in script_deps.var_deps.iter() {
         if script_deps.local_vars.contains(name) {
             continue;

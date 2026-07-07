@@ -3,11 +3,11 @@ use crate::resolver::{FormulaResolver, NowResolver};
 use _core::prelude::*;
 use std::collections::VecDeque;
 
-/// A single node in a `FormulaDepGraph`.
+/// A single node in a FormulaDepGraph.
 ///
-/// `name` is the Rhai scope variable this node produces.
-/// `deps` lists the names of other nodes whose output this resolver needs;
-/// those values will be available in `ctx.resolved` when `resolver.resolve`
+/// name is the Rhai scope variable this node produces.
+/// deps lists the names of other nodes whose output this resolver needs;
+/// those values will be available in ctx.resolved when resolver.resolve
 /// is called.
 #[derive(Clone)]
 pub struct FormulaDepNode {
@@ -32,9 +32,9 @@ impl FormulaDepNode {
 
 /// A validated dependency graph for formula resolvers.
 ///
-/// Built once (e.g. in `AuthzConfig`) and reused across evals.
+/// Built once (e.g. as FormulaConfig::row_graph) and reused across evals.
 /// Cycle detection and topological ordering happen at construction time;
-/// `eval_formula` just iterates `topo_order` and calls each resolver.
+/// eval_formula just iterates topo_order and calls each resolver.
 #[derive(Clone)]
 pub struct FormulaDepGraph {
     nodes: HashMap<String, FormulaDepNode>,
@@ -43,8 +43,8 @@ pub struct FormulaDepGraph {
 }
 
 impl FormulaDepGraph {
-    /// Build and validate the graph. Returns `Err(FormulaErr::CyclicDep)` when
-    /// a cycle is detected, or `Err(FormulaErr::UnknownDep)` when a dep name
+    /// Build and validate the graph. Returns Err(FormulaErr::CyclicDep) when
+    /// a cycle is detected, or Err(FormulaErr::UnknownDep) when a dep name
     /// is not present among the nodes.
     pub fn new(nodes: impl IntoIterator<Item = FormulaDepNode>) -> Result<Self, FormulaErr> {
         let nodes: HashMap<String, FormulaDepNode> = nodes.into_iter().map(|n| (n.name.clone(), n)).collect();
@@ -75,7 +75,7 @@ impl FormulaDepGraph {
         self.nodes.get(name)
     }
 
-    /// Graph seeded with a single `now` node (UTC milliseconds since epoch).
+    /// Graph seeded with a single now node (UTC milliseconds since epoch).
     pub fn with_now() -> Self {
         let node = FormulaDepNode::new("now", [] as [&str; 0], NowResolver);
         let topo_order = vec![node.name.clone()];

@@ -111,8 +111,7 @@ pub fn update(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Registers a delete mutation for a model, default input is id (plus
-/// permanent when permanent_delete is enabled) and the output is the model's
-/// Gql type.
+/// permanent when enabled) and the output is the model's Gql type.
 #[proc_macro_attribute]
 pub fn delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_delete(attr, item)

@@ -11,7 +11,7 @@ pub struct CrudAttr {
     pub resolver_output: bool,
     /// When true (delete only), adds a permanent: Option<bool> input so callers
     /// can request a hard delete instead of a soft delete.
-    pub permanent_delete: bool,
+    pub permanent: bool,
     #[field_names(skip)]
     pub model: String,
     #[field_names(skip)]
@@ -23,9 +23,9 @@ impl TryFrom<Attr> for CrudAttr {
         Ok(Self {
             resolver_inputs: a.bool(Self::FIELD_RESOLVER_INPUTS)?.unwrap_or_default(),
             resolver_output: a.bool(Self::FIELD_RESOLVER_OUTPUT)?.unwrap_or_default(),
-            permanent_delete: a
-                .bool(Self::FIELD_PERMANENT_DELETE)?
-                .unwrap_or(FEATURE_RESOLVER_PERMANENT_DELETE),
+            permanent: a
+                .bool(Self::FIELD_PERMANENT)?
+                .unwrap_or(FEATURE_RESOLVER_DELETE_PERMANENT),
             model: a.model_from_first_path()?,
             ra: a.try_into()?,
         })
@@ -41,7 +41,7 @@ impl AttrValidate for CrudAttr {
                 if a.attr == MacroTy::Delete {
                     true
                 } else {
-                    f != Self::FIELD_PERMANENT_DELETE
+                    f != Self::FIELD_PERMANENT
                 }
             })
             .chain(ResolverTyAttr::attr_fields(a))

@@ -1,9 +1,8 @@
 use crate::prelude::*;
 
 /// Entry point for the #[delete] attribute macro, builds a delete mutation
-/// resolver, defaulting inputs to id (plus permanent when permanent_delete is
-/// enabled) and the output to the model's Gql type, unless resolver_inputs/
-/// resolver_output opt out.
+/// resolver, defaulting inputs to id (plus permanent when permanent isenabled)
+/// and the output to the model's Gql type, unless resolver_inputs/resolver_output opt out.
 pub fn gen_delete(attr: TokenStream, item: TokenStream) -> TokenStream {
     let a = parse_macro_input!(attr as AttrParse);
     let r = parse_macro_input!(item as ResolverTyItem);
@@ -19,7 +18,7 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         r.inputs = quote! {
             id: String,
         };
-        if a.permanent_delete {
+        if a.permanent {
             let inputs = r.inputs;
             r.inputs = quote! {
                 #inputs
@@ -34,7 +33,7 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         r.output = quote!(#output);
 
         let body = r.body;
-        let permanent = if !a.resolver_inputs && a.permanent_delete {
+        let permanent = if !a.resolver_inputs && a.permanent {
             quote!(permanent)
         } else {
             quote!(None)
