@@ -41,6 +41,29 @@ where
     async fn execute_script(&self, ctx: &Context<'_>, script: &str) -> Res<Option<JsonValue>> {
         Ok(None)
     }
+
+    /// Called after an invited user accepts an org invitation and a UserInRole
+    /// is created for them.
+    async fn on_org_invitation_resolve(&self, ctx: &Context<'_>, uir: &UserInRoleSql) -> Res<()> {
+        Ok(())
+    }
+
+    /// Called after an org invitation is explicitly declined.
+    async fn on_org_invitation_reject(&self, ctx: &Context<'_>, otp: &OtpSql) -> Res<()> {
+        Ok(())
+    }
+
+    /// Called after an admin creates an impersonation session for another user,
+    /// with the id of the Impersonation record, the rest of the details (admin,
+    /// user, org, reason) are queryable from that id.
+    async fn on_impersonate(&self, ctx: &Context<'_>, id: &str) -> Res<()> {
+        Ok(())
+    }
+
+    /// Called after an impersonation session is revoked.
+    async fn on_impersonate_revoke(&self, ctx: &Context<'_>, id: &str) -> Res<()> {
+        Ok(())
+    }
 }
 
 struct DefaultHandlers;

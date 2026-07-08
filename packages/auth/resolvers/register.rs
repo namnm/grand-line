@@ -8,7 +8,7 @@ pub struct Register {
 
 /// Starts registration, creates a Register-type OTP row and returns it with its secret,
 /// the caller must resolve it with the OTP code to actually create the user.
-pub async fn register_impl<U>(ctx: &Context<'_>, data: Register) -> Res<AuthOtpWithSecret>
+pub async fn register_impl<U>(ctx: &Context<'_>, data: Register) -> Res<OtpWithSecret>
 where
     U: AuthUser,
 {
@@ -18,18 +18,18 @@ where
     let h = &ctx.auth_config().handlers;
 
     register_ensure_email_not_exists::<U>(tx, &data.email.0).await?;
-    auth_otp_ensure_re_request(ctx, tx, AuthOtpTy::Register, &data.email.0).await?;
+    otp_ensure_re_request(ctx, tx, OTP_TY_REGISTER, &data.email.0).await?;
     h.password_validate(ctx, &data.password).await?;
 
     let otp = h.otp(ctx).await?;
     let (otp_salt, otp_hashed) = rand_utils::otp_hash(&otp)?;
     let secret = rand_utils::secret();
 
-    let t = am_create!(AuthOtp {
-        ty: AuthOtpTy::Register,
+    let t = am_create!(Otp {
+        ty: OTP_TY_REGISTER.to_owned(),
         email: data.email.0,
         secret_hashed: rand_utils::secret_hash(&secret),
-        data: AuthOtpDataRegister {
+        data: OtpDataRegister {
             password_hashed: rand_utils::password_hash(&data.password)?,
         }
         .to_json()?,
@@ -41,7 +41,7 @@ where
 
     h.on_otp_create(ctx, &t, &otp).await?;
 
-    Ok(AuthOtpWithSecret {
+    Ok(OtpWithSecret {
         inner: t,
         secret,
     })

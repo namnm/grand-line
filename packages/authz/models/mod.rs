@@ -1,9 +1,11 @@
 mod col_policy;
+mod impersonation;
 mod org;
 mod role;
 mod row_policy;
 mod user_in_role;
 pub use col_policy::*;
+pub use impersonation::*;
 pub use org::*;
 pub use role::*;
 pub use row_policy::*;

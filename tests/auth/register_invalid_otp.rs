@@ -8,7 +8,7 @@ async fn register_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    // First, start a registration to create an AuthOtp row.
+    // First, start a registration to create an Otp row.
     let v = value!({
         "data": {
             "email": "peter@example.com",
@@ -21,8 +21,8 @@ async fn register_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let secret = r.str("/register/secret");
     pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
-        return TestErr::expect("AuthOtp row should be created by register");
+    let Some(t) = Otp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("Otp row should be created by register");
     };
 
     // Resolve with the wrong OTP code.

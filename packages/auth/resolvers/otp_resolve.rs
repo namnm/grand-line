@@ -1,39 +1,36 @@
 use crate::prelude::*;
 
 #[gql_input]
-pub struct AuthOtpResolve {
+pub struct OtpResolve {
     pub id: String,
     pub secret: String,
     pub otp: String,
 }
 
 #[mutation(auth(unauthenticated))]
-fn auth_otp_resolve(ty: AuthOtpTy, data: AuthOtpResolve) -> AuthOtpGql {
+fn otp_resolve(ty: String, data: OtpResolve) -> OtpGql {
     ctx.auth_ensure_not_authenticated().await?;
 
     let tx = &*ctx.tx().await?;
-    auth_otp_ensure_resolve(ctx, tx, ty, data).await?.into_gql(ctx).await?
+    otp_ensure_resolve(ctx, tx, &ty, data).await?.into_gql(ctx).await?
 }
 
 /// Consumes one resolve attempt on the matching OTP row and validates the code and secret.
 /// Returns MyErr::OtpResolveInvalid if the id/type does not exist, the code or secret does
 /// not match, the attempt count is exceeded, or the OTP has expired. On success, resets the
 /// attempt counter to 0.
-pub async fn auth_otp_ensure_resolve(
+pub async fn otp_ensure_resolve(
     ctx: &Context<'_>,
     tx: &DatabaseTransaction,
-    ty: AuthOtpTy,
-    data: AuthOtpResolve,
-) -> Res<AuthOtpSql> {
-    let u = AuthOtp::update_many()
+    ty: &str,
+    data: OtpResolve,
+) -> Res<OtpSql> {
+    let u = Otp::update_many()
         .include_deleted(false)
         .filter_by_id(&data.id)
-        .filter(AuthOtpColumn::Ty.eq(ty))
-        .set(AuthOtpActiveModel::defaults_on_update())
-        .col_expr(
-            AuthOtpColumn::TotalAttempt,
-            Expr::col(AuthOtpColumn::TotalAttempt).add(1),
-        );
+        .filter(OtpColumn::Ty.eq(ty))
+        .set(OtpActiveModel::defaults_on_update())
+        .col_expr(OtpColumn::TotalAttempt, Expr::col(OtpColumn::TotalAttempt).add(1));
 
     #[cfg(feature = "postgres")]
     let t = {
@@ -48,7 +45,7 @@ pub async fn auth_otp_ensure_resolve(
         if u.exec(tx).await?.rows_affected == 0 {
             Err(MyErr::OtpResolveInvalid)?;
         }
-        AuthOtp::find()
+        Otp::find()
             .include_deleted(false)
             .filter_by_id(&data.id)
             .one(tx)
@@ -65,7 +62,7 @@ pub async fn auth_otp_ensure_resolve(
         return Err(MyErr::OtpResolveInvalid.into());
     }
 
-    let t = am_update!(AuthOtp {
+    let t = am_update!(Otp {
         total_attempt: 0,
         ..t.into_active_model()
     })
@@ -77,16 +74,11 @@ pub async fn auth_otp_ensure_resolve(
 
 /// Enforces the re-request cooldown for a given email/type, and deletes the stale OTP row
 /// once the cooldown has passed so a fresh one can be created. No-op if no row exists.
-pub async fn auth_otp_ensure_re_request(
-    ctx: &Context<'_>,
-    tx: &DatabaseTransaction,
-    ty: AuthOtpTy,
-    email: &str,
-) -> Res<()> {
-    let t = AuthOtp::find()
+pub async fn otp_ensure_re_request(ctx: &Context<'_>, tx: &DatabaseTransaction, ty: &str, email: &str) -> Res<()> {
+    let t = Otp::find()
         .include_deleted(false)
-        .filter(AuthOtpColumn::Ty.eq(ty))
-        .filter(AuthOtpColumn::Email.eq(email))
+        .filter(OtpColumn::Ty.eq(ty))
+        .filter(OtpColumn::Email.eq(email))
         .one(tx)
         .await?;
     let Some(t) = t else {
@@ -98,9 +90,9 @@ pub async fn auth_otp_ensure_re_request(
         return Err(MyErr::OtpReRequestTooSoon.into());
     }
 
-    AuthOtp::delete_many()
-        .filter(AuthOtpColumn::Ty.eq(ty))
-        .filter(AuthOtpColumn::Email.eq(email))
+    Otp::delete_many()
+        .filter(OtpColumn::Ty.eq(ty))
+        .filter(OtpColumn::Email.eq(email))
         .exec(tx)
         .await?;
 

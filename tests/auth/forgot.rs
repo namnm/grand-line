@@ -18,8 +18,8 @@ async fn forgot_then_resolve_updates_password() -> Res<()> {
     let secret = r.str("/forgot/secret");
     pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
-        return TestErr::expect("AuthOtp row should be created by forgot");
+    let Some(t) = Otp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("Otp row should be created by forgot");
     };
 
     let v = value!({

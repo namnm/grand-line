@@ -19,11 +19,11 @@ impl<U> AuthUserImplMutation<U>
 where
     U: AuthUser,
 {
-    async fn register(&self, ctx: &Context<'_>, data: Register) -> Res<AuthOtpWithSecret> {
+    async fn register(&self, ctx: &Context<'_>, data: Register) -> Res<OtpWithSecret> {
         register_impl::<U>(ctx, data).await
     }
 
-    async fn register_resolve(&self, ctx: &Context<'_>, data: AuthOtpResolve) -> Res<LoginSessionWithSecret> {
+    async fn register_resolve(&self, ctx: &Context<'_>, data: OtpResolve) -> Res<LoginSessionWithSecret> {
         register_resolve_impl::<U>(ctx, data).await
     }
 
@@ -31,14 +31,14 @@ where
         login_impl::<U>(ctx, data).await
     }
 
-    async fn forgot(&self, ctx: &Context<'_>, data: Forgot) -> Res<AuthOtpWithSecret> {
+    async fn forgot(&self, ctx: &Context<'_>, data: Forgot) -> Res<OtpWithSecret> {
         forgot_impl::<U>(ctx, data).await
     }
 
     async fn forgot_resolve(
         &self,
         ctx: &Context<'_>,
-        data: AuthOtpResolve,
+        data: OtpResolve,
         password: String,
     ) -> Res<LoginSessionWithSecret> {
         forgot_resolve_impl::<U>(ctx, data, password).await
@@ -63,7 +63,7 @@ pub struct AuthMergedMutation<U>(
     LoginSessionDeleteMutation,
     LoginSessionDeleteAllMutation,
     LogoutMutation,
-    AuthOtpResolveMutation,
+    OtpResolveMutation,
     AuthUserImplMutation<U>,
 )
 where

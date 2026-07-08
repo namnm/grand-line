@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 /// Resolves a Register-type OTP, creates the user with the data captured at request time,
 /// and logs them in with a fresh session.
-pub async fn register_resolve_impl<U>(ctx: &Context<'_>, data: AuthOtpResolve) -> Res<LoginSessionWithSecret>
+pub async fn register_resolve_impl<U>(ctx: &Context<'_>, data: OtpResolve) -> Res<LoginSessionWithSecret>
 where
     U: AuthUser,
 {
@@ -12,8 +12,8 @@ where
     let lsd = ctx.login_session_data()?;
     let h = &ctx.auth_config().handlers;
 
-    let t = auth_otp_ensure_resolve(ctx, tx, AuthOtpTy::Register, data).await?;
-    let d = AuthOtpDataRegister::from_json(t.data)?;
+    let t = otp_ensure_resolve(ctx, tx, OTP_TY_REGISTER, data).await?;
+    let d = OtpDataRegister::from_json(t.data)?;
 
     register_ensure_email_not_exists::<U>(tx, &t.email).await?;
 
@@ -23,7 +23,7 @@ where
     let u = am.insert(tx).await?;
 
     let ls = login_session_create(ctx, tx, &u.get_id(), &lsd).await?;
-    AuthOtp::delete_by_id(t.id).exec(tx).await?;
+    Otp::delete_by_id(t.id).exec(tx).await?;
 
     h.on_register_resolve(ctx, &u.get_id(), &ls.inner).await?;
 

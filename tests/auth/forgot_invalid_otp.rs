@@ -8,7 +8,7 @@ async fn forgot_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let d = setup().await?;
     let s = d.s.data(d.h).finish();
 
-    // Start a forgot-password flow to create an AuthOtp row.
+    // Start a forgot-password flow to create an Otp row.
     let v = value!({
         "data": {
             "email": "olivia@example.com",
@@ -20,8 +20,8 @@ async fn forgot_resolve_with_wrong_otp_returns_invalid() -> Res<()> {
     let secret = r.str("/forgot/secret");
     pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
-        return TestErr::expect("AuthOtp row should be created by forgot");
+    let Some(t) = Otp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("Otp row should be created by forgot");
     };
 
     // Resolve with the wrong OTP code.

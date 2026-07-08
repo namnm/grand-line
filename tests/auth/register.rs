@@ -19,8 +19,8 @@ async fn register_then_resolve_creates_user() -> Res<()> {
     let secret = r.str("/register/secret");
     pretty_eq!(secret.is_empty(), false, "secret should be in response");
 
-    let Some(t) = AuthOtp::find().one(&d.tmp.db).await? else {
-        return TestErr::expect("AuthOtp row should be created by register");
+    let Some(t) = Otp::find().one(&d.tmp.db).await? else {
+        return TestErr::expect("Otp row should be created by register");
     };
 
     let v = value!({

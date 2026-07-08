@@ -30,7 +30,7 @@ mutation test($data: Register!) {
 ";
 
 pub const Q_REGISTER_RESOLVE: &str = "
-mutation test($data: AuthOtpResolve!) {
+mutation test($data: OtpResolve!) {
     registerResolve(data: $data) {
         inner {
             userId
@@ -48,7 +48,7 @@ mutation test($data: Forgot!) {
 ";
 
 pub const Q_FORGOT_RESOLVE: &str = "
-mutation test($data: AuthOtpResolve!, $password: String!) {
+mutation test($data: OtpResolve!, $password: String!) {
     forgotResolve(data: $data, password: $password) {
         inner {
             userId
@@ -84,7 +84,7 @@ pub async fn setup() -> Res<Setup> {
         ..Default::default()
     };
 
-    let tmp = tmp_db!(User, AuthOtp, LoginSession);
+    let tmp = tmp_db!(User, Otp, LoginSession);
     let s = schema_qm::<Query, Mutation>(&tmp.db).data(c);
 
     let h = init_common_headers();

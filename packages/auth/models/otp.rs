@@ -1,15 +1,18 @@
 use crate::prelude::*;
 
 // ---------------------------------------------------------------------------
-// OTP model and type
+// OTP model
 // ---------------------------------------------------------------------------
 
+/// A purpose-tagged one-time code, ty identifies the flow it belongs to (see
+/// OTP_TY_REGISTER, OTP_TY_FORGOT, and any ty a downstream package defines for
+/// its own flow, e.g. authz's org invitation).
 #[model(updated_at = false, deleted_at = false, by_id = false)]
-pub struct AuthOtp {
+pub struct Otp {
     pub email: String,
 
     #[graphql(skip)]
-    pub ty: AuthOtpTy,
+    pub ty: String,
 
     /// Hash of the opaque secret returned to the client with the row id, checked
     /// alongside the OTP code so the resolve endpoint cannot be guessed by id alone.
@@ -22,7 +25,7 @@ pub struct AuthOtp {
     #[graphql(skip)]
     pub otp_hashed: String,
 
-    /// Type-specific payload, see AuthOtpDataRegister and AuthOtpDataForgot.
+    /// Type-specific payload, see OtpDataRegister and OtpDataForgot.
     #[graphql(skip)]
     pub data: JsonValue,
 
@@ -38,25 +41,19 @@ pub struct AuthOtp {
     pub can_re_request_at: DateTimeUtc,
 }
 
-#[sql_enum]
-pub enum AuthOtpTy {
-    Register,
-    Forgot,
-}
-
 // ---------------------------------------------------------------------------
 // Type-specific OTP payloads
 // ---------------------------------------------------------------------------
 
-/// Payload stored in AuthOtp.data for a Register-type OTP.
+/// Payload stored in Otp.data for an OTP_TY_REGISTER row.
 #[derive(Serialize, Deserialize)]
-pub struct AuthOtpDataRegister {
+pub struct OtpDataRegister {
     pub password_hashed: String,
 }
 
-/// Payload stored in AuthOtp.data for a Forgot-type OTP.
+/// Payload stored in Otp.data for an OTP_TY_FORGOT row.
 #[derive(Serialize, Deserialize)]
-pub struct AuthOtpDataForgot {
+pub struct OtpDataForgot {
     pub user_id: String,
 }
 
@@ -64,19 +61,19 @@ pub struct AuthOtpDataForgot {
 // GraphQL resolver fields for OTP
 // ---------------------------------------------------------------------------
 
-async fn resolve_remaining_attempt(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<i64> {
+async fn resolve_remaining_attempt(o: &OtpGql, ctx: &Context<'_>) -> Res<i64> {
     let c = ctx.auth_config();
     let t = o.total_attempt.ok_or(CoreDbErr::GqlResolverNone)?;
     let m = c.otp_max_attempt;
     Ok(m - t)
 }
-async fn resolve_will_expire_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
+async fn resolve_will_expire_at(o: &OtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
     let c = ctx.auth_config();
     let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
     let d = duration_ms(c.otp_expires_ms);
     Ok(t + d)
 }
-async fn resolve_can_re_request_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
+async fn resolve_can_re_request_at(o: &OtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
     let c = ctx.auth_config();
     let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
     let d = duration_ms(c.otp_re_request_ms);
@@ -88,16 +85,16 @@ async fn resolve_can_re_request_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<Dat
 // ---------------------------------------------------------------------------
 
 /// To only expose secret in some operations, not the others.
-pub struct AuthOtpWithSecret {
-    pub inner: AuthOtpSql,
+pub struct OtpWithSecret {
+    pub inner: OtpSql,
     pub secret: String,
 }
 #[Object]
-impl AuthOtpWithSecret {
+impl OtpWithSecret {
     pub async fn secret(&self) -> String {
         self.secret.clone()
     }
-    pub async fn inner(&self, ctx: &Context<'_>) -> Res<AuthOtpGql> {
+    pub async fn inner(&self, ctx: &Context<'_>) -> Res<OtpGql> {
         let r = self.inner.clone().into_gql(ctx).await?;
         Ok(r)
     }

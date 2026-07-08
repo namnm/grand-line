@@ -49,7 +49,7 @@ where
 
     /// Called right after an OTP row is created, with the raw (unhashed) OTP value,
     /// typically used to deliver the OTP to the user, e.g. by email.
-    async fn on_otp_create(&self, ctx: &Context<'_>, otp: &AuthOtpSql, otp_raw: &str) -> Res<()> {
+    async fn on_otp_create(&self, ctx: &Context<'_>, otp: &OtpSql, otp_raw: &str) -> Res<()> {
         Ok(())
     }
 

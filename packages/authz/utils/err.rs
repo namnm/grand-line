@@ -16,6 +16,9 @@ pub enum MyErr {
     #[error("role id is missing in the request headers")]
     #[client]
     HeaderRoleId404,
+    #[error("the invitation email does not match the current user's email")]
+    #[client]
+    InvitationEmailMismatch,
 
     // ========================================================================
     // server errors
