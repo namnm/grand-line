@@ -31,6 +31,9 @@ update:
 	&& dprint upgrade \
 	&& dprint config update;
 
+dist_linux_amd64:
+	@cross build --release --target x86_64-unknown-linux-musl -p grand-line-examples-simple-todo;
+
 imagemin:
 	@export EXT="png|jpg|gif|ico" \
 	&& make git-ls \

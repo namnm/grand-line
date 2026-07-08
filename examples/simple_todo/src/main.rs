@@ -1,5 +1,16 @@
 use grand_line::prelude::*;
 
+use async_graphql_axum::GraphQL;
+use axum::{
+    Json, Router,
+    routing::{get, get_service},
+    serve,
+};
+use std::env;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::net::TcpListener;
+use tower_http::cors::CorsLayer;
+
 // ---------------------------------------------------------------------------
 // Todo model and GraphQL resolvers
 // ---------------------------------------------------------------------------
@@ -122,11 +133,62 @@ fn todo_delete_done() -> Vec<TodoGql> {
 }
 
 // ----------------------------------------------------------------------------
-// main axum listener
+// test hello world for rntwsc
+// ----------------------------------------------------------------------------
 
-use async_graphql_axum::GraphQL;
-use axum::{Router, routing::get_service, serve};
-use tokio::net::TcpListener;
+/// Response body for the REST hello endpoint.
+#[derive(Serialize)]
+pub struct HelloRest {
+    pub message: String,
+    pub timestamp: i64,
+}
+
+/// REST endpoint returning a hello message after a random delay, mirrors the nodejs /api/fetch example.
+async fn hello_rest() -> Json<HelloRest> {
+    random_delay().await;
+    Json(HelloRest {
+        message: "hello".to_owned(),
+        timestamp: now_millis(),
+    })
+}
+
+/// Response body for the hello GraphQL query.
+#[derive(SimpleObject)]
+pub struct HelloGql {
+    pub message: String,
+    pub timestamp: i64,
+}
+
+// manual query: hello world with a random delay, mirrors the nodejs /api/graphql example
+#[query]
+fn hello() -> HelloGql {
+    random_delay().await;
+    HelloGql {
+        message: "hello from graphql".to_owned(),
+        timestamp: now_millis(),
+    }
+}
+
+/// Sleeps for a pseudo-random duration between 0 and 1 second.
+async fn random_delay() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    sleep(Duration::from_millis((nanos % 1000) as u64)).await;
+}
+
+/// Current unix time in milliseconds.
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+// ----------------------------------------------------------------------------
+// main axum listener
+// ----------------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -134,14 +196,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let schema = schema(&db);
 
     let svc = GraphQL::new(schema);
-    let router = get_service(svc.clone()).post_service(svc);
-    let app = Router::new().route("/api/graphql", router);
+    let gql = get_service(svc.clone()).post_service(svc);
 
-    let port = 4000;
-    let addr = format!("0.0.0.0:{port}");
+    let app = Router::new()
+        .route("/api/graphql", gql)
+        .route("/api/fetch", get(hello_rest))
+        .layer(CorsLayer::permissive());
+
+    let hostname = env::var("HOSTNAME").unwrap_or_else(|_| "0.0.0.0".to_owned());
+    let port = env::var("PORT").unwrap_or_else(|_| "4000".to_owned());
+    let addr = format!("{hostname}:{port}");
     let listener = TcpListener::bind(addr).await?;
 
-    println!("listening on port {port}");
+    println!("listening on {hostname}:{port}");
     serve(listener, app).await?;
 
     Ok(())
@@ -161,9 +228,10 @@ fn schema(db: &DatabaseConnection) -> GraphQLSchema<Query, Mutation, EmptySubscr
 
 // ----------------------------------------------------------------------------
 // init db
+// ----------------------------------------------------------------------------
 
 async fn db() -> Result<DatabaseConnection, Box<dyn Error + Send + Sync>> {
-    let db = Database::connect("sqlite::memory:").await?;
+    let db = Database::connect("sqlite://db.sqlite3?mode=rwc").await?;
 
     let backend = db.get_database_backend();
     let schema = DbSchema::new(backend);
