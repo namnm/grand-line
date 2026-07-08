@@ -1,0 +1,29 @@
+[package]
+name = "_file"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+name = "_file"
+path = "lib.rs"
+
+[features]
+# exposes a mock S3 client builder for tests, pulled in via the root test_utils feature
+test_util = ["dep:aws-smithy-runtime", "dep:aws-smithy-types", "dep:http"]
+# default FileHandlers that shell out to the ffprobe/ffmpeg binaries, see the readme,
+# the host system must have both installed, this crate does not vendor or download them
+ffmpeg = ["tokio/process", "tokio/fs"]
+
+[dependencies]
+_core = { path = "../core", default-features = false }
+async-graphql = { version = "^7.2", default-features = false }
+aws-sdk-s3 = { version = "^1", default-features = false, features = ["rt-tokio", "rustls", "behavior-version-latest"] }
+aws-smithy-runtime = { version = "^1", default-features = false, features = ["test-util"], optional = true }
+aws-smithy-types = { version = "^1", default-features = false, optional = true }
+http = { version = "^1", default-features = false, optional = true }
+serde = { version = "^1.0", default-features = false }
+thiserror = { version = "^2.0", default-features = false }
+tokio = { version = "^1", default-features = false }
+
+[lints]
+workspace = true

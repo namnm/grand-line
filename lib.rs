@@ -15,6 +15,8 @@ pub mod export {
     pub use _auth::export::*;
     #[cfg(feature = "authz")]
     pub use _authz::export::*;
+    #[cfg(feature = "file")]
+    pub use _file::export::*;
     #[cfg(feature = "i18n")]
     pub use _i18n::export::*;
 
@@ -35,6 +37,8 @@ pub mod reexport {
     pub use _auth::reexport::*;
     #[cfg(feature = "authz")]
     pub use _authz::reexport::*;
+    #[cfg(feature = "file")]
+    pub use _file::reexport::*;
     #[cfg(feature = "i18n")]
     pub use _i18n::reexport::*;
 
@@ -56,6 +60,8 @@ pub mod prelude {
     pub use _auth::prelude::*;
     #[cfg(feature = "authz")]
     pub use _authz::prelude::*;
+    #[cfg(feature = "file")]
+    pub use _file::prelude::*;
     #[cfg(feature = "i18n")]
     pub use _i18n::prelude::*;
 

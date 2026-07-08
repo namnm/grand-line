@@ -1,0 +1,2 @@
+pub const FILE_UPLOAD_URL_EXPIRES_MS: i64 = 15 * 60 * 1000;
+pub const FILE_DOWNLOAD_URL_EXPIRES_MS: i64 = 60 * 60 * 1000;
