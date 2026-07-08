@@ -15,8 +15,8 @@ impl Query {
     }
 }
 
-fn schema() -> Schema<Query, EmptyMutation, EmptySubscription> {
-    Schema::build(Query, EmptyMutation, EmptySubscription).finish()
+fn schema() -> GraphQLSchema<Query, EmptyMutation, EmptySubscription> {
+    GraphQLSchema::build(Query, EmptyMutation, EmptySubscription).finish()
 }
 
 #[tokio::test]
@@ -26,14 +26,14 @@ async fn should_be_my_err() {
     let r = s.execute("{ myErr }").await;
     assert!(r.errors.len() == 1, "response should have an error");
 
-    let Some(e) = &r.errors.first() else {
+    let Some(err) = &r.errors.first() else {
         return;
     };
-    pretty_eq!(e.message, "test", "error message should match");
+    pretty_eq!(err.message, "test", "error message should match");
 
-    let e = e.source.as_deref().and_then(|e| e.downcast_ref::<GrandLineErr>());
-    if let Some(e) = e {
-        let code = e.0.code();
+    let err = err.source.as_deref().and_then(|e| e.downcast_ref::<GrandLineErr>());
+    if let Some(err) = err {
+        let code = err.0.code();
         pretty_eq!(code, "Test", "error code after downcast should match");
     } else {
         assert!(false, "downcast to GrandLineErr should be some");

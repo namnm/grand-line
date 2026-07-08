@@ -1,7 +1,7 @@
 use super::prelude::*;
 
 /// Abstract extra Select async methods implementation.
-/// Make it simpler to also implement for Selector<SelectModel<G>>.
+/// Make it simpler to also implement for Selector<`SelectModel`<G>>.
 #[async_trait]
 pub trait SelectorX<G>
 where
@@ -13,7 +13,7 @@ where
         D: ConnectionTrait;
 }
 
-/// Automatically implement for Selector<SelectModel<G>>.
+/// Automatically implement for Selector<`SelectModel`<G>>.
 #[async_trait]
 impl<G> SelectorX<G> for Selector<SelectModel<G>>
 where

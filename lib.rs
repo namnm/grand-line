@@ -1,26 +1,44 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 #[cfg(feature = "test_utils")]
 mod test_utils;
 
 pub mod export {
     pub use _core::export::*;
 
+    // main packages
     #[cfg(feature = "auth")]
     pub use _auth::export::*;
     #[cfg(feature = "authz")]
     pub use _authz::export::*;
+    #[cfg(feature = "formula")]
+    pub use _formula::export::*;
+    #[cfg(feature = "i18n")]
+    pub use _i18n::export::*;
+
+    // others
     #[cfg(feature = "http")]
     pub use _http::export::*;
     #[cfg(feature = "rand_utils")]
     pub use _rand_utils::export::*;
+    #[cfg(feature = "tracing")]
+    pub use _tracing::export::*;
 }
 
 pub mod reexport {
     pub use _core::reexport::*;
 
+    // main packages
     #[cfg(feature = "auth")]
     pub use _auth::reexport::*;
-    // #[cfg(feature = "authz")]
-    // pub use _authz::reexport::*;
+    #[cfg(feature = "authz")]
+    pub use _authz::reexport::*;
+    #[cfg(feature = "formula")]
+    pub use _formula::export::*;
+    #[cfg(feature = "i18n")]
+    pub use _i18n::reexport::*;
+
+    // others
     #[cfg(feature = "http")]
     pub use _http::reexport::*;
     #[cfg(feature = "rand_utils")]
@@ -29,23 +47,31 @@ pub mod reexport {
     pub use _tracing::reexport::*;
 }
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     pub use _core::prelude::*;
     pub use maplit::*;
 
-    #[cfg(feature = "test_utils")]
-    pub use crate::test_utils::prelude::*;
+    // main packages
     #[cfg(feature = "auth")]
     pub use _auth::prelude::*;
     #[cfg(feature = "authz")]
     pub use _authz::prelude::*;
+    #[cfg(feature = "formula")]
+    pub use _formula::prelude::*;
+    #[cfg(feature = "i18n")]
+    pub use _i18n::prelude::*;
+
+    // others
     #[cfg(feature = "http")]
     pub use _http::prelude::*;
     #[cfg(feature = "rand_utils")]
     pub use _rand_utils::prelude::*;
     #[cfg(feature = "tracing")]
     pub use _tracing::prelude::*;
+
+    // testing
+    #[cfg(feature = "test_utils")]
+    pub use crate::test_utils::prelude::*;
 }
 
 #[cfg(not(any(feature = "postgres", feature = "mysql", feature = "sqlite")))]

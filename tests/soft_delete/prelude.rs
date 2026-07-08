@@ -58,7 +58,7 @@ pub struct Mutation(UserDeleteMutation);
 
 pub struct Prepare {
     pub tmp: TmpDb,
-    pub s: Schema<Query, Mutation, EmptySubscription>,
+    pub s: GraphQLSchema<Query, Mutation, EmptySubscription>,
     pub id1: String,
     pub id2: String,
     pub pid1: String,

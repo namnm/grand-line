@@ -24,12 +24,12 @@ impl ResolverTyItem {
     pub fn init(mut self, operation: &str, crud: &str, crud_model: &str) -> SynRes<(Self, Ts2, Ts2)> {
         if self.gql_name == "resolver" {
             if crud.is_empty() {
-                let err = "resolver name should be different than the reserved keyword `resolver`";
-                return Err(SynErr::new(self.span, err));
+                let msg = "resolver name should be different than the reserved keyword `resolver`";
+                return Err(SynErr::new(self.span, msg));
             }
             if crud_model.is_empty() {
-                let err = "empty model name should be already validated at the previous step";
-                return Err(SynErr::new(self.span, err));
+                let msg = "empty model name should be already validated at the previous step";
+                return Err(SynErr::new(self.span, msg));
             }
             self.gql_name = format!("{crud_model}_{crud}").to_lower_camel_case();
         }

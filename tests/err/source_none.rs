@@ -12,8 +12,8 @@ impl Query {
     }
 }
 
-fn schema() -> Schema<Query, EmptyMutation, EmptySubscription> {
-    Schema::build(Query, EmptyMutation, EmptySubscription).finish()
+fn schema() -> GraphQLSchema<Query, EmptyMutation, EmptySubscription> {
+    GraphQLSchema::build(Query, EmptyMutation, EmptySubscription).finish()
 }
 
 #[tokio::test]
@@ -23,12 +23,12 @@ async fn on_parse_error() {
     let r = s.execute("{ one( }").await;
     assert!(r.errors.len() == 1, "response should have an error");
 
-    let Some(e) = &r.errors.first() else {
+    let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(e.source.is_none(), "parse request error source should be none");
-    assert!(e.path.is_empty(), "parse request error path should be empty");
+    assert!(err.source.is_none(), "parse request error source should be none");
+    assert!(err.path.is_empty(), "parse request error path should be empty");
 }
 
 #[tokio::test]
@@ -38,12 +38,12 @@ async fn on_unknown_field() {
     let r = s.execute("{ unknown }").await;
     assert!(r.errors.len() == 1, "response should have an error");
 
-    let Some(e) = &r.errors.first() else {
+    let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(e.source.is_none(), "unknown field error source should be none");
-    assert!(e.path.is_empty(), "unknown field error path should be empty");
+    assert!(err.source.is_none(), "unknown field error source should be none");
+    assert!(err.path.is_empty(), "unknown field error path should be empty");
 }
 
 #[tokio::test]
@@ -63,10 +63,13 @@ async fn on_variable_type_mismatch() {
     let r = s.execute(Request::new(q).variables(Variables::from_value(v))).await;
     assert!(r.errors.len() == 1, "response should have an error");
 
-    let Some(e) = &r.errors.first() else {
+    let Some(err) = &r.errors.first() else {
         return;
     };
 
-    assert!(e.source.is_none(), "variable type mismatch error source should be none");
-    assert!(e.path.is_empty(), "variable type mismatch error path should be empty");
+    assert!(
+        err.source.is_none(),
+        "variable type mismatch error source should be none"
+    );
+    assert!(err.path.is_empty(), "variable type mismatch error path should be empty");
 }

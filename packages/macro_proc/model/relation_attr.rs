@@ -80,10 +80,8 @@ impl RelationAttr {
     }
 
     fn bug(&self, k: &str) -> SynErr {
-        let err = format!(
-            "{} key `{k}` should not access this key in this attr (programmer error)",
-            self.inner.attr_debug(),
-        );
-        SynErr::new(self.inner.span, err)
+        let d = self.inner.attr_debug();
+        let msg = format!("{d} key `{k}` should not access this key in this attr (programmer error)");
+        SynErr::new(self.inner.span, msg)
     }
 }

@@ -40,7 +40,8 @@ impl AuthCacheContext for Context<'_> {
             return Ok(None);
         }
 
-        if ls.created_at < now() - duration_ms(self.auth_config().cookie_login_session_expires_ms) {
+        let c = self.auth_config();
+        if ls.created_at < now() - duration_ms(c.cookie_login_session_expires_ms) {
             return Ok(None);
         }
 

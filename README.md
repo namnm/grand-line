@@ -314,8 +314,8 @@ This scans `src/` of the current crate. Then include the generated file in your 
 ```rs
 grand_line::include_generated_schema! {}
 
-fn schema(db: &DatabaseConnection) -> Schema<Query, Mutation, EmptySubscription> {
-    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+fn schema(db: &DatabaseConnection) -> GraphQLSchema<Query, Mutation, EmptySubscription> {
+    GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
         .extension(GrandLineExtension)
         .data(Arc::new(db.clone()))
         .finish()
@@ -328,7 +328,7 @@ For more control - multiple source directories and external merged types (e.g. f
 fn main() {
     grand_line_build::SchemaBuilder::new()
         .scan("src")
-        .scan("../other_crate/src")   // scan resolvers from another crate
+        .scan("../other_crate/src")
         .extra_query("AuthMergedQuery")
         .extra_mutation("AuthMergedMutation<User>")
         .generate();
@@ -411,7 +411,7 @@ ctx.cache(|| async { ... }).await?    // Arc<T> - per-request memoize by type
 `GrandLineExtension` manages one lazy transaction per request - commits on success, rolls back on any error.
 
 ```rs
-Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .extension(GrandLineExtension)
     .data(Arc::new(db.clone()))
     .finish()
@@ -525,21 +525,24 @@ filter.gql_select_id().all(tx).await?
 #[grand_line_err]
 enum MyErr {
     #[error("record not found")]
-    #[client]          // forwarded to GraphQL response as-is
+    // forwarded to response as-is
+    #[client]
     NotFound,
 
-    #[error("oops")]   // client sees generic "internal server error"
+    // client sees generic "internal server error"
+    #[error("oops")]
     InternalProblem,
 }
 
 // Raise from any resolver:
 Err(MyErr::NotFound)?;
 
-// Downcast from GraphQL response error:
+// Downcast from response error:
 error.source
     .as_deref()
     .and_then(|e| e.downcast_ref::<GrandLineErr>())
-    .map(|e| e.0.code());  // e.g. "NotFound"
+    // e.g. "NotFound"
+    .map(|e| e.0.code());
 ```
 
 ---
@@ -559,11 +562,11 @@ pub struct Query(AuthMergedQuery, /* your queries */);
 #[derive(Default, MergedObject)]
 pub struct Mutation(AuthMergedMutation<User>, /* your mutations */);
 
-Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .extension(GrandLineExtension)
     .data(Arc::new(db.clone()))
     .data(AuthConfig::default())
-    .data(AuthUserConfig::<User>::default())
+    .data(AuthUserImpl::<User>::default())
     .finish()
 ```
 
@@ -665,13 +668,13 @@ mutation { logout { id } }
 #### `auth` attribute
 
 ```rs
-#[query(auth)]                      // requires valid session
+#[query(auth)]
 fn my_profile() -> UserGql { ... }
 
-#[mutation(auth(unauthenticated))]  // requires NO session
+#[mutation(auth(unauthenticated))]
 fn register() -> AuthOtpWithSecret { ... }
 
-#[search(Todo, auth)]               // works on all CRUD macros
+#[search(Todo, auth)]
 fn resolver() { (None, None) }
 ```
 
@@ -685,10 +688,12 @@ struct MyHandlers;
 #[async_trait]
 impl AuthHandlers for MyHandlers {
     async fn otp(&self, _: &Context<'_>) -> Res<String> {
-        Ok(generate_otp())  // custom OTP generator
+        // custom OTP generator
+        Ok(generate_otp())
     }
     async fn on_otp_create(&self, _: &Context<'_>, otp: &AuthOtpSql, raw: &str) -> Res<()> {
-        send_email(&otp.email, raw).await  // send the OTP by email
+        // send the OTP by email
+        send_email(&otp.email, raw).await
     }
 }
 
@@ -713,7 +718,7 @@ impl AuthUserHandlers<User> for MyUserHandlers {
     }
 }
 
-AuthUserConfig::<User> { handlers: Arc::new(MyUserHandlers) }
+AuthUserImpl::<User> { handlers: Arc::new(MyUserHandlers) }
 ```
 
 ---
@@ -727,13 +732,13 @@ AuthUserConfig::<User> { handlers: Arc::new(MyUserHandlers) }
 Define your `Org` model (see [next section](#defining-your-org-model)), then wire up the schema:
 
 ```rs
-Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .extension(GrandLineExtension)
     .data(Arc::new(db.clone()))
     .data(AuthConfig::default())
-    .data(AuthUserConfig::<User>::default())
+    .data(AuthUserImpl::<User>::default())
     .data(AuthzConfig::default())
-    .data(authz_org::<Org>())       // register your Org model
+    .data(authz_org_impl::<Org>())
     .finish()
 ```
 
@@ -757,7 +762,8 @@ am_create!(Role {
 
 am_create!(UserInRole {
     user_id: user_id.clone(), role_id: role_id.clone(),
-    org_id: Some(org_id.clone()),  // must match role's org_id
+    // must match role's org_id
+    org_id: Some(org_id.clone()),
 })
 .exec(ctx).await?;
 ```
@@ -775,10 +781,11 @@ pub struct Org {
     pub plan: OrgPlan,
 }
 
-impl AuthzOrg for Org {} // marker trait - EntityX provides everything needed
+// marker trait - EntityX provides everything needed
+impl AuthzOrg for Org {}
 ```
 
-The framework looks up orgs via `authz_org::<Org>()` using the `id` from the `X-Org-Id` header. Your custom fields are accessible in your own resolvers via normal `Org::find()` queries.
+The framework looks up orgs via `authz_org_impl::<Org>()` using the `id` from the `X-Org-Id` header. Your custom fields are accessible in your own resolvers via normal `Org::find()` queries.
 
 #### `authz` attribute
 

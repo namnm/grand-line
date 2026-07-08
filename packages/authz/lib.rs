@@ -1,7 +1,9 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod context;
 mod models;
-// mod resolvers;
-// mod schema;
+mod resolvers;
+mod schema;
 mod utils;
 
 pub mod consts;
@@ -9,14 +11,13 @@ pub mod consts;
 pub mod export {
     pub use crate::context::*;
     pub use crate::models::*;
-    // pub use crate::resolvers::*;
-    // pub use crate::schema::*;
+    pub use crate::resolvers::*;
+    pub use crate::schema::*;
     pub use crate::utils::*;
 }
 
 pub mod reexport {}
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     pub use crate::export::*;
     pub use crate::reexport::*;

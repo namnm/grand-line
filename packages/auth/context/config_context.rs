@@ -16,13 +16,13 @@ impl<'a> AuthConfigContext<'a> for Context<'a> {
     }
 }
 
-pub trait AuthUserConfigContext<'a> {
-    fn auth_user_config<U: AuthUser + 'static>(&self) -> Res<&'a AuthUserConfig<U>>;
+pub trait AuthUserImplContext<'a> {
+    fn auth_user_impl<U: AuthUser>(&self) -> Res<&'a AuthUserImpl<U>>;
 }
 
-impl<'a> AuthUserConfigContext<'a> for Context<'a> {
-    fn auth_user_config<U: AuthUser + 'static>(&self) -> Res<&'a AuthUserConfig<U>> {
-        self.data_opt::<AuthUserConfig<U>>()
-            .ok_or_else(|| MyErr::AuthUserConfigNotFound.into())
+impl<'a> AuthUserImplContext<'a> for Context<'a> {
+    fn auth_user_impl<U: AuthUser>(&self) -> Res<&'a AuthUserImpl<U>> {
+        self.data_opt::<AuthUserImpl<U>>()
+            .ok_or_else(|| MyErr::UserImplNotFound.into())
     }
 }

@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod active_model;
 mod chain_select;
 mod column;
@@ -29,7 +31,6 @@ pub use query_filter::*;
 pub use select::*;
 pub use selector::*;
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 mod prelude {
     pub use super::err::MyErr;
     pub use crate::prelude::*;

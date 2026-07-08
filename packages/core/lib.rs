@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod db;
 mod graphql;
 mod utils;
@@ -25,11 +27,13 @@ pub mod reexport {
     pub use ulid;
 }
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     pub use crate::export::*;
     pub use crate::reexport::*;
-    pub use async_graphql::{Error as GraphQLErr, MaybeUndefined as Undefined, Schema, Value, extensions::*, *};
+    pub use async_graphql::{
+        Error as GraphQLErr, MaybeUndefined as Undefined, Schema as GraphQLSchema, Value as GraphQLValue,
+        extensions::*, *,
+    };
     pub use async_trait::async_trait;
     pub use sea_orm::{
         DbErr, Schema as DbSchema, Value as DbValue,

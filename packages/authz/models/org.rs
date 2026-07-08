@@ -1,3 +1,7 @@
 use crate::prelude::*;
 
-pub trait AuthzOrg: EntityX + Send + Sync + 'static {}
+pub trait AuthzOrg
+where
+    Self: EntityX + Send + Sync,
+{
+}

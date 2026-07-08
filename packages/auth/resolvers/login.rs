@@ -14,6 +14,7 @@ pub struct LoginSessionData {
 pub async fn login_impl<U: AuthUser>(ctx: &Context<'_>, data: Login) -> Res<LoginSessionWithSecret> {
     let tx = &*ctx.tx().await?;
     let lsd = login_session_data(ctx)?;
+    let ih = &ctx.auth_user_impl::<U>()?.handlers;
 
     let u = U::find()
         .exclude_deleted()
@@ -28,10 +29,7 @@ pub async fn login_impl<U: AuthUser>(ctx: &Context<'_>, data: Login) -> Res<Logi
 
     let ls = login_session_create(ctx, tx, &u.get_id(), &lsd).await?;
 
-    ctx.auth_user_config::<U>()?
-        .handlers
-        .on_login_resolve(ctx, &u, &ls.inner)
-        .await?;
+    ih.on_login_resolve(ctx, &u, &ls.inner).await?;
 
     Ok(ls)
 }

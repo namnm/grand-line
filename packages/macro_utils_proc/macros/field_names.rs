@@ -14,8 +14,8 @@ fn try_gen_field_names(mut item: ItemStruct) -> SynRes<TokenStream> {
     for mut f in if let Fields::Named(f) = item.fields {
         f.named
     } else {
-        let err = format!("{name} struct should be named fields");
-        return Err(SynErr::new(name_span, err));
+        let msg = format!("{name} struct should be named fields");
+        return Err(SynErr::new(name_span, msg));
     } {
         let attrs = Attr::from_field(&name.to_string(), &f, &|_| false)?;
         if let Some(a) = attrs.iter().find(|a| a.is("field_names")) {

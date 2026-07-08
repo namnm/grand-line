@@ -22,8 +22,8 @@ impl Error for GrandLineErr {
 
 impl From<GrandLineErr> for ServerError {
     fn from(v: GrandLineErr) -> Self {
-        let mut e = Self::new(v.to_string(), None);
-        e.source = Some(Arc::new(v));
-        e
+        let mut err = Self::new(v.to_string(), None);
+        err.source = Some(Arc::new(v));
+        err
     }
 }

@@ -76,7 +76,7 @@ impl SchemaBuilder {
             Ok(v) => v,
             Err(e) => {
                 let msg = format!("CARGO_MANIFEST_DIR not set: {e}");
-                println!("cargo:warning=grand_line_build: {msg}");
+                eprintln!("cargo:error=grand_line_build: {msg}");
                 return;
             }
         };
@@ -84,7 +84,7 @@ impl SchemaBuilder {
             Ok(v) => v,
             Err(e) => {
                 let msg = format!("OUT_DIR not set: {e}");
-                println!("cargo:warning=grand_line_build: {msg}");
+                eprintln!("cargo:error=grand_line_build: {msg}");
                 return;
             }
         };
@@ -105,7 +105,7 @@ impl SchemaBuilder {
         let out_path = PathBuf::from(&out_dir).join("grand_line_schema.rs");
         if let Err(e) = fs::write(&out_path, code) {
             let msg = format!("failed to write grand_line_schema.rs: {e}");
-            println!("cargo:warning=grand_line_build: {msg}");
+            eprintln!("cargo:error=grand_line_build: {msg}");
         }
     }
 }

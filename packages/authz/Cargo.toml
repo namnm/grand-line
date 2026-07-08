@@ -10,6 +10,7 @@ path = "lib.rs"
 [dependencies]
 _auth = { path = "../auth", default-features = false }
 _core = { path = "../core", default-features = false }
+_formula = { path = "../formula", default-features = false }
 _http = { path = "../http", default-features = false }
 async-graphql = { version = "^7.2", default-features = false }
 serde = { version = "^1.0", default-features = false }

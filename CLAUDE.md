@@ -1,6 +1,7 @@
 # Important
 
 - Always use English in code and comments. Chat responses are in Vietnamese.
+- Do not use unwrap or expect or panic. Try to return result or something instead.
 - Run `make check` and `make test_sqlite` and fix all if any on each modification. You can read to understand and run a modified command instead to only check and test your change selectively.
 
 # Formatting Rules

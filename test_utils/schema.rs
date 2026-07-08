@@ -4,14 +4,14 @@ pub fn schema_q<Q>(db: &DatabaseConnection) -> SchemaBuilder<Q, EmptyMutation, E
 where
     Q: ObjectType + Default + 'static,
 {
-    let sb = Schema::build(Q::default(), EmptyMutation, EmptySubscription);
+    let sb = GraphQLSchema::build(Q::default(), EmptyMutation, EmptySubscription);
     extension(sb, db)
 }
 pub fn schema_m<M>(db: &DatabaseConnection) -> SchemaBuilder<EmptyQuery, M, EmptySubscription>
 where
     M: ObjectType + Default + 'static,
 {
-    let sb = Schema::build(EmptyQuery::default(), M::default(), EmptySubscription);
+    let sb = GraphQLSchema::build(EmptyQuery::default(), M::default(), EmptySubscription);
     extension(sb, db)
 }
 
@@ -20,7 +20,7 @@ where
     Q: ObjectType + Default + 'static,
     M: ObjectType + Default + 'static,
 {
-    let sb = Schema::build(Q::default(), M::default(), EmptySubscription);
+    let sb = GraphQLSchema::build(Q::default(), M::default(), EmptySubscription);
     extension(sb, db)
 }
 

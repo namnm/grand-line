@@ -28,7 +28,7 @@ pub async fn prepare() -> Res<Prepare> {
     };
     let s = schema_qm::<Query, Mutation>(&tmp.db)
         .data(c)
-        .data(AuthUserConfig::<User>::default());
+        .data(AuthUserImpl::<User>::default());
     let h = init_common_headers();
 
     let u = am_create!(User {

@@ -54,28 +54,28 @@ impl CrudAttr {
             ..
         } = &r;
         if !self.resolver_inputs && !inputs.to_string().is_empty() {
-            let err = format!("{gql_name} inputs should be empty unless resolver_inputs=true, found {inputs}");
-            return Err(SynErr::new(*span, err));
+            let msg = format!("{gql_name} inputs should be empty unless resolver_inputs=true, found {inputs}");
+            return Err(SynErr::new(*span, msg));
         }
         if !self.resolver_output {
             if output.to_string() != "()" {
-                let err = format!("{gql_name} output should be empty unless resolver_output=true, found {output}");
-                return Err(SynErr::new(*span, err));
+                let msg = format!("{gql_name} output should be empty unless resolver_output=true, found {output}");
+                return Err(SynErr::new(*span, msg));
             }
             if !self.ra.tx || !self.ra.ctx {
-                let err = format!("{gql_name} output requires tx, ctx");
-                return Err(SynErr::new(*span, err));
+                let msg = format!("{gql_name} output requires tx, ctx");
+                return Err(SynErr::new(*span, msg));
             }
         }
         if self.resolver_inputs && self.resolver_output {
-            let err = format!(
+            let msg = format!(
                 "{gql_name} should use #[query] or #[mutation] instead since both resolver_inputs=true and resolver_output=true",
             );
-            return Err(SynErr::new(*span, err));
+            return Err(SynErr::new(*span, msg));
         }
         if !self.ra.tx && !self.ra.ctx {
-            let err = format!("{gql_name} tx requires ctx");
-            return Err(SynErr::new(*span, err));
+            let msg = format!("{gql_name} tx requires ctx");
+            return Err(SynErr::new(*span, msg));
         }
         Ok(())
     }

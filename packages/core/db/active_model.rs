@@ -157,9 +157,9 @@ where
     fn get_deleted_by_id(&self) -> ActiveValue<Option<String>>;
     fn set_deleted_by_id(self, v: Option<String>) -> Self;
 
-    /// sea_orm ActiveModel hooks will not be called with Entity:: or bulk methods.
+    /// `sea_orm` `ActiveModel` hooks will not be called with `Entity::` or bulk methods.
     /// We need to have this method instead to get default values on create.
-    /// This will be used together with the macro grand_line::am_create.
+    /// This will be used together with the macro `grand_line::am_create`.
     fn set_defaults_on_create(mut self) -> Self {
         if !self.get_id().is_set() {
             self = self.set_id(&ulid());
@@ -170,14 +170,14 @@ where
         self = self.set_defaults();
         self
     }
-    /// Shortcut for Self::default().set_defaults_on_create()
+    /// Shortcut for `Self::default().set_defaults_on_create()`
     fn defaults_on_create() -> Self {
         <Self as Default>::default().set_defaults_on_create()
     }
 
-    /// sea_orm ActiveModel hooks will not be called with Entity:: or bulk methods.
+    /// `sea_orm` `ActiveModel` hooks will not be called with `Entity::` or bulk methods.
     /// We need to have this method instead to get default values on update.
-    /// This will be used together with the macro grand_line::am_update.
+    /// This will be used together with the macro `grand_line::am_update`.
     fn set_defaults_on_update(mut self) -> Self {
         if !self.get_updated_at().is_set() && E::col_updated_at().is_some() {
             // do not call now() if there is no column
@@ -185,14 +185,14 @@ where
         }
         self
     }
-    /// Shortcut for Self::default().set_defaults_on_update()
+    /// Shortcut for `Self::default().set_defaults_on_update()`
     fn defaults_on_update() -> Self {
         <Self as Default>::default().set_defaults_on_update()
     }
 
-    /// sea_orm ActiveModel hooks will not be called with Entity:: or bulk methods.
+    /// `sea_orm` `ActiveModel` hooks will not be called with `Entity::` or bulk methods.
     /// We need to have this method instead to get default values on delete.
-    /// This will be used together with the macro grand_line::am_soft_delete.
+    /// This will be used together with the macro `grand_line::am_soft_delete`.
     fn set_defaults_on_delete(mut self) -> Self {
         self = self.set_defaults_on_update();
         if let Set(Some(v)) = self.get_updated_at() {
@@ -204,13 +204,13 @@ where
         }
         self
     }
-    /// Shortcut for Self::default().set_defaults_on_delete()
+    /// Shortcut for `Self::default().set_defaults_on_delete()`
     fn defaults_on_delete() -> Self {
         <Self as Default>::default().set_defaults_on_delete()
     }
 
-    /// Set deleted_at and update db.
-    /// It also checks if the model has configured with deleted_at column or not.
+    /// Set `deleted_at` and update db.
+    /// It also checks if the model has configured with `deleted_at` column or not.
     async fn soft_delete<D>(self, db: &D) -> Res<E::M>
     where
         D: ConnectionTrait,

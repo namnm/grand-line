@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod context;
 
 pub mod export {
@@ -11,7 +13,6 @@ pub mod reexport {
     pub use tower_http;
 }
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     pub use crate::export::*;
     pub use crate::reexport::*;

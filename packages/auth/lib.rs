@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod active_model;
 mod context;
 mod models;
@@ -20,7 +22,6 @@ pub mod reexport {
     pub use validator;
 }
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     pub use crate::export::*;
     pub use crate::reexport::*;

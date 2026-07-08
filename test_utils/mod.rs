@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 #[cfg(feature = "axum")]
 mod axum;
 mod consts;
@@ -6,7 +8,6 @@ mod err;
 mod exec_assert;
 mod schema;
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 pub mod prelude {
     #[cfg(feature = "axum")]
     pub use super::axum::*;

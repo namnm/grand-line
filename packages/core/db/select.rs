@@ -9,7 +9,7 @@ where
     /// Helper to filter with option.
     fn filter_opt(self, c: Option<Condition>) -> Self;
 
-    /// Helper to filter with ChainSelect.
+    /// Helper to filter with `ChainSelect`.
     fn chain<C>(self, c: C) -> Self
     where
         C: ChainSelect<E>;

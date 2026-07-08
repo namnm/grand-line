@@ -26,9 +26,10 @@ pub enum MyErr {
     #[error("email or password is incorrect")]
     #[client]
     LoginIncorrect,
+
     // ========================================================================
     // server errors
     //
-    #[error("AuthUserConfig not found")]
-    AuthUserConfigNotFound,
+    #[error("auth user impl not found")]
+    UserImplNotFound,
 }

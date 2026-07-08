@@ -32,12 +32,13 @@ pub async fn login_session_count_impl(ctx: &Context<'_>, filter: Option<LoginSes
 }
 
 async fn login_session_get_filter(ctx: &Context<'_>) -> Res<LoginSessionFilter> {
+    let c = ctx.auth_config();
     let arc = ctx.auth_with_cache().await?;
     let ls = arc.as_ref().as_ref().ok_or(MyErr::Unauthenticated)?;
     let f = filter!(LoginSession {
         id_ne: ls.id.clone(),
         user_id: ls.user_id.clone(),
-        created_at_gte: now() - duration_ms(ctx.auth_config().cookie_login_session_expires_ms),
+        created_at_gte: now() - duration_ms(c.cookie_login_session_expires_ms),
     });
     Ok(f)
 }

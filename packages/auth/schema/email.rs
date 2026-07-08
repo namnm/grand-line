@@ -6,9 +6,9 @@ pub struct Email(pub String);
 
 #[Scalar(name = "Email")]
 impl ScalarType for Email {
-    fn parse(value: Value) -> InputValueResult<Self> {
+    fn parse(value: GraphQLValue) -> InputValueResult<Self> {
         match value {
-            Value::String(mut s) => {
+            GraphQLValue::String(mut s) => {
                 s = s.trim().to_lowercase();
                 if ValidateEmail::validate_email(&s) {
                     Ok(Self(s))
@@ -19,7 +19,7 @@ impl ScalarType for Email {
             _ => Err(InputValueError::custom("Invalid email")),
         }
     }
-    fn to_value(&self) -> Value {
-        Value::String(self.0.clone())
+    fn to_value(&self) -> GraphQLValue {
+        GraphQLValue::String(self.0.clone())
     }
 }

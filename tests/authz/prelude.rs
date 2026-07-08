@@ -63,7 +63,7 @@ pub async fn prepare_wildcard() -> Res<Prepare> {
 
 pub async fn prepare_with_ops(org1_admin_ops: PolicyOperations) -> Res<Prepare> {
     let tmp = tmp_db!(User, LoginSession, Org, Role, UserInRole);
-    let s = schema_q::<Query>(&tmp.db).data(authz_org::<Org>());
+    let s = schema_q::<Query>(&tmp.db).data(authz_org_impl::<Org>());
     let h = init_common_headers();
 
     let u1 = am_create!(User {
@@ -208,6 +208,7 @@ pub const fn operation(inputs: PolicyField, output: PolicyField) -> PolicyOperat
     PolicyOperation {
         inputs,
         output,
+        row: None,
     }
 }
 pub fn operations(k: String, inputs: PolicyField, output: PolicyField) -> PolicyOperations {

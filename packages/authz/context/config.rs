@@ -17,7 +17,11 @@ impl Default for AuthzConfig {
 
 #[allow(unused_variables)]
 #[async_trait]
-pub trait AuthzHandlers: Send + Sync {}
+pub trait AuthzHandlers: Send + Sync {
+    async fn on_formula(&self, ctx: &Context<'_>) -> Res<Option<JsonValue>> {
+        Ok(None)
+    }
+}
 
 struct DefaultHandlers;
 #[async_trait]
@@ -25,16 +29,16 @@ impl AuthzHandlers for DefaultHandlers {}
 
 /// Type-erased org lookup - stored in context so proc-macro resolvers can
 /// use it without needing to know the generic `O` type parameter.
-/// Register with `.data(authz_org::<YourOrg>())` when building your schema.
+/// Register with `.data(authz_org_impl::<YourOrg>())` when building your schema.
 #[async_trait]
-pub trait AuthzOrgLookup: Send + Sync {
+pub trait AuthzOrgImpl: Send + Sync {
     async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>>;
 }
 
-struct DefaultOrgLookup<O: AuthzOrg>(PhantomData<O>);
+struct DefaultOrgImpl<O: AuthzOrg>(PhantomData<O>);
 
 #[async_trait]
-impl<O: AuthzOrg> AuthzOrgLookup for DefaultOrgLookup<O> {
+impl<O: AuthzOrg> AuthzOrgImpl for DefaultOrgImpl<O> {
     async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>> {
         let r = O::find()
             .exclude_deleted()
@@ -48,7 +52,7 @@ impl<O: AuthzOrg> AuthzOrgLookup for DefaultOrgLookup<O> {
     }
 }
 
-/// Create an org lookup for use in `.data(authz_org::<YourOrg>())`.
-pub fn authz_org<O: AuthzOrg>() -> Arc<dyn AuthzOrgLookup> {
-    Arc::new(DefaultOrgLookup::<O>(PhantomData))
+/// Create an org lookup for use in `.data(authz_org_impl::<YourOrg>())`.
+pub fn authz_org_impl<O: AuthzOrg>() -> Arc<dyn AuthzOrgImpl> {
+    Arc::new(DefaultOrgImpl::<O>(PhantomData))
 }

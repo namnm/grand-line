@@ -95,7 +95,7 @@ pub fn filter(item: TokenStream) -> TokenStream {
     expr_struct(item, "Filter", "Some", "")
 }
 
-/// Helper to quickly create an order_by with concise syntax.
+/// Helper to quickly create an `order_by` with concise syntax.
 #[proc_macro]
 pub fn order_by(item: TokenStream) -> TokenStream {
     gen_order_by(item)
@@ -108,37 +108,37 @@ pub fn active_model(item: TokenStream) -> TokenStream {
     expr_struct(item, "ActiveModel", "Set", "")
 }
 
-/// Helper to quickly create an ActiveModelWrapper<AmCreate, E, A> with concise syntax
+/// Helper to quickly create an `ActiveModelWrapper`<`AmCreate`, E, A> with concise syntax
 /// and convert all string literals into String automatically.
-/// Call .exec_without_ctx(db) or .exec(ctx) to execute.
+/// Call .`exec_without_ctx(db)` or .exec(ctx) to execute.
 #[proc_macro]
 pub fn am_create(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmCreate")
 }
 
-/// Helper to quickly create an ActiveModelWrapper<AmUpdate, E, A> with concise syntax
+/// Helper to quickly create an `ActiveModelWrapper`<`AmUpdate`, E, A> with concise syntax
 /// and convert all string literals into String automatically.
-/// Call .exec_without_ctx(db) or .exec(ctx) to execute.
+/// Call .`exec_without_ctx(db)` or .exec(ctx) to execute.
 #[proc_macro]
 pub fn am_update(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmUpdate")
 }
 
-/// Helper to quickly create an ActiveModelWrapper<AmSoftDelete, E, A> with concise syntax
+/// Helper to quickly create an `ActiveModelWrapper`<`AmSoftDelete`, E, A> with concise syntax
 /// and convert all string literals into String automatically.
-/// Call .exec_without_ctx(db) or .exec(ctx) to execute.
+/// Call .`exec_without_ctx(db)` or .exec(ctx) to execute.
 #[proc_macro]
 pub fn am_soft_delete(item: TokenStream) -> TokenStream {
     expr_struct_am_wrapper(item, "ActiveModel", "AmSoftDelete")
 }
 
-/// Automatically derive ThisErr, GrandLineErrDerive, Debug.
+/// Automatically derive `ThisErr`, `GrandLineErrDerive`, Debug.
 #[proc_macro_attribute]
 pub fn grand_line_err(attr: TokenStream, item: TokenStream) -> TokenStream {
     gen_grand_line_err(attr, item)
 }
 
-/// Automatically implement GrandLineErrImpl to handle error better.
+/// Automatically implement `GrandLineErrImpl` to handle error better.
 #[proc_macro_derive(GrandLineErrDerive, attributes(client, code))]
 pub fn grand_line_err_derive(item: TokenStream) -> TokenStream {
     gen_grand_line_err_derive(item)

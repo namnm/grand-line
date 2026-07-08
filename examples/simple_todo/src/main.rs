@@ -148,8 +148,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 grand_line::include_generated_schema! {}
 
-fn schema(db: &DatabaseConnection) -> Schema<Query, Mutation, EmptySubscription> {
-    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
+fn schema(db: &DatabaseConnection) -> GraphQLSchema<Query, Mutation, EmptySubscription> {
+    GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
         .extension(GrandLineExtension)
         .data(Arc::new(db.clone()))
         .finish()

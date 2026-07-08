@@ -4,6 +4,8 @@ use crate::prelude::*;
 pub struct PolicyOperation {
     pub inputs: PolicyField,
     pub output: PolicyField,
+    // rhai expression evaluated to a filter map, e.g. #{ assigned_to_id_eq: current_user }
+    pub row: Option<String>,
 }
 pub type PolicyOperations = HashMap<String, PolicyOperation>;
 
@@ -45,14 +47,14 @@ pub fn policy_check_inputs(ctx: &Context<'_>, inputs: &PolicyField) -> bool {
     true
 }
 
-fn check_inputs_tree(parent: &PolicyField, child_k: &str, child_v: &Value) -> bool {
+fn check_inputs_tree(parent: &PolicyField, child_k: &str, child_v: &GraphQLValue) -> bool {
     if parent.wildcard_nested() {
         return true;
     }
     let child = parent.children.as_ref().map(|m| m.get(child_k)).unwrap_or(None);
 
     match child_v {
-        Value::List(list) => {
+        GraphQLValue::List(list) => {
             let Some(child) = child else {
                 return false;
             };
@@ -62,7 +64,7 @@ fn check_inputs_tree(parent: &PolicyField, child_k: &str, child_v: &Value) -> bo
                 }
             }
         }
-        Value::Object(object) => {
+        GraphQLValue::Object(object) => {
             let Some(child) = child else {
                 return false;
             };
@@ -83,20 +85,20 @@ fn check_inputs_tree(parent: &PolicyField, child_k: &str, child_v: &Value) -> bo
     true
 }
 
-fn check_inputs_value(child: &PolicyField, child_v: &Value) -> bool {
+fn check_inputs_value(child: &PolicyField, child_v: &GraphQLValue) -> bool {
     if child.wildcard_nested() {
         return true;
     }
 
     match child_v {
-        Value::List(list) => {
+        GraphQLValue::List(list) => {
             for child_v in list {
                 if !check_inputs_value(child, child_v) {
                     return false;
                 }
             }
         }
-        Value::Object(object) => {
+        GraphQLValue::Object(object) => {
             for (grand_k, grand_v) in object {
                 let grand = child.children.as_ref().map(|m| m.get(grand_k.as_str())).unwrap_or(None);
                 let Some(grand) = grand else {

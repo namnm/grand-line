@@ -7,7 +7,7 @@ pub struct Attr {
     /// In field, this will be Model.field.
     debug: String,
     /// In proc macro, this is the macro name.
-    /// In field, this will be one of AttrTy.
+    /// In field, this will be one of `AttrTy`.
     pub attr: String,
     /// Raw args parsed as strings.
     args: HashMap<String, (String, AttrParseTy)>,
@@ -16,7 +16,7 @@ pub struct Attr {
     first_path: Option<String>,
     /// Only in field.
     field: Option<(String, Attribute, Field)>,
-    /// Only in attr such as #[default(..)], #[sql_expr(..)], etc..
+    /// Only in attr such as #[default(..)], #[`sql_expr`(..)], etc..
     raw: Option<String>,
     /// Span of the attribute for error reporting.
     pub span: Span,
@@ -35,8 +35,8 @@ impl Attr {
         };
         for (k, v) in args {
             if a.args.contains_key(&k) {
-                let err = "appears more than once";
-                return Err(a.err_by_key(&k, err));
+                let msg = "appears more than once";
+                return Err(a.err_by_key(&k, msg));
             }
             a.args.insert(k, v);
         }
@@ -79,8 +79,8 @@ impl Attr {
             r.raw = Some(if let Meta::List(l) = &a.meta {
                 l.tokens.to_string()
             } else {
-                let err = format!("raw attr should be meta list #[{attr}(some_value)]");
-                return Err(SynErr::new(span, err));
+                let msg = format!("raw attr should be meta list #[{attr}(some_value)]");
+                return Err(SynErr::new(span, msg));
             });
             r
         } else {
@@ -108,14 +108,14 @@ impl Attr {
     pub fn model_from_first_path(&self) -> SynRes<String> {
         if let Some(v) = self.first_path.clone() {
             if v != v.to_pascal_case() {
-                let err = format!("model `{v}` is not pascal case");
-                return Err(self.syn_err(&err));
+                let msg = format!("model `{v}` is not pascal case");
+                return Err(self.syn_err(&msg));
             }
             Ok(v)
         } else {
             let attr = &self.attr;
-            let err = format!("missing model #[{attr}(Model, ...)]");
-            Err(self.syn_err(&err))
+            let msg = format!("missing model #[{attr}(Model, ...)]");
+            Err(self.syn_err(&msg))
         }
     }
 
@@ -140,8 +140,8 @@ impl Attr {
         match self.bool(k)? {
             Some(v) => {
                 if !v {
-                    let err = "should omit";
-                    return Err(self.err_by_key(k, err));
+                    let msg = "should omit";
+                    return Err(self.err_by_key(k, msg));
                 }
                 Ok(true)
             }
@@ -215,12 +215,12 @@ impl Attr {
         match self.args.get(k) {
             Some((v, AttrParseTy::NameValue)) => v.parse::<V>().map(|v| Ok(Some(v))).unwrap_or_else(|_| {
                 let t = type_name::<V>();
-                let err = format!("cannot parse `{v}` as {t}");
-                Err(self.err_by_key(k, &err))
+                let msg = format!("cannot parse `{v}` as {t}");
+                Err(self.err_by_key(k, &msg))
             }),
             Some(_) => {
-                let err = format!("should be `{k} = some_value`");
-                Err(self.err_by_key(k, &err))
+                let msg = format!("should be `{k} = some_value`");
+                Err(self.err_by_key(k, &msg))
             }
             None => Ok(None),
         }
@@ -234,8 +234,8 @@ impl Attr {
 
     fn field(&self) -> SynRes<(String, Attribute, Field)> {
         self.field.clone().ok_or_else(|| {
-            let err = "field: None (programmer error)";
-            SynErr::new(self.span, err)
+            let msg = "field: None (programmer error)";
+            SynErr::new(self.span, msg)
         })
     }
     pub fn field_model(&self) -> SynRes<String> {
@@ -253,8 +253,8 @@ impl Attr {
 
     pub fn raw(&self) -> SynRes<String> {
         self.raw.clone().ok_or_else(|| {
-            let err = "raw: None (programmer error)";
-            SynErr::new(self.span, err)
+            let msg = "raw: None (programmer error)";
+            SynErr::new(self.span, msg)
         })
     }
 
@@ -273,29 +273,29 @@ impl Attr {
     }
 
     pub fn err_required(&self, k: &str) -> SynErr {
-        let err = "is required";
-        self.err_by_key(k, err)
+        let msg = "is required";
+        self.err_by_key(k, msg)
     }
     pub fn err_invalid(&self, k: &str, valid: &[String]) -> SynErr {
         let valid = valid.join(", ");
-        let err = format!("is not valid here, should be one of: {valid}");
-        self.err_by_key(k, &err)
+        let msg = format!("is not valid here, should be one of: {valid}");
+        self.err_by_key(k, &msg)
     }
     pub fn err_invalid_bool(&self, k: &str) -> SynErr {
-        let err = format!("should be `{k}` for true, or `{k} = false` for false");
-        self.err_by_key(k, &err)
+        let msg = format!("should be `{k}` for true, or `{k} = false` for false");
+        self.err_by_key(k, &msg)
     }
     pub fn err_invalid_string(&self, k: &str) -> SynErr {
-        let err = format!(r#"should be `{k} = "some_value"` for string"#);
-        self.err_by_key(k, &err)
+        let msg = format!(r#"should be `{k} = "some_value"` for string"#);
+        self.err_by_key(k, &msg)
     }
     pub fn err_invalid_nested(&self, k: &str) -> SynErr {
-        let err = format!("should be `{k}(some_value)` for nested");
-        self.err_by_key(k, &err)
+        let msg = format!("should be `{k}(some_value)` for nested");
+        self.err_by_key(k, &msg)
     }
-    pub fn err_by_key(&self, k: &str, err: &str) -> SynErr {
-        let err = format!("key `{k}` {err}");
-        self.syn_err(&err)
+    pub fn err_by_key(&self, k: &str, msg: &str) -> SynErr {
+        let msg = format!("key `{k}` {msg}");
+        self.syn_err(&msg)
     }
 }
 

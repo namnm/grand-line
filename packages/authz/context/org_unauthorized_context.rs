@@ -20,9 +20,7 @@ impl OrgUnauthorizedContext for Context<'_> {
             return Err(MyErr::HeaderOrgId404.into());
         }
 
-        let lookup = self
-            .data_opt::<Arc<dyn AuthzOrgLookup>>()
-            .ok_or(MyErr::OrgLookupNotFound)?;
+        let lookup = self.data_opt::<Arc<dyn AuthzOrgImpl>>().ok_or(MyErr::OrgImplNotFound)?;
 
         let tx = &*self.tx().await?;
         lookup

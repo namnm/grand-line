@@ -70,8 +70,8 @@ fn attr_validate(attrs: &[Attr]) -> SynRes<()> {
         let model = attr.field_model()?;
         let field = attr.field_name()?;
         let matches = matches.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(", ");
-        let err = format!("{model}.{field} should have only one between: {matches}");
-        return Err(SynErr::new(attr.span, err));
+        let msg = format!("{model}.{field} should have only one between: {matches}");
+        return Err(SynErr::new(attr.span, msg));
     }
     Ok(())
 }

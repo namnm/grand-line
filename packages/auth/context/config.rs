@@ -15,11 +15,11 @@ pub struct AuthConfig {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
-            cookie_login_session_key: COOKIE_LOGIN_SESSION_KEY,
-            cookie_login_session_expires_ms: COOKIE_LOGIN_SESSION_EXPIRES,
-            otp_max_attempt: OTP_MAX_ATTEMPT,
-            otp_expires_ms: OTP_EXPIRE_MS,
-            otp_re_request_ms: OTP_RE_REQUEST_MS,
+            cookie_login_session_key: LOGIN_SESSION_COOKIE_KEY,
+            cookie_login_session_expires_ms: LOGIN_SESSION_COOKIE_EXPIRES,
+            otp_max_attempt: AUTH_OTP_MAX_ATTEMPT,
+            otp_expires_ms: AUTH_OTP_EXPIRE_MS,
+            otp_re_request_ms: AUTH_OTP_RE_REQUEST_MS,
             handlers: Arc::new(DefaultHandlers),
         }
     }
@@ -46,22 +46,45 @@ struct DefaultHandlers;
 impl AuthHandlers for DefaultHandlers {}
 
 /// Generic user config: callbacks that receive the user's own model type.
-/// Add this to your schema with `.data(AuthUserConfig::<User>::default())`.
-pub struct AuthUserConfig<U: AuthUser> {
-    pub handlers: Arc<dyn AuthUserHandlers<U>>,
+/// Use `let auth_user_impl = AuthUserImpl::<User>::default()` for no-op handlers,
+/// or `let auth_user_impl = AuthUserImpl::<User>::new(MyHandlers)` to provide custom callbacks.
+/// Add this to your schema with `.data(auth_user_impl)`.
+pub struct AuthUserImpl<U>
+where
+    U: AuthUser,
+{
+    pub handlers: Arc<dyn AuthUserImplHandlers<U>>,
 }
 
-impl<U: AuthUser> Default for AuthUserConfig<U> {
+impl<U> AuthUserImpl<U>
+where
+    U: AuthUser,
+{
+    pub fn new(handlers: impl AuthUserImplHandlers<U> + 'static) -> Self {
+        Self {
+            handlers: Arc::new(handlers),
+        }
+    }
+}
+
+impl<U> Default for AuthUserImpl<U>
+where
+    U: AuthUser,
+{
     fn default() -> Self {
         Self {
-            handlers: Arc::new(DefaultUserHandlers(PhantomData)),
+            handlers: Arc::new(DefaultUserImplHandlers(PhantomData)),
         }
     }
 }
 
 #[allow(unused_variables)]
 #[async_trait]
-pub trait AuthUserHandlers<U: AuthUser>: Send + Sync {
+pub trait AuthUserImplHandlers<U>
+where
+    U: AuthUser,
+    Self: Send + Sync,
+{
     async fn on_register_resolve(&self, ctx: &Context<'_>, user: &U::M, ls: &LoginSessionSql) -> Res<()> {
         Ok(())
     }
@@ -75,6 +98,6 @@ pub trait AuthUserHandlers<U: AuthUser>: Send + Sync {
     }
 }
 
-struct DefaultUserHandlers<U: AuthUser>(PhantomData<U>);
+struct DefaultUserImplHandlers<U>(PhantomData<U>);
 #[async_trait]
-impl<U: AuthUser> AuthUserHandlers<U> for DefaultUserHandlers<U> {}
+impl<U> AuthUserImplHandlers<U> for DefaultUserImplHandlers<U> where U: AuthUser {}

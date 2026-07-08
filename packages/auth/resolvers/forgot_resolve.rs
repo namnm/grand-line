@@ -7,6 +7,7 @@ pub async fn forgot_resolve_impl<U: AuthUser>(
 ) -> Res<LoginSessionWithSecret> {
     let tx = &*ctx.tx().await?;
     let h = &ctx.auth_config().handlers;
+    let ih = &ctx.auth_user_impl::<U>()?.handlers;
 
     h.password_validate(ctx, &password).await?;
     let lsd = login_session_data(ctx)?;
@@ -22,10 +23,7 @@ pub async fn forgot_resolve_impl<U: AuthUser>(
     let ls = login_session_create(ctx, tx, &u.get_id(), &lsd).await?;
     AuthOtp::delete_by_id(t.id).exec(tx).await?;
 
-    ctx.auth_user_config::<U>()?
-        .handlers
-        .on_forgot_resolve(ctx, &u, &ls.inner)
-        .await?;
+    ih.on_forgot_resolve(ctx, &u, &ls.inner).await?;
 
     Ok(ls)
 }

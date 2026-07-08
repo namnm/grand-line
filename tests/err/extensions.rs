@@ -36,10 +36,10 @@ async fn should_only_expose_client_errors() -> Res<()> {
     tmp.drop().await
 }
 
-async fn check<T>(s: &Schema<Query, EmptyMutation, EmptySubscription>, req: &str, err: T)
+async fn check<T>(s: &GraphQLSchema<Query, EmptyMutation, EmptySubscription>, req: &str, e: T)
 where
     T: GrandLineErrImpl,
 {
     let r = s.execute(req).await;
-    check_err(&r, &err);
+    check_err(&r, &e);
 }

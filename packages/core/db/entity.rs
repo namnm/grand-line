@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-/// Helper trait to abstract extra methods into sea_orm entity.
+/// Helper trait to abstract extra methods into `sea_orm` entity.
 #[async_trait]
 pub trait EntityX
 where
@@ -20,22 +20,22 @@ where
     /// Get column id.
     /// Should be generated in the model macro.
     fn col_id() -> Self::C;
-    /// Get column created_at.
+    /// Get column `created_at`.
     /// Should be generated in the model macro.
     fn col_created_at() -> Option<Self::C>;
-    /// Get column updated_at.
+    /// Get column `updated_at`.
     /// Should be generated in the model macro.
     fn col_updated_at() -> Option<Self::C>;
-    /// Get column deleted_at.
+    /// Get column `deleted_at`.
     /// Should be generated in the model macro.
     fn col_deleted_at() -> Option<Self::C>;
-    /// Get column created_by_id.
+    /// Get column `created_by_id`.
     /// Should be generated in the model macro.
     fn col_created_by_id() -> Option<Self::C>;
-    /// Get column updated_by_id.
+    /// Get column `updated_by_id`.
     /// Should be generated in the model macro.
     fn col_updated_by_id() -> Option<Self::C>;
-    /// Get column deleted_by_id.
+    /// Get column `deleted_by_id`.
     /// Should be generated in the model macro.
     fn col_deleted_by_id() -> Option<Self::C>;
 
@@ -88,7 +88,7 @@ where
         Condition::all().add(Self::col_id().eq(id))
     }
 
-    /// Ensure deleted_at column is present.
+    /// Ensure `deleted_at` column is present.
     fn ensure_col_deleted_at() -> Res<Self::C> {
         let col = Self::col_deleted_at().ok_or_else(|| MyErr::DbCol404 {
             col: Self::model_name().to_owned() + ".deleted_at",
@@ -100,15 +100,15 @@ where
         Self::col_deleted_at().map(|c| Condition::all().add(c.is_null()))
     }
 
-    /// Set deleted_at with filter by id.
-    /// It also checks if the model has configured with deleted_at column or not.
+    /// Set `deleted_at` with filter by id.
+    /// It also checks if the model has configured with `deleted_at` column or not.
     fn soft_delete_by_id(id: &str) -> Res<UpdateMany<Self>> {
         let r = Self::soft_delete_many()?.filter_by_id(id);
         Ok(r)
     }
 
-    /// Set deleted_at without any filter.
-    /// It also checks if the model has configured with deleted_at column or not.
+    /// Set `deleted_at` without any filter.
+    /// It also checks if the model has configured with `deleted_at` column or not.
     fn soft_delete_many() -> Res<UpdateMany<Self>> {
         Self::ensure_col_deleted_at()?;
         let am = Self::A::defaults_on_delete();

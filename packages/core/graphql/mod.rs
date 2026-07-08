@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
+
 mod cache_context;
 mod config;
 mod config_context;
@@ -19,7 +21,6 @@ pub use err::MyErr as CoreGraphQLErr;
 pub use extension::*;
 pub use tx_context::*;
 
-#[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 mod prelude {
     pub use super::err::MyErr;
     pub use crate::prelude::*;

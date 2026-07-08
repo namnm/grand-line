@@ -1,12 +1,12 @@
 use super::prelude::*;
 
-/// Helper trait to combine order_by and order_by_default with an initial value if all are empty.
+/// Helper trait to combine `order_by` and `order_by_default` with an initial value if all are empty.
 pub trait OrderBy<E>
 where
     E: EntityX,
     Self: ChainSelect<E> + Serialize + Send + Sync,
 {
-    /// Get order_by_default to use in abstract methods.
+    /// Get `order_by_default` to use in abstract methods.
     /// Should be generated in the model macro.
     fn conf_default() -> Self;
 }
@@ -17,7 +17,7 @@ where
     E: EntityX,
     O: OrderBy<E>,
 {
-    /// Helper to combine order_by and order_by_default with an initial value if all are empty.
+    /// Helper to combine `order_by` and `order_by_default` with an initial value if all are empty.
     fn combine(self, order_by_default: Self) -> Vec<O>;
 }
 

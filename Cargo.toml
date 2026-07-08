@@ -17,6 +17,7 @@ default_without_db = [
   "axum",
   "auth",
   "authz",
+  "i18n",
   "default_flags",
 ]
 default_flags = [
@@ -46,21 +47,26 @@ resolver_tx = ["_core/resolver_tx"]
 resolver_ctx = ["_core/resolver_ctx"]
 resolver_include_deleted = ["_core/resolver_include_deleted"]
 resolver_permanent_delete = ["_core/resolver_permanent_delete"]
-# testing
-test_utils = ["default_flags", "dep:pretty_assertions", "dep:serde", "dep:thiserror"]
-# packages
-tracing = ["dep:_tracing", "_core/tracing"]
+# main packages
+auth = ["dep:_auth", "_core/auth", "rand_utils"]
+authz = ["auth", "formula", "dep:_authz", "_core/authz"]
+formula = ["dep:_formula"]
+i18n = ["dep:_i18n"]
+# others
 http = ["dep:_http"]
 axum = ["http", "_http/axum"]
-auth = ["dep:_auth", "_core/auth", "rand_utils"]
-authz = ["auth", "dep:_authz", "_core/authz"]
 rand_utils = ["dep:_rand_utils"]
+tracing = ["dep:_tracing", "_core/tracing"]
+# testing
+test_utils = ["default_flags", "dep:pretty_assertions", "dep:serde", "dep:thiserror"]
 
 [dependencies]
 _auth = { path = "./packages/auth", optional = true, default-features = false }
 _authz = { path = "./packages/authz", optional = true, default-features = false }
 _core = { path = "./packages/core", default-features = false }
+_formula = { path = "./packages/formula", optional = true, default-features = false }
 _http = { path = "./packages/http", optional = true, default-features = false }
+_i18n = { path = "./packages/i18n", optional = true, default-features = false }
 _rand_utils = { path = "./packages/rand_utils", optional = true, default-features = false }
 _tracing = { path = "./packages/tracing", optional = true, default-features = false }
 _utils = { path = "./packages/macro_utils", default-features = false }

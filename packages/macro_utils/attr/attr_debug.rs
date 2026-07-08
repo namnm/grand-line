@@ -5,8 +5,8 @@ pub trait AttrDebug {
     fn span(&self) -> Span {
         Span::call_site()
     }
-    fn syn_err(&self, err: &str) -> SynErr {
-        let msg = [self.attr_debug(), err.to_owned()]
+    fn syn_err(&self, msg: &str) -> SynErr {
+        let msg = [self.attr_debug(), msg.to_owned()]
             .into_iter()
             .filter(|v| !v.is_empty())
             .collect::<Vec<_>>()

@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-/// Helper trait to abstract extra methods into sea_orm column.
+/// Helper trait to abstract extra methods into `sea_orm` column.
 pub trait ColumnX<E>
 where
     E: EntityX,

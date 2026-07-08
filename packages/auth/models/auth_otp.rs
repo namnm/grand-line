@@ -47,19 +47,22 @@ pub struct AuthOtpDataForgot {
 }
 
 async fn resolve_remaining_attempt(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<i64> {
+    let c = ctx.auth_config();
     let t = o.total_attempt.ok_or(CoreDbErr::GqlResolverNone)?;
-    let m = ctx.auth_config().otp_max_attempt;
+    let m = c.otp_max_attempt;
     Ok(m - t)
 }
 async fn resolve_will_expire_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
-    let c = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
-    let d = duration_ms(ctx.auth_config().otp_expires_ms);
-    Ok(c + d)
+    let c = ctx.auth_config();
+    let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
+    let d = duration_ms(c.otp_expires_ms);
+    Ok(t + d)
 }
 async fn resolve_can_re_request_at(o: &AuthOtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
-    let c = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
-    let d = duration_ms(ctx.auth_config().otp_re_request_ms);
-    Ok(c + d)
+    let c = ctx.auth_config();
+    let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
+    let d = duration_ms(c.otp_re_request_ms);
+    Ok(t + d)
 }
 
 /// To only expose secret in some operations, not the others.

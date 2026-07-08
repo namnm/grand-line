@@ -77,8 +77,8 @@ impl ResolverFn for ResolverTy {
             .map(|o| o.to_owned());
         if operation.is_none() {
             let valid = operations.join(", ");
-            let err = format!("root resolver {ty} should be one of: {valid}");
-            return Err(SynErr::new(self.ty.span(), err));
+            let msg = format!("root resolver {ty} should be one of: {valid}");
+            return Err(SynErr::new(self.ty.span(), msg));
         }
         Ok(operation)
     }

@@ -175,8 +175,8 @@ pub fn gql_exprs_ts2(exprs: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttrExprs> {
     for (f, e) in exprs {
         let a = e.iter().find(|a| a.attr == VirtualTy::SqlExpr).ok_or_else(|| {
             let span = e.first().map(|a| a.span).unwrap_or_else(Span::call_site);
-            let err = "cannot find VirtualTy::SqlExpr to build select as";
-            SynErr::new(span, err)
+            let msg = "cannot find VirtualTy::SqlExpr to build select as";
+            SynErr::new(span, msg)
         })?;
         let name_str = a.field_name()?;
         let name = name_str.ts2_or_err()?;

@@ -15,8 +15,8 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
     let mut fields = if let Fields::Named(f) = item.fields {
         f.named
     } else {
-        let err = format!("{model} struct should be named fields");
-        return Err(a.inner.syn_err(&err));
+        let msg = format!("{model} struct should be named fields");
+        return Err(a.inner.syn_err(&msg));
     };
     fields.insert(
         0,
@@ -242,15 +242,15 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                     };
                     for d in &g.a.sql_dep {
                         if !valid_sql_dep.contains(d) {
-                            let err = format!("can not find column or expr {d}");
-                            return Err(g.a.inner.err_by_key("sql_dep", &err));
+                            let msg = format!("can not find column or expr {d}");
+                            return Err(g.a.inner.err_by_key("sql_dep", &msg));
                         }
                     }
                     Box::new(g)
                 }
                 _ => {
-                    let err = "is invalid for virtual resolver";
-                    return Err(a.err_by_key(v.as_ref(), err));
+                    let msg = "is invalid for virtual resolver";
+                    return Err(a.err_by_key(v.as_ref(), msg));
                 }
             });
         }

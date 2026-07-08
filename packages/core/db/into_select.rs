@@ -1,11 +1,11 @@
 use super::prelude::*;
 
-/// Helper trait to create sea_orm Select from types like Filter, OrderBy...
+/// Helper trait to create `sea_orm` Select from types like Filter, `OrderBy`...
 pub trait IntoSelect<E>
 where
     E: EntityX,
 {
-    /// Helper to create sea_orm Select from types like Filter, OrderBy...
+    /// Helper to create `sea_orm` Select from types like Filter, `OrderBy`...
     fn into_select(self) -> Select<E>;
 
     /// Shortcut for `self.into_select().gql_select(ctx)`.
@@ -15,7 +15,7 @@ where
     fn gql_select_id(self) -> Selector<SelectModel<E::G>>;
 }
 
-/// Automatically implement IntoSelect for ChainSelect.
+/// Automatically implement `IntoSelect` for `ChainSelect`.
 impl<E, C> IntoSelect<E> for C
 where
     E: EntityX,

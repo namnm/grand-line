@@ -18,7 +18,7 @@ impl Parse for Item {
     }
 }
 
-/// Need to use proc macro to concat model name with OrderBy.
+/// Need to use proc macro to concat model name with `OrderBy`.
 /// Can be simpler general macro with paste, but we dont want to export paste.
 pub fn gen_order_by(item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as Item);

@@ -49,7 +49,7 @@ pub async fn auth_otp_ensure_resolve(
             .ok_or(MyErr::OtpResolveInvalid)?
     };
 
-    let c = &ctx.auth_config();
+    let c = ctx.auth_config();
     if !rand_utils::otp_eq(&t.otp_salt, &t.otp_hashed, &data.otp)?
         || !rand_utils::secret_eq(&t.secret_hashed, &data.secret)
         || t.total_attempt > c.otp_max_attempt
@@ -68,7 +68,12 @@ pub async fn auth_otp_ensure_resolve(
     Ok(t)
 }
 
-pub async fn auth_otp_ensure_re_request(ctx: &Context<'_>, tx: &DatabaseTransaction, ty: AuthOtpTy, email: &str) -> Res<()> {
+pub async fn auth_otp_ensure_re_request(
+    ctx: &Context<'_>,
+    tx: &DatabaseTransaction,
+    ty: AuthOtpTy,
+    email: &str,
+) -> Res<()> {
     let t = AuthOtp::find()
         .exclude_deleted()
         .filter(AuthOtpColumn::Ty.eq(ty))
@@ -79,7 +84,7 @@ pub async fn auth_otp_ensure_re_request(ctx: &Context<'_>, tx: &DatabaseTransact
         return Ok(());
     };
 
-    let c = &ctx.auth_config();
+    let c = ctx.auth_config();
     if t.created_at + duration_ms(c.otp_re_request_ms) > now() {
         return Err(MyErr::OtpReRequestTooSoon.into());
     }
