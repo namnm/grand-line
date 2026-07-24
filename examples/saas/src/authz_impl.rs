@@ -10,6 +10,13 @@ use crate::models::*;
 /// being tied to one org. This means org-scoped resolvers don't need a
 /// separate, duplicated "system" variant -- a system admin just supplies the
 /// org they want to act on and gets treated exactly like that org's own admin.
+///
+/// This is the general AuthzRoleImpl::find_matching pattern of letting a
+/// broader realm stand in for a narrower one, applied here to two realms,
+/// "system" and "org". A host with more realm tiers (e.g. "platform" above
+/// "system" above "org") can chain the same idea: try the requested realm
+/// first, then retry with each broader realm in turn, still with org_id set
+/// to None since a broader-realm role is not tied to any single org.
 pub struct SaasRoleImpl;
 #[async_trait]
 impl AuthzRoleImpl for SaasRoleImpl {

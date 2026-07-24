@@ -98,6 +98,17 @@ pub struct AuthzRoleMatch {
 /// concrete Role/UserInRole models the host app defines. Given the role id
 /// from the request header plus the realm/org/user constraints of a single
 /// #[authz] check, finds the matching role, or None if no role satisfies them.
+///
+/// The org passed to find_matching is resolved from the request header before
+/// this method runs (see AuthzOrgImpl), independent of which role ends up
+/// matching, so a host implementation is free to look past the realm named in
+/// check.realm. A common use of this is letting a broader realm stand in for
+/// a narrower one, e.g. a "system" realm role satisfying an "org" realm check
+/// by retrying the lookup with realm = "system" and org_id = None when the
+/// direct org-scoped lookup finds nothing. This lets one resolver written
+/// against a single realm serve both a tenant-scoped actor and a cross-tenant
+/// one, instead of duplicating every resolver per realm, see SaasRoleImpl in
+/// examples/saas/src/authz_impl.rs for a worked example.
 #[async_trait]
 pub trait AuthzRoleImpl
 where
