@@ -1,0 +1,17 @@
+[package]
+name = "grand-line-examples-saas"
+version = "0.0.0"
+edition = "2024"
+
+[build-dependencies]
+grand_line_build = { path = "../../packages/grand_line_build" }
+
+[dependencies]
+async-graphql = { version = "^7.2", default-features = false }
+grand-line = { path = "../..", default-features = false, features = ["default_flags", "axum", "sqlite", "authz", "rand_utils", "debug_macro_file"] }
+serde = { version = "^1.0", default-features = false }
+thiserror = { version = "^2.0", default-features = false }
+validator = { version = "^0.20", default-features = false }
+
+[lints]
+workspace = true

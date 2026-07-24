@@ -1,5 +1,3 @@
-#[cfg(feature = "auth")]
-pub use _auth::consts::*;
 #[cfg(feature = "authz")]
 pub use _authz::consts::*;
 #[cfg(feature = "http")]

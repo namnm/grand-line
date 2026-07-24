@@ -16,9 +16,6 @@ pub enum MyErr {
     #[error("role id is missing in the request headers")]
     #[client]
     HeaderRoleId404,
-    #[error("the invitation email does not match the current user's email")]
-    #[client]
-    InvitationEmailMismatch,
 
     // ========================================================================
     // server errors
@@ -27,8 +24,10 @@ pub enum MyErr {
     MissingMacro,
     #[error("authz org impl not found")]
     OrgImplNotFound,
-    #[error("authz row script not found in db")]
-    RowScript404,
+    #[error("authz role impl not found")]
+    RoleImplNotFound,
+    #[error("authz current user impl not found")]
+    CurrentUserImplNotFound,
     #[error("authz row cache downcast failed")]
     RowCacheDowncast,
 }

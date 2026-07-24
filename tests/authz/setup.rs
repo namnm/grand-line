@@ -3,11 +3,23 @@
 use axum::http::HeaderMap;
 pub use grand_line::prelude::*;
 
-pub fn auth_headers(mut h: HeaderMap, org_id: &str, token: &str, role_id: &str) -> HeaderMap {
+/// Test-only header carrying the current user's id. In this test suite there is
+/// no session/login mechanism at all (that now lives in examples/saas), so
+/// TestCurrentUserImpl below just reads this header directly.
+pub const H_USER_ID: &str = "x-user-id";
+
+pub fn auth_headers(mut h: HeaderMap, org_id: &str, user_id: &str, role_id: &str) -> HeaderMap {
     h.append(H_ORG_ID, h_str(org_id));
-    h.insert(H_AUTHORIZATION, h_bearer(token));
+    h.insert(H_USER_ID, h_str(user_id));
     h.insert(H_ROLE_ID, h_str(role_id));
     h
+}
+
+#[grand_line_err]
+pub enum TestErr {
+    #[error("unauthenticated")]
+    #[client]
+    Unauthenticated,
 }
 
 #[path = "../_fixtures/user.rs"]
@@ -25,6 +37,91 @@ pub use col_policy::*;
 #[path = "../_fixtures/row_policy.rs"]
 mod row_policy;
 pub use row_policy::*;
+
+// ---------------------------------------------------------------------------
+// Test-local Role / UserInRole models (packages/authz no longer owns these,
+// this is what a host app's own models look like)
+// ---------------------------------------------------------------------------
+
+#[model]
+pub struct Role {
+    pub name: String,
+    pub realm: String,
+    pub col_policy: JsonValue,
+    pub row_policy: JsonValue,
+    pub org_id: Option<String>,
+}
+
+#[model]
+pub struct UserInRole {
+    pub user_id: String,
+    pub role_id: String,
+    pub org_id: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// DI impls wiring the local Role/UserInRole/current-user into authz's engine
+// ---------------------------------------------------------------------------
+
+pub struct TestRoleImpl;
+#[async_trait]
+impl AuthzRoleImpl for TestRoleImpl {
+    async fn find_matching(
+        &self,
+        check: &AuthzEnsure,
+        role_id: &str,
+        org_id: Option<&str>,
+        user_id: Option<&str>,
+        tx: &DatabaseTransaction,
+    ) -> Res<Option<AuthzRoleMatch>> {
+        let mut q = Role::find()
+            .include_deleted(false)
+            .filter_by_id(role_id)
+            .filter(RoleColumn::Realm.eq(&check.realm));
+
+        q = if let Some(org_id) = org_id {
+            q.filter(RoleColumn::OrgId.eq(org_id))
+        } else {
+            q.filter(RoleColumn::OrgId.is_null())
+        };
+
+        if let Some(user_id) = user_id {
+            let mut sub = UserInRole::find()
+                .include_deleted(false)
+                .select_only()
+                .column(UserInRoleColumn::RoleId)
+                .filter(UserInRoleColumn::UserId.eq(user_id));
+            sub = if let Some(org_id) = org_id {
+                sub.filter(UserInRoleColumn::OrgId.eq(org_id))
+            } else {
+                sub.filter(UserInRoleColumn::OrgId.is_null())
+            };
+            q = q.filter(RoleColumn::Id.in_subquery(sub.into_query()));
+        }
+
+        let Some(role) = q.one(tx).await? else {
+            return Ok(None);
+        };
+
+        Ok(Some(AuthzRoleMatch {
+            role_id: role.id,
+            col_policy: ColPolicy::from_json(role.col_policy)?,
+            row_policy: RowPolicy::from_json(role.row_policy)?,
+        }))
+    }
+}
+
+pub struct TestCurrentUserImpl;
+#[async_trait]
+impl AuthzCurrentUserImpl for TestCurrentUserImpl {
+    async fn current_user_id(&self, ctx: &Context<'_>) -> Res<String> {
+        let v = ctx.get_header(H_USER_ID)?.trim().to_owned();
+        if v.is_empty() {
+            return Err(TestErr::Unauthenticated.into());
+        }
+        Ok(v)
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Query resolvers
@@ -80,8 +177,6 @@ pub struct Setup {
     pub h: HeaderMap,
     pub user_id1: String,
     pub user_id2: String,
-    pub token1: String,
-    pub token2: String,
     pub org_id1: String,
     pub org_id2: String,
     pub role_id1: String,
@@ -99,9 +194,11 @@ pub async fn setup_with_col_policy(org1_admin: ColPolicy) -> Res<Setup> {
 
 pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Res<Setup> {
     let org_impl = Org::authz_default_impl();
+    let role_impl: Box<dyn AuthzRoleImpl> = Box::new(TestRoleImpl);
+    let user_impl: Box<dyn AuthzCurrentUserImpl> = Box::new(TestCurrentUserImpl);
 
-    let tmp = tmp_db!(User, LoginSession, Org, Role, UserInRole, Task);
-    let s = schema_q::<Query>(&tmp.db).data(org_impl);
+    let tmp = tmp_db!(User, Org, Role, UserInRole, Task);
+    let s = schema_q::<Query>(&tmp.db).data(org_impl).data(role_impl).data(user_impl);
 
     let h = init_common_headers();
 
@@ -117,30 +214,6 @@ pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Re
     })
     .exec_without_ctx(&tmp.db)
     .await?;
-
-    let ua = Context::get_ua_raw(Context::axum_headers(&h))?;
-
-    let secret1 = rand_utils::secret();
-    let ls1 = am_create!(LoginSession {
-        user_id: u1.id.clone(),
-        secret_hashed: rand_utils::secret_hash(&secret1),
-        ip: "127.0.0.1",
-        ua: ua.to_json()?,
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    let token1 = rand_utils::qs_token(&ls1.id, &secret1)?;
-
-    let secret2 = rand_utils::secret();
-    let ls2 = am_create!(LoginSession {
-        user_id: u2.id.clone(),
-        secret_hashed: rand_utils::secret_hash(&secret2),
-        ip: "127.0.0.1",
-        ua: ua.to_json()?,
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    let token2 = rand_utils::qs_token(&ls2.id, &secret2)?;
 
     let o1 = am_create!(Org {
         name: "Fringe",
@@ -208,8 +281,6 @@ pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Re
         h,
         user_id1: u1.id,
         user_id2: u2.id,
-        token1,
-        token2,
         org_id1: o1.id,
         org_id2: o2.id,
         role_id1: r1.id,
@@ -224,32 +295,18 @@ pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Re
 
 pub struct OrgAdminSeed {
     pub user_id: String,
-    pub token: String,
     pub org_id1: String,
     pub org_id2: String,
     pub role_id1: String,
 }
 
-pub async fn seed_org_admin(tmp: &TmpDb, h: &HeaderMap, email: &str, row_pol: RowPolicy) -> Res<OrgAdminSeed> {
-    let ua = Context::get_ua_raw(Context::axum_headers(h))?;
-
+pub async fn seed_org_admin(tmp: &TmpDb, email: &str, row_pol: RowPolicy) -> Res<OrgAdminSeed> {
     let u1 = am_create!(User {
         email: email.to_owned(),
         password_hashed: rand_utils::password_hash("pw")?,
     })
     .exec_without_ctx(&tmp.db)
     .await?;
-
-    let secret1 = rand_utils::secret();
-    let ls1 = am_create!(LoginSession {
-        user_id: u1.id.clone(),
-        secret_hashed: rand_utils::secret_hash(&secret1),
-        ip: "127.0.0.1",
-        ua: ua.to_json()?,
-    })
-    .exec_without_ctx(&tmp.db)
-    .await?;
-    let token1 = rand_utils::qs_token(&ls1.id, &secret1)?;
 
     let o1 = am_create!(Org {
         name: "Fringe Division"
@@ -281,7 +338,6 @@ pub async fn seed_org_admin(tmp: &TmpDb, h: &HeaderMap, email: &str, row_pol: Ro
 
     Ok(OrgAdminSeed {
         user_id: u1.id,
-        token: token1,
         org_id1: o1.id,
         org_id2: o2.id,
         role_id1: r1.id,

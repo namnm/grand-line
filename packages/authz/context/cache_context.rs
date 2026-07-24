@@ -5,7 +5,7 @@ use crate::prelude::*;
 #[async_trait]
 pub trait AuthzCacheContext<'a>
 where
-    Self: AuthContext<'a> + AuthzHttpContext<'a> + AuthzColContext<'a>,
+    Self: AuthzHttpContext<'a> + AuthzColContext<'a>,
 {
     // ---------------------------------------------------------------------------
     // Cache lookup and population
@@ -67,54 +67,37 @@ where
             return Err(MyErr::HeaderRoleId404.into());
         }
 
-        let mut q = Role::find()
-            .include_deleted(false)
-            .filter_by_id(&role_id)
-            .filter(RoleColumn::Realm.eq(&check.realm));
+        let org = if check.org { Some(self.org_unchecked().await?) } else { None };
 
-        let org = if check.org {
-            let o = self.org_unchecked().await?;
-            q = q.filter(RoleColumn::OrgId.eq(&o.id));
-            Some(o)
-        } else {
-            q = q.filter(RoleColumn::OrgId.is_null());
-            None
-        };
-
-        if check.user {
-            let user_id = self.auth().await?;
-            let mut sub = UserInRole::find()
-                .include_deleted(false)
-                .select_only()
-                .column(UserInRoleColumn::RoleId)
-                .filter(UserInRoleColumn::UserId.eq(user_id));
-            if check.org {
-                let o = self.org_unchecked().await?;
-                sub = sub.filter(UserInRoleColumn::OrgId.eq(&o.id));
-            } else {
-                sub = sub.filter(UserInRoleColumn::OrgId.is_null());
-            }
-            q = q.filter(RoleColumn::Id.in_subquery(sub.into_query()));
-        }
+        let user_id = if check.user { Some(self.authz_current_user_id().await?) } else { None };
 
         let tx = &*self.tx().await?;
-        let role = q.one(tx).await?;
+        let m = self
+            .authz_role_impl()?
+            .find_matching(
+                &check,
+                &role_id,
+                org.as_ref().map(|o| o.id.as_str()),
+                user_id.as_deref(),
+                tx,
+            )
+            .await?;
 
-        let Some(role) = role else {
+        let Some(m) = m else {
             return Ok(None);
         };
 
-        let map = ColPolicy::from_json(role.col_policy.clone())?;
         // "*" is checked before the specific operation entry, so a "*" grant always
         // wins over a stricter per-operation entry. This is intentional: col_policy
         // is allow-only today, there is no deny entry to express "grant everything
         // via * except this one operation." Deny-mode to be implemented later.
-        if let Some(p) = map.get("*").or_else(|| map.get(self.field_impl().name()))
+        if let Some(p) = m.col_policy.get("*").or_else(|| m.col_policy.get(self.field_impl().name()))
             && self.authz_col_check_inputs(&p.inputs)
             && self.authz_col_check_output(&p.output)
         {
             let c = AuthzCacheItem {
-                role,
+                role_id: m.role_id,
+                row_policy: m.row_policy,
                 org,
             };
             return Ok(Some(c));
@@ -122,6 +105,12 @@ where
 
         Ok(None)
     }
+
+    /// Resolve the current request's authenticated user id via the registered
+    /// AuthzCurrentUserImpl. A required (non-default) method so its concrete
+    /// impl on Context can pass `self` through as the &Context<'_> the
+    /// AuthzCurrentUserImpl trait needs.
+    async fn authz_current_user_id(&self) -> Res<String>;
 
     // ---------------------------------------------------------------------------
     // Cache initialization helpers
@@ -182,6 +171,9 @@ where
 
 #[async_trait]
 impl<'a> AuthzCacheContext<'a> for Context<'a> {
+    async fn authz_current_user_id(&self) -> Res<String> {
+        self.authz_current_user_impl()?.current_user_id(self).await
+    }
 }
 
 fn collect_alias_recursively(

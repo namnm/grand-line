@@ -15,7 +15,6 @@ path = "lib.rs"
 default = ["postgres", "default_without_db"]
 default_without_db = [
   "axum",
-  "auth",
   "authz",
   "i18n",
   "default_flags",
@@ -35,7 +34,7 @@ default_flags = [
 # db
 sqlite = ["_core/sqlite"]
 mysql = ["_core/mysql"]
-postgres = ["_core/postgres", "_auth/postgres"]
+postgres = ["_core/postgres"]
 # debug macro flags
 debug_macro_cli = ["_core/debug_macro_cli"]
 debug_macro_file = ["_core/debug_macro_file"]
@@ -52,8 +51,7 @@ resolver_include_deleted = ["_core/resolver_include_deleted"]
 resolver_delete_permanent = ["_core/resolver_delete_permanent"]
 resolver_authz_row = ["_core/resolver_authz_row"]
 # main packages
-auth = ["dep:_auth", "_core/auth", "rand_utils"]
-authz = ["auth", "dep:_authz", "_core/authz"]
+authz = ["dep:_authz", "_core/authz"]
 i18n = ["dep:_i18n"]
 # others
 http = ["dep:_http"]
@@ -64,7 +62,6 @@ tracing = ["dep:_tracing", "_core/tracing"]
 test_utils = ["default_flags", "dep:pretty_assertions", "dep:serde", "dep:thiserror"]
 
 [dependencies]
-_auth = { path = "./packages/auth", optional = true, default-features = false }
 _authz = { path = "./packages/authz", optional = true, default-features = false }
 _core = { path = "./packages/core", default-features = false }
 _http = { path = "./packages/http", optional = true, default-features = false }

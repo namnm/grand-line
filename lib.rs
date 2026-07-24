@@ -11,8 +11,6 @@ pub mod export {
     pub use _core::export::*;
 
     // main packages
-    #[cfg(feature = "auth")]
-    pub use _auth::export::*;
     #[cfg(feature = "authz")]
     pub use _authz::export::*;
     #[cfg(feature = "i18n")]
@@ -31,8 +29,6 @@ pub mod reexport {
     pub use _core::reexport::*;
 
     // main packages
-    #[cfg(feature = "auth")]
-    pub use _auth::reexport::*;
     #[cfg(feature = "authz")]
     pub use _authz::reexport::*;
     #[cfg(feature = "i18n")]
@@ -52,8 +48,6 @@ pub mod prelude {
     pub use maplit::*;
 
     // main packages
-    #[cfg(feature = "auth")]
-    pub use _auth::prelude::*;
     #[cfg(feature = "authz")]
     pub use _authz::prelude::*;
     #[cfg(feature = "i18n")]

@@ -87,9 +87,10 @@ pub struct RowRelationSetup {
 
 pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<RowRelationSetup> {
     let org_impl = Org::authz_default_impl();
+    let role_impl: Box<dyn AuthzRoleImpl> = Box::new(TestRoleImpl);
+    let user_impl: Box<dyn AuthzCurrentUserImpl> = Box::new(TestCurrentUserImpl);
     let tmp = tmp_db!(
         User,
-        LoginSession,
         Org,
         Role,
         UserInRole,
@@ -99,10 +100,10 @@ pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<Row
         Tag,
         PostInTag,
     );
-    let s = schema_q::<Q>(&tmp.db).data(org_impl).data(cfg);
+    let s = schema_q::<Q>(&tmp.db).data(org_impl).data(role_impl).data(user_impl).data(cfg);
 
     let h = init_common_headers();
-    let seed = seed_org_admin(&tmp, &h, "astrid@example.com", row_pol).await?;
+    let seed = seed_org_admin(&tmp, "astrid@example.com", row_pol).await?;
 
     // Posts
     let p1 = am_create!(Post {
@@ -183,7 +184,7 @@ pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<Row
     .await?;
 
     // Headers for user1 / org1 / role1
-    let headers = auth_headers(h, &seed.org_id1, &seed.token, &seed.role_id1);
+    let headers = auth_headers(h, &seed.org_id1, &seed.user_id, &seed.role_id1);
 
     Ok(RowRelationSetup {
         schema: s.data(headers).finish(),

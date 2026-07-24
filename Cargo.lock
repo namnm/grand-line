@@ -9,26 +9,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
-name = "_auth"
-version = "0.0.0"
-dependencies = [
- "_core",
- "_http",
- "_rand_utils",
- "async-graphql",
- "serde",
- "thiserror",
- "validator",
-]
-
-[[package]]
 name = "_authz"
 version = "0.0.0"
 dependencies = [
- "_auth",
  "_core",
  "_http",
- "_rand_utils",
  "async-graphql",
  "serde",
  "thiserror",
@@ -1240,7 +1225,6 @@ dependencies = [
 name = "grand-line"
 version = "0.0.0"
 dependencies = [
- "_auth",
  "_authz",
  "_core",
  "_http",
@@ -1252,6 +1236,18 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "grand-line-examples-saas"
+version = "0.0.0"
+dependencies = [
+ "async-graphql",
+ "grand-line",
+ "grand_line_build",
+ "serde",
+ "thiserror",
+ "validator",
 ]
 
 [[package]]

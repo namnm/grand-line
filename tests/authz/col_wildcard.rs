@@ -10,7 +10,7 @@ use setup::*;
 async fn ok_org_realm() -> Res<()> {
     let d = setup_with_col_wildcard().await?;
 
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
 
     let s = d.s.data(h).finish();
 
@@ -43,7 +43,7 @@ async fn ok_system_realm() -> Res<()> {
     let d = setup_with_col_wildcard().await?;
 
     let mut h = d.h;
-    h.insert(H_AUTHORIZATION, h_bearer(&d.token1));
+    h.insert(H_USER_ID, h_str(&d.user_id1));
     h.insert(H_ROLE_ID, h_str(&d.role_id1_system));
 
     let s = d.s.data(h).finish();
@@ -85,7 +85,7 @@ async fn role_from_other_org_returns_unauthorized() -> Res<()> {
 
     // user2's role (role_id2) belongs to org2. Sending org1 header -> role not found
     // (role's OrgId != org1) -> Unauthorized.
-    let h = auth_headers(d.h, &d.org_id1, &d.token2, &d.role_id2);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id2, &d.role_id2);
 
     let s = d.s.data(h).finish();
 

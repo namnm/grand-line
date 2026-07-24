@@ -1,4 +1,5 @@
 use grand_line::prelude::*;
+use super::setup::*;
 
 // ---------------------------------------------------------------------------
 // Basic row filter handlers
@@ -16,7 +17,7 @@ pub struct AssigneeHandler;
 #[async_trait]
 impl AuthzHandlers for AssigneeHandler {
     async fn execute_script(&self, ctx: &Context<'_>, _script: &str) -> Res<Option<JsonValue>> {
-        let user_id = ctx.auth().await?;
+        let user_id = ctx.get_header(H_USER_ID)?;
         let f = json!({
             "assignee_id": user_id,
         });
@@ -40,7 +41,7 @@ pub struct BothHandler;
 #[async_trait]
 impl AuthzHandlers for BothHandler {
     async fn execute_script(&self, ctx: &Context<'_>, _script: &str) -> Res<Option<JsonValue>> {
-        let user_id = ctx.auth().await?;
+        let user_id = ctx.get_header(H_USER_ID)?;
         let org_id = ctx.authz().await?;
         let f = json!({
             "assignee_id": user_id,

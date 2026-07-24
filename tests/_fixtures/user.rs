@@ -6,18 +6,3 @@ pub struct User {
     #[graphql(skip)]
     pub password_hashed: String,
 }
-
-impl AuthUser for User {
-    fn email_col() -> UserColumn {
-        UserColumn::Email
-    }
-    fn hashed_password_col() -> UserColumn {
-        UserColumn::PasswordHashed
-    }
-    fn get_email(m: &UserSql) -> &str {
-        &m.email
-    }
-    fn get_password_hashed(m: &UserSql) -> &str {
-        &m.password_hashed
-    }
-}
