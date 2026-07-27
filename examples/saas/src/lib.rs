@@ -1,17 +1,13 @@
 mod auth;
-mod auth_impl;
 mod authz;
-mod authz_impl;
-mod err;
 mod models;
+mod utils;
 
 pub mod prelude {
     pub use crate::auth::*;
-    pub use crate::auth_impl::*;
     pub use crate::authz::*;
-    pub use crate::authz_impl::*;
-    pub use crate::err::*;
     pub use crate::models::*;
+    pub use crate::utils::*;
     pub use grand_line::prelude::*;
 }
 

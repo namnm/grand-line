@@ -36,7 +36,12 @@ impl ResolverFn for GenResolver {
         if let Some(n) = gql_name_override {
             return Ok(n);
         }
-        Ok(self.name()?.to_string().to_lower_camel_case())
+        let name = self.name()?.to_string();
+        if name.to_snake_case() != name {
+            let msg = format!("Resolver name must be snake case, not {name}");
+            return Err(SynErr::new(self.span(), msg));
+        }
+        Ok(name.to_lower_camel_case())
     }
     fn docs(&self) -> Vec<String> {
         attr_docs(&self.field_attrs)

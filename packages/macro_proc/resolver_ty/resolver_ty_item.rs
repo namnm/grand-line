@@ -27,6 +27,7 @@ impl ResolverTyItem {
     /// (crud_model + crud, camelCased) and derives the generated struct type
     /// and fn name identifiers, returns (self, ty, name).
     pub fn init(mut self, operation: &str, crud: &str, crud_model: &str) -> SynRes<(Self, Ts2, Ts2)> {
+        let name = format!("{crud_model}_{crud}");
         if self.gql_name == "resolver" {
             if crud.is_empty() {
                 let msg = "resolver name should be different than the reserved keyword resolver";
@@ -36,7 +37,10 @@ impl ResolverTyItem {
                 let msg = "empty model name should be already validated at the previous step";
                 return Err(SynErr::new(self.span, msg));
             }
-            self.gql_name = format!("{crud_model}_{crud}").to_lower_camel_case();
+            self.gql_name = name.to_lower_camel_case();
+        } else if self.gql_name == name.to_snake_case() {
+            let msg = "Use keyword resolver if name is not different than the default one";
+            return Err(SynErr::new(self.span, msg));
         }
         let name = self.gql_name.to_snake_case().ts2_or_err()?;
         let ty = format!("{name}_{operation}").to_pascal_case().ts2_or_err()?;
