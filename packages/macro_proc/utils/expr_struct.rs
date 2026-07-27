@@ -54,7 +54,7 @@ fn try_expr_struct_am_wrapper(item: &ExprStruct, suf: &str, op_ty: &str) -> SynR
     Ok(r.into())
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // Array variant, one model name followed by an array of field-only blocks,
 // e.g. am_create_many!(Todo, [{ content: "a" }, { content: "b" }]).
 // Each block is re-injected with the model name via quote! and parsed as a

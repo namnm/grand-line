@@ -39,20 +39,14 @@ where
         F: DeserializeOwned,
     {
         let r = self.authz_role().await?;
-        let Some(script) = r.as_ref().role.row_policy.get(path) else {
+        let Some(script) = r.row_policy.get(path) else {
             return Ok(None);
         };
-        if script.is_null() {
-            return Ok(None);
-        }
-        let Some(script) = script.as_str() else {
-            return Err(MyErr::RowScript404.into());
-        };
-        // If execute_script returns None (the AuthzHandlers default, or the host
+        // If execute_script returns None (the AuthzHandlers default, or the consumer
         // app's own handler declining to handle this script), the row policy
         // resolves to no filter, i.e. unrestricted access, same as if no row
         // policy entry existed for this path at all. This is intentional: a row
-        // policy the host app has not wired a handler for is treated as "not
+        // policy the consumer app has not wired a handler for is treated as "not
         // enforced yet" rather than "deny everything," so integrating authz_row
         // incrementally never blocks access before the handler is implemented.
         let h = &self.authz_config().handlers;

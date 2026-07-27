@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // AmExecCtx - resolves ctx, builds active model, runs db operation
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 /// Resolves the context's audit id, builds the active model, and runs the db operation,
 /// recording a History entry when the target entity has history enabled.
@@ -77,7 +77,7 @@ where
     }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // AmExecCtx for AmCreateMany / AmUpdateMany / AmSoftDeleteMany, backing
 // am_create_many! / am_update_many! / am_soft_delete_many!. Same trait and
 // method name as the single-item impls above, just a different receiver type.

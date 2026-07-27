@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // AmSoftDeleteMany, Vec<AmWrapper<AmSoftDelete, E, A>> wrapper backing
 // am_soft_delete_many!. sea_orm has no single-statement bulk update for rows
 // with distinct values, so this just runs one UPDATE per row, reusing the

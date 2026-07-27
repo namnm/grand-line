@@ -1,18 +1,18 @@
 use super::prelude::*;
 
-/// Errors produced by the core graphql context, data loader, cache and extension layer.
+/// Errors surfaced by the core graphql package, split into client-facing and server-only variants.
 #[grand_line_err]
 pub enum MyErr {
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // client errors
-    //
+    // ------------------------------------------------------------------------
     #[error("internal server error")]
     #[client]
     InternalServer,
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // server errors
-    //
+    // ------------------------------------------------------------------------
     #[error("context missing grand line context")]
     Ctx404,
     #[error("context missing sea orm database")]

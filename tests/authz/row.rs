@@ -137,7 +137,7 @@ async fn script_filters_tasks_by_assignee_and_org() -> Res<()> {
         handlers: Arc::new(BothHandler),
         ..Default::default()
     };
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
     let schema = d.s.data(c).data(h).finish();
 
     let expected = value!({

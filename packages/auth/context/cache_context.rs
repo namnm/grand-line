@@ -1,64 +1,50 @@
 use crate::prelude::*;
 
-/// Provides request-scoped, cached access to the current login session.
+/// Provides request-scoped, cached access to the current session match.
 #[async_trait]
 pub trait AuthCacheContext<'a>
 where
     Self: AuthHttpContext<'a>,
 {
-    /// Returns the current login session, if any, cached for the lifetime of the request.
-    async fn auth_unchecked(&self) -> Res<Arc<Option<LoginSessionSql>>> {
+    /// Returns the current session match if any, cached for the lifetime of the request.
+    async fn auth_unchecked(&self) -> Res<Arc<Option<AuthImplSessionCached>>> {
         let arc = self.cache(|| self.auth_unchecked_without_cache()).await?;
         Ok(arc)
     }
 
-    /// Resolves the login session from the request token, without using the cache.
-    /// Returns None if the token is missing or invalid, the session secret does not match,
-    /// or the session is expired.
-    async fn auth_unchecked_without_cache(&self) -> Res<Option<LoginSessionSql>> {
+    /// Resolves the session from the request token, without using the cache.
+    async fn auth_unchecked_without_cache(&self) -> Res<Option<AuthImplSessionCached>>;
+}
+
+#[async_trait]
+impl<'a> AuthCacheContext<'a> for Context<'a> {
+    async fn auth_unchecked_without_cache(&self) -> Res<Option<AuthImplSessionCached>> {
         let mut t = self.get_authorization_token()?;
         if t.is_empty() {
             t = self.get_cookie_login_session()?;
         }
 
-        let t = rand_utils::qs_token_parse(&t);
-        let Some(t) = t else {
+        let Some(t) = rand_utils::qs_token_parse(&t) else {
             return Ok(None);
         };
 
-        let lsd = self.login_session_data()?;
-        let tx = &*self.tx().await?;
-
-        let ls = LoginSession::find()
-            .include_deleted(false)
-            .filter_by_id(&t.id)
-            .one(tx)
-            .await?;
-        let Some(ls) = ls else {
+        let Some(m) = self.auth_session_impl()?.find(self, &t.id).await? else {
             return Ok(None);
         };
 
-        if !rand_utils::secret_eq(&ls.secret_hashed, &t.secret) {
+        if !rand_utils::secret_eq(&m.secret_hashed, &t.secret) {
             return Ok(None);
         }
 
         let c = self.auth_config();
-        if ls.created_at < now() - duration_ms(c.cookie_login_session_expires_ms) {
+        if m.created_at < now() - duration_ms(c.cookie_login_session_expires_ms) {
             return Ok(None);
         }
 
-        let ls = am_update!(LoginSession {
-            id: ls.id,
-            ip: lsd.ip,
-            ua: lsd.ua.to_json()?,
-        })
-        .exec_without_ctx(tx)
-        .await?;
-
-        Ok(Some(ls))
+        let c = AuthImplSessionCached {
+            id: m.id,
+            user_id: m.user_id,
+        };
+        Ok(Some(c))
     }
-}
-
-#[async_trait]
-impl<'a> AuthCacheContext<'a> for Context<'a> {
 }

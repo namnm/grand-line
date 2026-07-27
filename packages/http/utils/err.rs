@@ -1,10 +1,11 @@
 use crate::prelude::*;
 
+/// Errors surfaced by the http package, split into client-facing and server-only variants.
 #[grand_line_err]
 pub enum MyErr {
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // client errors
-    //
+    // ------------------------------------------------------------------------
     #[error("request header {k} has more than 1 value")]
     #[client]
     HeaderMultipleValues {
@@ -17,9 +18,9 @@ pub enum MyErr {
     #[client]
     HeaderUa404,
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // server errors
-    //
+    // ------------------------------------------------------------------------
     #[error("http implementation is not configured")]
     MissingImplementation,
     #[error("request headers are missing in the context")]

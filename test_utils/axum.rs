@@ -20,6 +20,6 @@ pub fn h_str(v: &str) -> HeaderValue {
 
 /// Build an Authorization header value with the Bearer prefix.
 pub fn h_bearer(token: &str) -> HeaderValue {
-    let v = format!("{BEARER}{token}");
+    let v = format!("{H_BEARER}{token}");
     h_str(&v)
 }

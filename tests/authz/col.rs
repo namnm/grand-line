@@ -6,7 +6,7 @@ use setup::*;
 async fn allowed_field_returns_value() -> Res<()> {
     let d = setup_with_col_policy(col_policy_with_children("org", "name")).await?;
 
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
 
     let s = d.s.data(h).finish();
 
@@ -32,7 +32,7 @@ async fn allowed_field_returns_value() -> Res<()> {
 async fn denied_field_returns_unauthorized() -> Res<()> {
     let d = setup_with_col_policy(col_policy_with_children("org", "name")).await?;
 
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
 
     let s = d.s.data(h).finish();
 
@@ -75,7 +75,7 @@ async fn denied_field_returns_unauthorized() -> Res<()> {
 async fn alias_on_output_field_uses_schema_name() -> Res<()> {
     let d = setup_with_col_policy(col_policy_with_children("org", "name")).await?;
 
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
 
     let s = d.s.data(h).finish();
 

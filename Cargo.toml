@@ -35,7 +35,7 @@ default_flags = [
 # db
 sqlite = ["_core/sqlite"]
 mysql = ["_core/mysql"]
-postgres = ["_core/postgres", "_auth/postgres"]
+postgres = ["_core/postgres"]
 # debug macro flags
 debug_macro_cli = ["_core/debug_macro_cli"]
 debug_macro_file = ["_core/debug_macro_file"]
@@ -63,7 +63,7 @@ axum = ["http", "_http/axum"]
 rand_utils = ["dep:_rand_utils"]
 tracing = ["dep:_tracing", "_core/tracing"]
 # testing
-test_utils = ["default_flags", "dep:pretty_assertions", "dep:serde", "dep:thiserror", "_file?/test_util"]
+test_utils = ["default_flags", "rand_utils", "dep:pretty_assertions", "dep:serde", "dep:thiserror", "_file?/test_util"]
 
 [dependencies]
 _auth = { path = "./packages/auth", optional = true, default-features = false }
@@ -160,6 +160,7 @@ similar_names = "allow"
 single_call_fn = "allow"
 single_char_lifetime_names = "allow"
 std_instead_of_alloc = "allow"
+std_instead_of_core = "allow"
 string_add = "allow"
 string_slice = "allow"
 tests_outside_test_module = "allow"

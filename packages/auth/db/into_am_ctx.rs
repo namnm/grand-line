@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // IntoAmCtx - sets audit fields (created/updated/deleted_by_id) from ctx
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 /// Converts an active-model wrapper into the plain active model, filling in the
 /// created/updated/deleted_by_id audit fields from the context's authenticated user
@@ -64,7 +64,7 @@ where
     }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // IntoAmCtx<Vec<A>> for Vec<AmWrapper<T, E, A>>, backing
 // AmCreateMany / AmUpdateMany / AmSoftDeleteMany's exec (see am_exec_ctx.rs).
 // Same trait as the single-item impls above, just targeting Vec<A> instead of

@@ -41,12 +41,12 @@ where
     fn gql_select_with_look_ahead(self, look_ahead: &[LookaheadX<E>], col: E::C) -> Res<Selector<SelectModel<E::G>>> {
         let mut q = self;
         q = q.select_only();
-        q = q.select_column(col);
+        q = q.column(col);
         for l in look_ahead {
             if let Some(c) = l.col
                 && c.as_str() != col.as_str()
             {
-                q = q.select_column(c);
+                q = q.column(c);
             }
             if let Some(expr) = l.expr.clone() {
                 q = q.column_as(expr, l.c);
@@ -68,7 +68,7 @@ where
     where
         D: ConnectionTrait,
     {
-        if !PaginatorTrait::exists(self, tx).await? {
+        if !self.exists(tx).await? {
             return Err(MyErr::Db404.into());
         }
         Ok(())

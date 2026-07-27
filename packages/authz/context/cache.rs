@@ -6,10 +6,12 @@ pub struct OrgMinimal {
     pub id: String,
 }
 
-/// Cached result of a passed authz check, the matched role and, if the check
-/// required org scoping, the resolved org.
+/// Cached result of a passed authz check: the matched role's id and parsed
+/// row_policy (needed later by authz_row), and, if the check required org
+/// scoping, the resolved org.
 pub struct AuthzCacheItem {
-    pub role: RoleSql,
+    pub role_id: String,
+    pub row_policy: RowPolicy,
     pub org: Option<Arc<OrgMinimal>>,
 }
 

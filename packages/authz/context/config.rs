@@ -28,7 +28,7 @@ impl Default for AuthzConfig {
 // Pluggable script execution handlers
 // ---------------------------------------------------------------------------
 
-/// Extension points for authz behavior that depends on the host application,
+/// Extension points for authz behavior that depends on the consumer app,
 /// e.g. running row policy dsl scripts. The default implementation is a no-op.
 #[allow(unused_variables)]
 #[async_trait]
@@ -80,4 +80,33 @@ where
             .await?;
         Ok(r)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Role lookup abstraction
+// ---------------------------------------------------------------------------
+
+/// Result of a role lookup that satisfied an AuthzEnsure check: the role's own
+/// id (for caching/row-policy lookups) plus its parsed col/row policy.
+pub struct AuthzRoleMatch {
+    pub role_id: String,
+    pub col_policy: ColPolicy,
+    pub row_policy: RowPolicy,
+}
+
+/// Role/user-assignment lookup, consumer-implemented since it queries whatever
+/// concrete Role/UserInRole models the consumer app defines.
+#[async_trait]
+pub trait AuthzRoleImpl
+where
+    Self: Send + Sync,
+{
+    async fn find_matching(
+        &self,
+        check: &AuthzEnsure,
+        role_id: &str,
+        org_id: Option<&str>,
+        user_id: Option<&str>,
+        tx: &DatabaseTransaction,
+    ) -> Res<Option<AuthzRoleMatch>>;
 }

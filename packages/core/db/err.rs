@@ -1,19 +1,18 @@
 use super::prelude::*;
 
-/// Error type for the core db layer, re-exported as CoreDbErr,
-/// variants marked client are safe to expose to callers, the rest are internal server errors.
+/// Errors surfaced by the core db package, split into client-facing and server-only variants.
 #[grand_line_err]
 pub enum MyErr {
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // client errors
-    //
+    // ------------------------------------------------------------------------
     #[error("data not found")]
     #[client]
     Db404,
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // server errors
-    //
+    // ------------------------------------------------------------------------
     #[error("database error: {inner}")]
     Db {
         #[from]

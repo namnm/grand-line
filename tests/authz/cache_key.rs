@@ -3,7 +3,7 @@ mod row_relation_setup;
 use row_relation_setup::*;
 
 fn finish(d: Setup) -> (GraphQLSchema<Query, EmptyMutation, EmptySubscription>, TmpDb) {
-    let h = auth_headers(d.h, &d.org_id1, &d.token1, &d.role_id1);
+    let h = auth_headers(d.h, &d.org_id1, &d.user_id1, &d.role_id1);
     (d.s.data(h).finish(), d.tmp)
 }
 

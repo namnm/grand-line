@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // AmCreateMany, Vec<AmWrapper<AmCreate, E, A>> plus an opt-in
 // returning() flag, backing am_create_many!.
 //
@@ -93,7 +93,7 @@ where
     }
 
     if cfg!(feature = "postgres") {
-        let models = E::insert_many(ams).exec_with_returning_many(tx).await?;
+        let models = E::insert_many(ams).exec_with_returning(tx).await?;
         return Ok(models);
     }
 

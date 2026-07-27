@@ -31,6 +31,16 @@ where
             .as_ref();
         Ok(r)
     }
+
+    /// Return the AuthzRoleImpl registered on the schema context, or
+    /// RoleImplNotFound if none was set.
+    fn authz_role_impl(&self) -> Res<&'a dyn AuthzRoleImpl> {
+        let r = self
+            .data_opt_impl::<Box<dyn AuthzRoleImpl>>()
+            .ok_or(MyErr::RoleImplNotFound)?
+            .as_ref();
+        Ok(r)
+    }
 }
 
 impl<'a> AuthzConfigContext<'a> for Context<'a> {
