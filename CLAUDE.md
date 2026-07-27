@@ -5,15 +5,16 @@
 - Comments and docs comments:
   - Should not have semicolon, use comma instead.
   - Should not have backtick, we dont need styling code in comment.
+- Do not write long comments in code. 1-2 lines are good, be concise, focus, dev friendly.
 
 - Do not use unwrap or expect or panic. Try to return result or something instead.
 - All public items such as macro, function, struct, impl methods, trait, trait methods.. should come together with a docs comment explain about the item. But we dont need it in the ./tests folder, naming and convention should take care of them.
 - Add section brief separator where needed, including tests:
 
 ```rs
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 // Section brief
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 ```
 
 - Use pretty_eq! macro for all assertions, including boolean. Always include an assertion description like: abc should xyz.

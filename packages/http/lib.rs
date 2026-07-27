@@ -3,8 +3,6 @@
 mod context;
 mod utils;
 
-pub use utils::consts;
-
 pub mod export {
     pub use crate::context::*;
     pub use crate::utils::*;
@@ -24,7 +22,6 @@ pub mod prelude {
     #[cfg(feature = "axum")]
     pub use _http_axum::prelude::*;
 
-    pub(crate) use crate::consts::*;
     pub(crate) use crate::export::HttpErr as MyErr;
     pub(crate) use _core::prelude::*;
 }

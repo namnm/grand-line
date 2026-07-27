@@ -428,10 +428,9 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                     self.not.clone().map(|b| *b)
                 }
             }
-            impl IntoCondition for #filter {
-                fn into_condition(self) -> Condition {
-                    let f = self.clone();
-                    let mut c = Condition::all();
+            impl From<#filter> for Condition {
+                fn from(f: #filter) -> Self {
+                    let mut c = Self::all();
                     #(#filter_query)*
                     c
                 }

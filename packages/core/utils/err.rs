@@ -1,15 +1,15 @@
 use crate::prelude::*;
 
-/// Errors produced by the core utils helpers, currently json (de)serialization failures.
+/// Errors surfaced by the core utils helper package, split into client-facing and server-only variants.
 #[grand_line_err]
 pub enum MyErr {
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // client errors
-    //
+    // ------------------------------------------------------------------------
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // server errors
-    //
+    // ------------------------------------------------------------------------
     #[error("json error: {inner}")]
     Json {
         #[from]

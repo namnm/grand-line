@@ -21,6 +21,14 @@ where
     /// Get not to use in abstract methods.
     /// Should be generated in the model macro.
     fn get_not(&self) -> Option<Self>;
+    // Turn this filter into UpdateMany.
+    fn into_update(self) -> UpdateMany<Self::E> {
+        Self::E::update_many().filter(self.into_condition())
+    }
+    // Turn this filter into DeleteMany.
+    fn into_delete(self) -> DeleteMany<Self::E> {
+        Self::E::delete_many().filter(self.into_condition())
+    }
 }
 
 // ---------------------------------------------------------------------------

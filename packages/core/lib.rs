@@ -2,11 +2,13 @@
 
 mod db;
 mod graphql;
+mod graphql_types;
 mod utils;
 
 pub mod export {
     pub use crate::db::*;
     pub use crate::graphql::*;
+    pub use crate::graphql_types::*;
     pub use crate::utils::*;
     pub use _proc::*;
     pub use _utils_proc::{PartialEqString, field_names};
@@ -56,4 +58,7 @@ pub mod prelude {
         try_join,
     };
     _utils::use_common_std!();
+    // override
+    pub use crate::export::model;
+    pub use async_graphql::SchemaBuilder;
 }

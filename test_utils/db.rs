@@ -21,9 +21,9 @@ const fn db_uri() -> &'static str {
     // already compile_error! in lib.rs to check postgres, mysql, sqlite
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // create temporary db and automatically clean up on drop
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 /// A temporary, isolated database for a single test, call drop() when done.
 pub struct TmpDb {
@@ -58,10 +58,10 @@ impl TmpDb {
         let db = conn(uri).await?;
 
         let stmt = format!("CREATE SCHEMA {name};");
-        exec(&db, DbBackend::Postgres, &stmt).await?;
+        exec(&db, &stmt).await?;
 
         let stmt = format!("SET search_path TO {name};");
-        exec(&db, DbBackend::Postgres, &stmt).await?;
+        exec(&db, &stmt).await?;
 
         Ok(Self {
             name,
@@ -75,7 +75,7 @@ impl TmpDb {
         let admin = conn(uri).await?;
 
         let stmt = format!("CREATE DATABASE {name};");
-        exec(&admin, DbBackend::MySql, &stmt).await?;
+        exec(&admin, &stmt).await?;
 
         let uri = replace_db_name(uri, &name);
         let db = conn(&uri).await?;
@@ -90,8 +90,13 @@ impl TmpDb {
     }
 
     async fn new_sqlite(_uri: &str) -> Res<Self> {
-        let name = "memory".to_owned();
-        let db = conn("sqlite::memory:").await?;
+        // A plain "sqlite::memory:" gives every pooled connection its own private,
+        // empty database, so ctx.tx and ctx.db would each see a different database.
+        // Using cache=shared makes every connection opened against this same name see the same database,
+        // the name itself is unique per TmpDb so tests do not bleed into each other.
+        let name = new_db_name();
+        let uri = format!("sqlite:file:{name}?mode=memory&cache=shared");
+        let db = conn(&uri).await?;
 
         Ok(Self {
             name,
@@ -106,10 +111,10 @@ impl TmpDb {
         match &self.ty {
             TmpDbTy::Postgres => {
                 let stmt = "SET search_path TO public;";
-                exec(&self.db, DbBackend::Postgres, stmt).await?;
+                exec(&self.db, stmt).await?;
                 let name = &self.name;
                 let stmt = format!("DROP SCHEMA IF EXISTS {name} CASCADE;");
-                exec(&self.db, DbBackend::Postgres, &stmt).await?;
+                exec(&self.db, &stmt).await?;
                 self.db.clone().close().await?;
             }
             TmpDbTy::MySql {
@@ -118,7 +123,7 @@ impl TmpDb {
                 self.db.clone().close().await?;
                 let name = &self.name;
                 let stmt = format!("DROP DATABASE IF EXISTS {name};");
-                exec(admin, DbBackend::MySql, &stmt).await?;
+                exec(admin, &stmt).await?;
             }
             TmpDbTy::Sqlite => {
                 self.db.clone().close().await?;
@@ -128,9 +133,9 @@ impl TmpDb {
     }
 }
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // helpers
-// ============================================================================
+// ----------------------------------------------------------------------------
 
 fn new_db_name() -> String {
     let id = ulid();
@@ -159,15 +164,16 @@ async fn conn(uri: &str) -> Res<DatabaseConnection> {
     // prevent search_path override in migration
     #[cfg(feature = "postgres")]
     c.max_connections(1);
+    #[cfg(feature = "sqlite")]
+    c.max_connections(5);
 
     let db = Database::connect(c).await?;
 
     Ok(db)
 }
 
-async fn exec(db: &DatabaseConnection, be: DbBackend, stmt: &str) -> Res<()> {
-    let stmt = Statement::from_string(be, stmt);
-    db.execute(stmt).await?;
+async fn exec(db: &DatabaseConnection, stmt: &str) -> Res<()> {
+    db.execute_unprepared(stmt).await?;
 
     Ok(())
 }
@@ -180,7 +186,7 @@ where
     let backend = db.get_database_backend();
     let schema = DbSchema::new(backend);
     let stmt = schema.create_table_from_entity(e);
-    db.execute(backend.build(&stmt)).await?;
+    db.execute(&stmt).await?;
 
     Ok(())
 }

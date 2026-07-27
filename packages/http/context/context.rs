@@ -84,7 +84,7 @@ where
     /// Read the Authorization header value, with a leading "Bearer " prefix stripped if present.
     fn get_authorization_token(&self) -> Res<String> {
         let h = self.get_header(H_AUTHORIZATION)?;
-        Ok(h.strip_prefix(BEARER).unwrap_or(&h).to_owned())
+        Ok(h.strip_prefix(H_BEARER).unwrap_or(&h).to_owned())
     }
 
     /// Parse the Cookie header into a name to value map, skipping unparsable entries.

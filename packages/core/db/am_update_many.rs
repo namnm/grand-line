@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-// ============================================================================
+// ----------------------------------------------------------------------------
 // AmUpdateMany, Vec<AmWrapper<AmUpdate, E, A>> wrapper backing
 // am_update_many!. sea_orm has no single-statement bulk update for rows with
 // distinct values, so this just runs one UPDATE per row, reusing the

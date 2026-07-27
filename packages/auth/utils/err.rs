@@ -1,21 +1,17 @@
 use crate::prelude::*;
 
+/// Errors surfaced by the auth package, split into client-facing and server-only variants.
 #[grand_line_err]
 pub enum MyErr {
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // client errors
-    //
+    // ------------------------------------------------------------------------
     #[error("unauthenticated")]
     #[client]
     Unauthenticated,
     #[error("already authenticated")]
     #[client]
     AlreadyAuthenticated,
-
-    #[error("this email address is already in use")]
-    #[client]
-    RegisterEmailExists,
-
     #[error("otp is expired or invalid")]
     #[client]
     OtpResolveInvalid,
@@ -23,13 +19,11 @@ pub enum MyErr {
     #[client]
     OtpReRequestTooSoon,
 
-    #[error("email or password is incorrect")]
-    #[client]
-    LoginIncorrect,
-
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // server errors
-    //
-    #[error("auth user impl not found")]
-    UserImplNotFound,
+    // ------------------------------------------------------------------------
+    #[error("auth session impl not found")]
+    SessionImplNotFound,
+    #[error("auth otp impl not found")]
+    OtpImplNotFound,
 }

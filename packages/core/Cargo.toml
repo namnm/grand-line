@@ -39,14 +39,15 @@ _utils_proc = { path = "../macro_utils_proc", default-features = false }
 async-graphql = { version = "^7.2", default-features = false, features = ["chrono", "chrono-duration", "chrono-tz", "dataloader", "decimal", "string_number", "boxed-trait"] }
 async-trait = { version = "^0.1", default-features = false }
 chrono = { version = "^0.4", default-features = false, features = ["now", "serde"] }
-sea-orm = { version = "^1.1", default-features = false, features = ["macros", "runtime-tokio-rustls", "with-chrono", "with-json", "with-rust_decimal"] }
+sea-orm = { version = "^2.0", default-features = false, features = ["macros", "runtime-tokio-rustls", "with-chrono", "with-json", "with-rust_decimal"] }
 serde = { version = "^1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "^1.0", default-features = false }
 serde_with = { version = "^3.21", default-features = false, features = ["macros"] }
 sqlx = { version = "^0.9", default-features = false, features = ["chrono", "json", "macros", "migrate", "runtime-tokio", "rust_decimal"] }
 thiserror = { version = "^2.0", default-features = false }
-tokio = { version = "^1.52", default-features = false, features = ["full"] }
-ulid = { version = "^1.2", default-features = false, features = ["std"] }
+tokio = { version = "^1.53", default-features = false, features = ["full"] }
+ulid = { version = "^3.0", default-features = false, features = ["std"] }
+validator = { version = "^0.20", default-features = false }
 
 [lints]
 workspace = true

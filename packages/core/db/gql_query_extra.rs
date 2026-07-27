@@ -70,7 +70,7 @@ where
 {
     fn from(v: Option<F>) -> Self {
         if let Some(v) = v {
-            v.into()
+            Self::from(v)
         } else {
             Default::default()
         }
@@ -139,7 +139,7 @@ where
 {
     fn from(v: F) -> Self {
         Self {
-            filter: v.into(),
+            filter: Filter::from(v),
             ..Default::default()
         }
     }
@@ -178,7 +178,7 @@ where
     fn from(v: (F, Vec<O>)) -> Self {
         Self {
             default_order_by: v.1,
-            ..v.0.into()
+            ..Self::from(v.0)
         }
     }
 }
