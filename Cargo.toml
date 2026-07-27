@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "examples/*", "packages/*"]
+members = [".", "crates/*", "examples/*"]
 resolver = "2"
 
 [package]
@@ -51,7 +51,7 @@ resolver_relation_count = ["_core/resolver_relation_count"]
 resolver_include_deleted = ["_core/resolver_include_deleted"]
 resolver_delete_permanent = ["_core/resolver_delete_permanent"]
 resolver_authz_row = ["_core/resolver_authz_row"]
-# main packages
+# main crates
 auth = ["dep:_auth", "_core/auth", "rand_utils"]
 authz = ["auth", "dep:_authz", "_core/authz"]
 i18n = ["dep:_i18n"]
@@ -64,14 +64,14 @@ tracing = ["dep:_tracing", "_core/tracing"]
 test_utils = ["default_flags", "rand_utils", "dep:pretty_assertions", "dep:serde", "dep:thiserror"]
 
 [dependencies]
-_auth = { path = "./packages/auth", optional = true, default-features = false }
-_authz = { path = "./packages/authz", optional = true, default-features = false }
-_core = { path = "./packages/core", default-features = false }
-_http = { path = "./packages/http", optional = true, default-features = false }
-_i18n = { path = "./packages/i18n", optional = true, default-features = false }
-_rand_utils = { path = "./packages/rand_utils", optional = true, default-features = false }
-_tracing = { path = "./packages/tracing", optional = true, default-features = false }
-_utils = { path = "./packages/macro_utils", default-features = false }
+_auth = { path = "./crates/auth", optional = true, default-features = false }
+_authz = { path = "./crates/authz", optional = true, default-features = false }
+_core = { path = "./crates/core", default-features = false }
+_http = { path = "./crates/http", optional = true, default-features = false }
+_i18n = { path = "./crates/i18n", optional = true, default-features = false }
+_rand_utils = { path = "./crates/rand_utils", optional = true, default-features = false }
+_tracing = { path = "./crates/tracing", optional = true, default-features = false }
+_utils = { path = "./crates/macro_utils", default-features = false }
 async-graphql = { version = "^7.2", default-features = false }
 pretty_assertions = { version = "^1.4", optional = true, default-features = false, features = ["std"] }
 serde = { version = "^1.0", optional = true, default-features = false }

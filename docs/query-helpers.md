@@ -1,6 +1,6 @@
 # SeaORM query helpers
 
-The traits in `packages/core/db` extend sea-orm's `Select`, `Filter`, and `ActiveModel` types with convenience methods available throughout resolvers.
+The traits in `crates/core/db` extend sea-orm's `Select`, `Filter`, and `ActiveModel` types with convenience methods available throughout resolvers.
 
 Available on `Select<E>`, `DeleteMany<E>`, and `UpdateMany<E>`:
 

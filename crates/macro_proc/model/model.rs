@@ -217,7 +217,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
             use super::*;
 
             // Serialize is needed unconditionally, History::add/add_many
-            // (see packages/core/db/history.rs) are called generically for every model.
+            // (see crates/core/db/history.rs) are called generically for every model.
             #[derive(
                 Debug,
                 Clone,

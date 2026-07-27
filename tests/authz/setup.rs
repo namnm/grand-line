@@ -9,7 +9,7 @@ pub use grand_line::prelude::*;
 pub const TEST_SECRET: &str = "test-secret";
 
 /// Builds an Authorization bearer header authenticating as user_id, via
-/// packages/auth's session mechanism (TestSessionImpl resolves it below).
+/// crates/auth's session mechanism (TestSessionImpl resolves it below).
 pub fn h_user_bearer(user_id: &str) -> HeaderValue {
     let token = rand_utils::qs_token(user_id, TEST_SECRET).unwrap_or_default();
     h_bearer(&token)
@@ -39,7 +39,7 @@ mod row_policy;
 pub use row_policy::*;
 
 // ---------------------------------------------------------------------------
-// Test-local Role / UserInRole models (packages/authz no longer owns these,
+// Test-local Role / UserInRole models (crates/authz no longer owns these,
 // this is what a consumer app's own models look like)
 // ---------------------------------------------------------------------------
 

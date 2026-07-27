@@ -10,7 +10,7 @@ mod test_utils;
 pub mod export {
     pub use _core::export::*;
 
-    // main packages
+    // main crates
     #[cfg(feature = "auth")]
     pub use _auth::export::*;
     #[cfg(feature = "authz")]
@@ -30,7 +30,7 @@ pub mod export {
 pub mod reexport {
     pub use _core::reexport::*;
 
-    // main packages
+    // main crates
     #[cfg(feature = "auth")]
     pub use _auth::reexport::*;
     #[cfg(feature = "authz")]
@@ -51,7 +51,7 @@ pub mod prelude {
     pub use _core::prelude::*;
     pub use maplit::*;
 
-    // main packages
+    // main crates
     #[cfg(feature = "auth")]
     pub use _auth::prelude::*;
     #[cfg(feature = "authz")]

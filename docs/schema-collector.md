@@ -22,7 +22,7 @@ Add it as a build dependency:
 
 ```toml
 [build-dependencies]
-grand_line_build = { path = "../../packages/grand_line_build" }
+grand_line_build = { path = "../../crates/grand_line_build" }
 ```
 
 Create or edit `build.rs` at the crate root:

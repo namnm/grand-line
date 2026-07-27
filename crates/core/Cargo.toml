@@ -27,7 +27,7 @@ resolver_relation_count = ["_proc/resolver_relation_count"]
 resolver_include_deleted = ["_proc/resolver_include_deleted"]
 resolver_delete_permanent = ["_proc/resolver_delete_permanent"]
 resolver_authz_row = ["_proc/resolver_authz_row"]
-# packages
+# crates
 tracing = ["async-graphql/tracing"]
 auth = ["_proc/auth"]
 authz = ["_proc/authz"]

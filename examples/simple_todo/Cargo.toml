@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [build-dependencies]
-grand_line_build = { path = "../../packages/grand_line_build" }
+grand_line_build = { path = "../../crates/grand_line_build" }
 
 [dependencies]
 async-graphql = { version = "^7.2", default-features = false }
