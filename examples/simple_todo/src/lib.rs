@@ -139,6 +139,7 @@ fn todo_delete_done() -> Vec<TodoGql> {
 /// Response body for the REST hello endpoint.
 #[derive(Serialize)]
 pub struct HelloRest {
+    pub id: String,
     pub message: String,
     pub timestamp: i64,
 }
@@ -147,6 +148,7 @@ pub struct HelloRest {
 pub async fn hello_rest() -> Json<HelloRest> {
     random_delay().await;
     Json(HelloRest {
+        id: ulid(),
         message: "hello".to_owned(),
         timestamp: now_millis(),
     })
@@ -155,6 +157,7 @@ pub async fn hello_rest() -> Json<HelloRest> {
 /// Response body for the hello GraphQL query.
 #[derive(SimpleObject)]
 pub struct HelloGql {
+    pub id: String,
     pub message: String,
     pub timestamp: i64,
 }
@@ -164,6 +167,7 @@ pub struct HelloGql {
 fn hello() -> HelloGql {
     random_delay().await;
     HelloGql {
+        id: ulid(),
         message: "hello from graphql".to_owned(),
         timestamp: now_millis(),
     }
