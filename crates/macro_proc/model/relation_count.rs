@@ -79,7 +79,7 @@ impl ResolverFn for GenRelationCount {
                 #f(
                     self,
                     ctx,
-                    tx,
+                    db,
                     filter.as_ref(),
                     #include_deleted.as_ref(),
                 )
@@ -97,7 +97,7 @@ impl ResolverFn for GenRelationCount {
             let #extra = #extra.add(#extra_cond).add_option(#authz_row);
             #model::gql_count(
                 ctx,
-                tx,
+                db,
                 filter,
                 #include_deleted,
                 #extra,

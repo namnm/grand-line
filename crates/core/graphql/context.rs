@@ -7,8 +7,10 @@ where
         + GrandLineDataContext<'a>
         + CacheContext<'a>
         + CoreConfigContext<'a>
-        + TxContext<'a>
-        + DataLoaderContext<'a>,
+        + DbContext<'a>
+        + DataLoaderContext<'a>
+        + SubscriptionConfigContext<'a>
+        + SubscriptionContext<'a>,
 {
 }
 

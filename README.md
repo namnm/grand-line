@@ -30,6 +30,7 @@ Rust macro framework for building GraphQL APIs on top of `sea-orm` and `async-gr
 - [Relationships: has_one, has_many, belongs_to, many_to_many, custom relation resolvers](docs/relationships.md)
 - [Filtering and sorting](docs/filtering-sorting.md)
 - [Schema collector: `grand_line_build`, no more manual `MergedObject`](docs/schema-collector.md)
+- [Subscriptions: `#[subscribe]`, in memory or redis broker](docs/subscriptions.md)
 - [Resolvers, context, and transactions](docs/resolvers.md)
 - [Active model helpers: `am_create!`, `am_update!`, `am_soft_delete!`](docs/active-model-helpers.md)
 - [History: opt-in per-model audit log](docs/history.md)

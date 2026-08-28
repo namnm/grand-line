@@ -30,11 +30,10 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         let body = r.body;
         let am = ty_am(&model)?;
 
-        let into = if a.ra.has_auth() {
-            quote!(into_am(ctx).await?)
-        } else {
-            quote!(into_am_without_ctx())
-        };
+        let into = gen_am_into();
+
+        let g = unique_ident();
+        let subscription_queue = gen_subscription_queue(&model, &quote!(Update), &quote!(&id), a.ra.publish);
 
         let filter = ty_filter(&model)?;
         let (authz_row, authz_row_def) = gen_authz_row_def(&filter, a.ra.authz_row);
@@ -44,7 +43,7 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             #authz_row_def
             #model::gql_mutation_check_id(
                 ctx,
-                tx,
+                db,
                 &id,
                 #authz_row.clone(),
                 #authz_err,
@@ -53,15 +52,17 @@ fn try_gen_update(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             let am: AmWrapper<AmUpdate, #model, #am> = {
                 #body
             };
-            #model::gql_update(
+            let #g = #model::gql_update(
                 ctx,
-                tx,
+                db,
                 &id,
                 am.#into,
                 #authz_row,
                 #authz_err,
             )
-            .await?
+            .await?;
+            #subscription_queue
+            #g
         }
     }
 

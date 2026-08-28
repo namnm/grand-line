@@ -9,6 +9,10 @@ check:
 
 test:
 	@make fmt \
+	&& bash ./tests/independently.sh;
+
+test_pq:
+	@make fmt \
 	&& cargo test --features test_utils;
 
 test_mysql:
@@ -18,10 +22,6 @@ test_mysql:
 test_sqlite:
 	@make fmt \
 	&& cargo test --no-default-features --features test_utils,default_without_db,sqlite;
-
-test_each:
-	@make fmt \
-	&& bash ./tests/independently.sh;
 
 update:
 	@make fmt \

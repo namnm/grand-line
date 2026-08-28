@@ -1,11 +1,11 @@
 use crate::prelude::*;
 
-#[search(UserInRole, authz(realm = "org"))]
+#[search(UserInRole, check = authz_org)]
 fn resolver() {
     ctx.authz_org_search::<UserInRole>().await?
 }
 
-#[count(UserInRole, authz(realm = "org"))]
+#[count(UserInRole, check = authz_org)]
 fn resolver() {
     ctx.authz_org_filter::<UserInRole>().await?
 }

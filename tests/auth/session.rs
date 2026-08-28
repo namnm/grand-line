@@ -3,7 +3,7 @@ mod setup;
 use setup::*;
 
 // ---------------------------------------------------------------------------
-// #[auth] / #[auth(unauthenticated)] macro attribute
+// check = authenticated / check = unauthenticated guards
 // ---------------------------------------------------------------------------
 
 #[tokio::test]

@@ -1,34 +1,23 @@
 use crate::prelude::*;
 
-/// Which authentication state auth_ensure_in_macro should check for.
-pub enum AuthEnsure {
-    Authenticated,
-    Unauthenticated,
-}
-
-/// Guards that enforce the current request's authentication state.
+/// Guards enforcing the current request authentication state, wired into a
+/// resolver with the check attribute, e.g. #[query(check = authenticated)].
 #[async_trait]
 pub trait AuthEnsureContext<'a>
 where
     Self: AuthCacheContext<'a>,
 {
-    /// Dispatches to the matching ensure check, called by the auth resolver macros.
-    async fn auth_ensure_in_macro(&self, check: AuthEnsure) -> Res<()> {
-        match check {
-            AuthEnsure::Authenticated => self.auth_ensure_authenticated().await?,
-            AuthEnsure::Unauthenticated => self.auth_ensure_not_authenticated().await?,
-        }
-        Ok(())
-    }
-
-    async fn auth_ensure_authenticated(&self) -> Res<()> {
+    /// Requires a session, errors with Unauthenticated when there is none.
+    async fn authenticated(&self) -> Res<()> {
         if self.auth_unchecked().await?.as_ref().is_none() {
             return Err(MyErr::Unauthenticated.into());
         }
         Ok(())
     }
 
-    async fn auth_ensure_not_authenticated(&self) -> Res<()> {
+    /// Requires no session, errors with AlreadyAuthenticated when one exists,
+    /// for resolvers such as register or login.
+    async fn unauthenticated(&self) -> Res<()> {
         if self.auth_unchecked().await?.as_ref().is_some() {
             return Err(MyErr::AlreadyAuthenticated.into());
         }

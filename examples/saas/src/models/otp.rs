@@ -6,6 +6,7 @@ pub const OTP_TY_ORG_INVITATION: &str = "org_invitation";
 
 /// A purpose-tagged one-time code, ty identifies the flow it belongs to.
 #[model(updated_at = false, deleted_at = false, by_id = false)]
+#[auth_otp]
 pub struct Otp {
     #[graphql(skip)]
     pub ty: String,

@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 /// A named permission bundle: which columns and rows an assigned actor may access.
 #[model]
+#[authz_role(fallback = "system")]
 pub struct Role {
     pub name: String,
     /// Groups multiple roles into a realm, e.g. "org" or "system".
@@ -12,10 +13,4 @@ pub struct Role {
     pub row_policy: JsonValue,
     /// None for realm-wide roles not tied to a single org (e.g. "system").
     pub org_id: Option<String>,
-}
-
-impl AuthzImplOrgId for Role {
-    fn col_org_id() -> Self::C {
-        RoleColumn::OrgId
-    }
 }

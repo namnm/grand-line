@@ -8,16 +8,16 @@ pub struct OrgInvitation {
     pub will_expire_at: DateTimeUtc,
 }
 
-#[query(auth)]
+#[query(check = authenticated)]
 async fn my_org_invitations() -> Vec<OrgInvitation> {
     let user_id = ctx.auth().await?;
-    let u = User::find_by_id(&user_id).one_or_404(tx).await?;
+    let u = User::find_by_id(&user_id).one_or_404(db).await?;
 
     let invitations = Otp::find()
         .include_deleted(false)
         .filter(OtpColumn::Ty.eq(OTP_TY_ORG_INVITATION))
         .filter(OtpColumn::Email.eq(&u.email))
-        .all(tx)
+        .all(db)
         .await?;
 
     invitations

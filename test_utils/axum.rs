@@ -1,10 +1,12 @@
 use crate::prelude::*;
 use axum::http::{HeaderMap, HeaderValue};
 
-/// Build a default header map with a real IP and a Chrome user agent, for tests.
+/// Build a default header map with a socket address and a Chrome user agent, for tests.
+/// x-socket-addr, not x-real-ip, is what a real handler sets from the connection and
+/// what HttpConfig reads by default, see HttpIpSource.
 pub fn init_common_headers() -> HeaderMap {
     let mut h = HeaderMap::default();
-    h.insert(H_REAL_IP, h_static("127.0.0.1"));
+    h.insert(H_SOCKET_ADDR, h_static("127.0.0.1"));
     h.insert(H_UA, h_static(UA));
     h.insert(H_UA_SEC_CH, h_static(UA_SEC_CH));
     h

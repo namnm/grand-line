@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[mutation(auth(unauthenticated))]
+#[mutation(check = unauthenticated)]
 fn register_resolve(data: OtpResolve) -> LoginSessionWithSecret {
     let m = ctx
         .auth_otp_ensure_resolve(OTP_TY_REGISTER, &data.id, &data.secret, &data.otp)
@@ -11,11 +11,11 @@ fn register_resolve(data: OtpResolve) -> LoginSessionWithSecret {
         email: m.email.clone(),
         password_hashed: d.password_hashed,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
-    let ls = login_session_create(ctx, tx, &u.id).await?;
-    Otp::delete_by_id(&m.id).exec(tx).await?;
+    let ls = login_session_create(ctx, db, &u.id).await?;
+    Otp::delete_by_id(&m.id).exec(db).await?;
 
     ls
 }

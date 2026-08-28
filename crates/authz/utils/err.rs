@@ -19,8 +19,8 @@ pub enum MyErr {
     // ------------------------------------------------------------------------
     // server errors
     // ------------------------------------------------------------------------
-    #[error("authz requires macro call in the resolver definition")]
-    MissingMacro,
+    #[error("authz requires a check guard in the resolver definition")]
+    MissingGuard,
     #[error("authz org impl not found")]
     OrgImplNotFound,
     #[error("authz role impl not found")]

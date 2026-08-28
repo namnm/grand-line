@@ -6,12 +6,12 @@ pub struct Login {
     pub password: String,
 }
 
-#[mutation(auth(unauthenticated))]
+#[mutation(check = unauthenticated)]
 fn login(data: Login) -> LoginSessionWithSecret {
     let u = User::find()
         .include_deleted(false)
         .filter(UserColumn::Email.eq(&data.email.0))
-        .one(tx)
+        .one(db)
         .await?
         .ok_or(SaasErr::LoginIncorrect)?;
 
@@ -19,5 +19,5 @@ fn login(data: Login) -> LoginSessionWithSecret {
         return Err(SaasErr::LoginIncorrect.into());
     }
 
-    login_session_create(ctx, tx, &u.id).await?
+    login_session_create(ctx, db, &u.id).await?
 }

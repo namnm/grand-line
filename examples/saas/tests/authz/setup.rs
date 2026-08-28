@@ -6,7 +6,7 @@ use axum::http::HeaderMap;
 mod common;
 pub use common::*;
 
-/// Sets the acting org/role headers on top of a bearer, for authz(realm = "org") calls.
+/// Sets the acting org/role headers on top of a bearer, for check = authz_org calls.
 pub fn h_authz(mut h: HeaderMap, org_id: &str, role_id: &str) -> HeaderMap {
     h.insert(H_ORG_ID, h_str(org_id));
     h.insert(H_ROLE_ID, h_str(role_id));

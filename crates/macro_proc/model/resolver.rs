@@ -22,8 +22,8 @@ impl AttrDebug for GenResolver {
 }
 
 impl ResolverFn for GenResolver {
-    fn tx(&self) -> bool {
-        self.a.ra.tx
+    fn db(&self) -> bool {
+        self.a.ra.db
     }
     fn ctx(&self) -> bool {
         self.a.ra.ctx

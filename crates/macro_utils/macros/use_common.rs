@@ -9,8 +9,9 @@ macro_rules! use_common_std {
         pub use core::hash::{Hash, Hasher};
         pub use core::marker::PhantomData;
         pub use core::str::FromStr;
-        pub use std::collections::{HashMap, HashSet};
-        pub use std::sync::{Arc, LazyLock};
+        pub use std::collections::{BTreeSet, HashMap, HashSet};
+        pub use std::sync::atomic::{AtomicBool, Ordering};
+        pub use std::sync::{Arc, LazyLock, Weak};
         pub type ArcAny = Arc<dyn Any + Send + Sync>;
     };
 }

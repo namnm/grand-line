@@ -146,6 +146,16 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
     filter_and_or_not(&filter, &mut filter_struk, &mut filter_query)?;
 
     // ------------------------------------------------------------------------
+    // history skip: columns dropped from the History data snapshot.
+    // Anything hidden from graphql stays hidden in the audit trail too, otherwise
+    // #[model(history)] would serve it back through the History resolvers.
+    let history_skip = gql_fields
+        .iter()
+        .filter(|(_, a)| attr_is_gql_skip(a) || attr_is_history_skip(a))
+        .map(|(f, _)| f.ident.to_token_stream().to_string())
+        .collect::<Vec<_>>();
+
+    // ------------------------------------------------------------------------
     // filter has_deleted_at
     let has_deleted_at = if a.deleted_at {
         quote! {
@@ -270,6 +280,7 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                 #(#gql_select)*
                 m
             });
+            static HISTORY_SKIP: &[&str] = &[#(#history_skip),*];
 
             impl EntityX for Entity {
                 type M = Model;
@@ -313,6 +324,9 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                 }
                 fn has_history() -> bool {
                     #has_history
+                }
+                fn history_skip() -> &'static [&'static str] {
+                    HISTORY_SKIP
                 }
             }
 

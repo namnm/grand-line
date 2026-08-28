@@ -1,13 +1,11 @@
-mod auth_attr;
-mod authz_attr;
+mod check_attr;
 mod mutation;
 mod query;
 mod resolver_fn;
 mod resolver_ty;
 mod resolver_ty_attr;
 mod resolver_ty_item;
-pub use auth_attr::*;
-pub use authz_attr::*;
+pub use check_attr::*;
 pub use mutation::*;
 pub use query::*;
 pub use resolver_fn::*;

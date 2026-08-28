@@ -25,11 +25,11 @@ where
 
     async fn exec(self, ctx: &Context<'_>) -> Res<Self::Model> {
         let am = self.into_am(ctx).await?;
-        let tx = &*ctx.tx().await?;
-        let r = am.insert(tx).await?;
+        let db = &ctx.db().await?;
+        let r = am.insert(db).await?;
         if E::has_history() {
             let by_id = ctx.auth().await.ok();
-            History::add(tx, HistoryOperation::Create, &r, by_id).await?;
+            History::add(db, HistoryOperation::Create, &r, by_id).await?;
         }
         Ok(r)
     }
@@ -46,11 +46,11 @@ where
     async fn exec(self, ctx: &Context<'_>) -> Res<Self::Model> {
         let am = self.into_am(ctx).await?;
         am.ensure_id_set()?;
-        let tx = &*ctx.tx().await?;
-        let r = am.update(tx).await?;
+        let db = &ctx.db().await?;
+        let r = am.update(db).await?;
         if E::has_history() {
             let by_id = ctx.auth().await.ok();
-            History::add(tx, HistoryOperation::Update, &r, by_id).await?;
+            History::add(db, HistoryOperation::Update, &r, by_id).await?;
         }
         Ok(r)
     }
@@ -67,11 +67,11 @@ where
     async fn exec(self, ctx: &Context<'_>) -> Res<Self::Model> {
         let am = self.into_am(ctx).await?;
         am.ensure_id_set()?;
-        let tx = &*ctx.tx().await?;
-        let r = am.update(tx).await?;
+        let db = &ctx.db().await?;
+        let r = am.update(db).await?;
         if E::has_history() {
             let by_id = ctx.auth().await.ok();
-            History::add(tx, HistoryOperation::Delete, &r, by_id).await?;
+            History::add(db, HistoryOperation::Delete, &r, by_id).await?;
         }
         Ok(r)
     }
@@ -96,12 +96,12 @@ where
         let (items, returning) = self.into_parts();
         let ams = items.into_am(ctx).await?;
 
-        let tx = &*ctx.tx().await?;
-        let models = insert_many_with_returning(ams, returning, tx).await?;
+        let db = &ctx.db().await?;
+        let models = insert_many_with_returning(ams, returning, db).await?;
 
         if E::has_history() {
             let by_id = ctx.auth().await.ok();
-            History::add_many(tx, HistoryOperation::Create, &models, by_id).await?;
+            History::add_many(db, HistoryOperation::Create, &models, by_id).await?;
         }
         Ok(models)
     }
@@ -118,15 +118,15 @@ where
     async fn exec(self, ctx: &Context<'_>) -> Res<Self::Model> {
         let by_id = ctx.auth().await.ok();
         let ams = self.into_parts().into_am(ctx).await?;
-        let tx = &*ctx.tx().await?;
+        let db = &ctx.db().await?;
 
         let mut models = vec![];
         for am in ams {
             am.ensure_id_set()?;
-            models.push(am.update(tx).await?);
+            models.push(am.update(db).await?);
         }
         if E::has_history() {
-            History::add_many(tx, HistoryOperation::Update, &models, by_id).await?;
+            History::add_many(db, HistoryOperation::Update, &models, by_id).await?;
         }
         Ok(models)
     }
@@ -143,15 +143,15 @@ where
     async fn exec(self, ctx: &Context<'_>) -> Res<Self::Model> {
         let by_id = ctx.auth().await.ok();
         let ams = self.into_parts().into_am(ctx).await?;
-        let tx = &*ctx.tx().await?;
+        let db = &ctx.db().await?;
 
         let mut models = vec![];
         for am in ams {
             am.ensure_id_set()?;
-            models.push(am.update(tx).await?);
+            models.push(am.update(db).await?);
         }
         if E::has_history() {
-            History::add_many(tx, HistoryOperation::Delete, &models, by_id).await?;
+            History::add_many(db, HistoryOperation::Delete, &models, by_id).await?;
         }
         Ok(models)
     }

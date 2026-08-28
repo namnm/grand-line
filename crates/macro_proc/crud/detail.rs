@@ -38,7 +38,7 @@ fn try_gen_detail(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             let #extra = #extra.add_option(#authz_row);
             #model::gql_detail(
                 ctx,
-                tx,
+                db,
                 &id,
                 #include_deleted,
                 #extra,

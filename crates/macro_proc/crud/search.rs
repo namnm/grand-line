@@ -42,7 +42,7 @@ fn try_gen_search(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             let #extra = #extra.add_option(#authz_row);
             #model::gql_search(
                 ctx,
-                tx,
+                db,
                 filter,
                 order_by,
                 page,

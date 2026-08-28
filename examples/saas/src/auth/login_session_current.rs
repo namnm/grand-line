@@ -10,7 +10,7 @@ async fn login_session_current() -> Option<LoginSessionGql> {
     let ls = LoginSession::find()
         .include_deleted(false)
         .filter_by_id(&m.id)
-        .one(tx)
+        .one(db)
         .await?;
 
     match ls {

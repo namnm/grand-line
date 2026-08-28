@@ -74,7 +74,7 @@ impl GenRelation {
                 #f(
                     self,
                     ctx,
-                    tx,
+                    db,
                     #include_deleted.as_ref(),
                 ).await?
             }
@@ -86,7 +86,7 @@ impl GenRelation {
             let #extra: Option<#filter> = #resolver;
             #model::gql_load(
                 ctx,
-                tx,
+                db,
                 #column::#col,
                 id,
                 #authz_row,
@@ -112,7 +112,7 @@ impl GenRelation {
                 #f(
                     self,
                     ctx,
-                    tx,
+                    db,
                     filter.as_ref(),
                     order_by.as_ref(),
                     page.as_ref(),
@@ -131,7 +131,7 @@ impl GenRelation {
             let #extra = #extra.add(#extra_cond).add_option(#authz_row);
             #model::gql_search(
                 ctx,
-                tx,
+                db,
                 filter,
                 order_by,
                 page,

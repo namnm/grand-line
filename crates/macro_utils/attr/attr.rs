@@ -257,6 +257,29 @@ impl Attr {
         Ok(r)
     }
 
+    /// Reads k as one or more rust expressions, accepting both the single form
+    /// k = expr and the list form k(expr, expr), None if absent.
+    pub fn exprs(&self, k: &str) -> SynRes<Option<Vec<Expr>>> {
+        let Some((v, ty)) = self.args.get(k) else {
+            return Ok(None);
+        };
+        let ts = v.ts2_or_err()?;
+        let r = match *ty {
+            AttrParseTy::NameValue => vec![parse2::<Expr>(ts).map_err(|_| self.err_invalid_exprs(k))?],
+            AttrParseTy::List => Punctuated::<Expr, Comma>::parse_terminated
+                .parse2(ts)
+                .map_err(|_| self.err_invalid_exprs(k))?
+                .into_iter()
+                .collect(),
+            AttrParseTy::Path => return Err(self.err_invalid_exprs(k)),
+        };
+        if r.is_empty() {
+            let msg = "should not be empty";
+            return Err(self.err_by_key(k, msg));
+        }
+        Ok(Some(r))
+    }
+
     /// Reads k as k = value and parses value via V::from_str, None if absent.
     pub fn parse<V>(&self, k: &str) -> SynRes<Option<V>>
     where
@@ -363,6 +386,10 @@ impl Attr {
     }
     pub fn err_invalid_nested(&self, k: &str) -> SynErr {
         let msg = format!("should be {k}(some_value) for nested");
+        self.err_by_key(k, &msg)
+    }
+    pub fn err_invalid_exprs(&self, k: &str) -> SynErr {
+        let msg = format!("should be {k} = some_expr, or {k}(some_expr, ..) for many");
         self.err_by_key(k, &msg)
     }
     pub fn err_by_key(&self, k: &str, msg: &str) -> SynErr {

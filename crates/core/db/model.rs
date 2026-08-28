@@ -17,12 +17,12 @@ where
     /// Convert sql model to gql model, with checking virtual fields from context.
     async fn into_gql(self, ctx: &Context<'_>) -> Res<E::G> {
         let r = if E::gql_look_ahead(ctx)?.iter().any(|l| l.expr.is_some()) {
-            let tx = &*ctx.tx().await?;
+            let db = &ctx.db().await?;
             let id = self.get_id();
             E::find()
                 .filter_by_id(&id)
                 .gql_select(ctx)?
-                .one(tx)
+                .one(db)
                 .await?
                 .ok_or(MyErr::Db404)?
         } else {

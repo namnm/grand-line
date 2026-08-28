@@ -9,6 +9,7 @@ pub enum MacroTy {
     Search,
     Count,
     Detail,
+    Subscribe,
     Create,
     Update,
     Delete,
@@ -24,11 +25,13 @@ pub static ATTR_RAW: LazyLock<HashSet<String>> = LazyLock::new(|| {
 });
 
 /// A field-level attribute recognized inside #[model], either a plain
-/// #[graphql(..)]/#[default(..)] or a virtual (relation/sql_expr/resolver) field.
+/// #[graphql(..)]/#[history(..)]/#[default(..)] or a virtual
+/// (relation/sql_expr/resolver) field.
 #[derive(Clone, Eq, PartialEq, AsRefStr, Display, PartialEqString)]
 #[strum(serialize_all = "snake_case")]
 pub enum AttrTy {
     Graphql,
+    History,
     Default,
     #[strum(serialize = "{0}")]
     Virtual(VirtualTy),

@@ -29,6 +29,11 @@ pub enum MyErr {
     GqlResolverNone,
     #[error("look ahead selection fields len should be 1")]
     GqlLookAhead,
+    #[error("{model}::gql_load called from {field}, a field with no selection set of its own, use gql_load_with")]
+    GqlLoadNoSelectionSet {
+        model: String,
+        field: String,
+    },
 }
 
 impl From<DbErr> for GrandLineErr {

@@ -43,17 +43,16 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         let (authz_row, authz_row_def) = gen_authz_row_def(&filter, a.ra.authz_row);
         let authz_err = gen_authz_err(a.ra.authz_row);
 
-        let by_id = if a.ra.has_auth() {
-            quote!(ctx.auth().await.ok())
-        } else {
-            quote!(None)
-        };
+        let by_id = gen_auth_by_id();
+
+        let g = unique_ident();
+        let subscription_queue = gen_subscription_queue(&model, &quote!(Delete), &quote!(&id), a.ra.publish);
 
         r.body = quote! {
             #authz_row_def
             #model::gql_mutation_check_id(
                 ctx,
-                tx,
+                db,
                 &id,
                 #authz_row.clone(),
                 #authz_err,
@@ -61,16 +60,18 @@ fn try_gen_delete(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             .await?;
 
             #body
-            #model::gql_delete(
+            let #g = #model::gql_delete(
                 ctx,
-                tx,
+                db,
                 &id,
                 #permanent,
                 #authz_row,
                 #authz_err,
                 #by_id,
             )
-            .await?
+            .await?;
+            #subscription_queue
+            #g
         };
     }
 

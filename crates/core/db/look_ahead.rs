@@ -1,5 +1,6 @@
 use super::prelude::*;
 
+#[derive(Clone)]
 /// One gql-requested field resolved to its sql column or expression, produced by gql_look_ahead.
 pub struct LookaheadX<E>
 where

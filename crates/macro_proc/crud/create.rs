@@ -27,17 +27,18 @@ fn try_gen_create(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
         let body = r.body;
         let am = ty_am(&model)?;
 
-        let exec = if a.ra.has_auth() {
-            quote!(exec(ctx))
-        } else {
-            quote!(exec_without_ctx(tx))
-        };
+        let exec = gen_am_exec();
+
+        let m = unique_ident();
+        let subscription_queue = gen_subscription_queue(&model, &quote!(Create), &quote!(&#m.get_id()), a.ra.publish);
 
         r.body = quote! {
             let am: AmWrapper<AmCreate, #model, #am> = {
                 #body
             };
-            am.#exec.await?.into_gql(ctx).await?
+            let #m = am.#exec.await?;
+            #subscription_queue
+            #m.into_gql(ctx).await?
         }
     }
 

@@ -3,6 +3,7 @@ use crate::prelude::*;
 /// A logged-in session, identified by a bearer token or cookie carrying its id
 /// plus an opaque secret checked against secret_hashed.
 #[model(deleted_at = false, by_id = false)]
+#[auth_session]
 pub struct LoginSession {
     pub user_id: String,
     #[graphql(skip)]
@@ -32,11 +33,7 @@ impl LoginSessionWithSecret {
 }
 
 /// Creates a login session row for user_id and sets the session cookie.
-pub async fn login_session_create(
-    ctx: &Context<'_>,
-    tx: &DatabaseTransaction,
-    user_id: &str,
-) -> Res<LoginSessionWithSecret> {
+pub async fn login_session_create(ctx: &Context<'_>, db: &ConnX<'_>, user_id: &str) -> Res<LoginSessionWithSecret> {
     let secret = rand_utils::secret();
     let ls = am_create!(LoginSession {
         user_id: user_id.to_owned(),
@@ -44,7 +41,7 @@ pub async fn login_session_create(
         ip: ctx.get_ip()?,
         ua: ctx.get_ua()?.to_json()?,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
     ctx.auth_session_set_cookie(&ls.id, &secret)?;

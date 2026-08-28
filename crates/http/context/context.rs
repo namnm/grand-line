@@ -8,8 +8,19 @@ use core::net::{IpAddr, SocketAddr};
 /// Read-only access to the current request's headers, IP, user agent, and cookies.
 pub trait HttpContext<'a>
 where
-    Self: ImplContext<'a>,
+    Self: HttpConfigContext<'a>,
 {
+    /// Pick the address a trusted proxy chain contributes, counting from the right.
+    /// x-forwarded-for grows to the right, so the address the nearest trusted proxy
+    /// saw is the last entry, the one before it belongs to the proxy behind it.
+    fn get_ip_hop(v: &str, hops: usize) -> String {
+        let parts = v.split(',').map(str::trim).collect::<Vec<_>>();
+        let Some(i) = parts.len().checked_sub(hops.max(1)) else {
+            return String::new();
+        };
+        parts.get(i).copied().unwrap_or_default().to_owned()
+    }
+
     /// Extract user-agent related headers (user-agent and sec-ch-ua-*) from h.
     fn get_ua_raw(h: Option<HashMap<String, Vec<String>>>) -> Res<HashMap<String, String>> {
         let mut m = HashMap::<String, String>::new();
@@ -49,17 +60,22 @@ where
         Ok(v)
     }
 
-    /// Resolve the client IP, trying x-real-ip, then x-forwarded-for, then
-    /// x-socket-addr, taking the first entry of a comma separated list.
+    /// Resolve the client IP from the configured source, see HttpConfig::ip_source.
+    /// Never guesses across headers, a fallback chain lets a client reachable
+    /// directly, or behind a proxy that appends rather than replaces, pick its own
+    /// address, and the value usually ends up persisted as audit data.
     fn get_ip(&self) -> Res<String> {
-        let mut v = self.get_header(H_REAL_IP)?;
-        if v.is_empty() {
-            v = self.get_header(H_FORWARDED_FOR)?;
-        }
-        if v.is_empty() {
-            v = self.get_header(H_SOCKET_ADDR)?;
-        }
-        let raw = v.split(',').next().unwrap_or_default().trim();
+        let raw = match self.http_config().ip_source {
+            HttpIpSource::SocketAddr => self.get_header(H_SOCKET_ADDR)?,
+            HttpIpSource::Proxy {
+                header,
+                hops,
+            } => {
+                let v = self.get_header(header)?;
+                Self::get_ip_hop(&v, hops)
+            }
+        };
+        let raw = raw.trim();
         let ip = if let Ok(sa) = raw.parse::<SocketAddr>() {
             sa.ip().to_string()
         } else {
@@ -71,11 +87,11 @@ where
         Ok(ip)
     }
 
-    /// Read the user-agent related headers, Err if the user-agent header is absent.
+    /// Read the user-agent related headers, empty when the client sent none.
+    /// A programmatic client sending no User-Agent is neither unusual nor wrong,
+    /// and recording an empty one beats refusing the request over a field that is
+    /// purely informational. A caller wanting it present should check the map.
     fn get_ua(&self) -> Res<HashMap<String, String>> {
-        if self.get_header(H_UA)?.is_empty() {
-            return Err(MyErr::HeaderUa404.into());
-        }
         let h = self.try_headers()?;
         let ua = Self::get_ua_raw(h)?;
         Ok(ua)
@@ -107,10 +123,16 @@ where
 
     /// Append a Set-Cookie response header, http-only and secure, expiring
     /// expires milliseconds from now.
+    /// SameSite and Path come from HttpConfig, leaving either implicit lets the
+    /// browser decide: no SameSite means Lax, which a cross origin app never sends,
+    /// and no Path scopes the cookie to the directory of the request uri.
     fn set_cookie(&self, k: &str, v: &str, expires: i64) {
+        let c = self.http_config();
         let v = Cookie::build(Cookie::new(k, v))
             .http_only(true)
             .secure(true)
+            .same_site(c.cookie_same_site)
+            .path(c.cookie_path)
             .max_age(Duration::seconds(expires / 1000))
             .expires(OffsetDateTime::now_utc() + Duration::milliseconds(expires))
             .build()

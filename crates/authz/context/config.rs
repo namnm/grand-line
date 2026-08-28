@@ -59,7 +59,7 @@ pub trait AuthzOrgImpl
 where
     Self: Send + Sync,
 {
-    async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>>;
+    async fn find_by_id(&self, id: &str, db: &ConnX<'_>) -> Res<Option<OrgMinimal>>;
 }
 
 /// Default AuthzOrgImpl backed by any model type O implementing AuthzOrg.
@@ -69,14 +69,14 @@ impl<O> AuthzOrgImpl for DefaultOrgImpl<O>
 where
     O: AuthzOrg,
 {
-    async fn find_by_id(&self, id: &str, tx: &DatabaseTransaction) -> Res<Option<OrgMinimal>> {
+    async fn find_by_id(&self, id: &str, db: &ConnX<'_>) -> Res<Option<OrgMinimal>> {
         let r = O::find()
             .include_deleted(false)
             .filter_by_id(id)
             .select_only()
             .column(O::col_id())
             .into_model::<OrgMinimal>()
-            .one(tx)
+            .one(db)
             .await?;
         Ok(r)
     }
@@ -107,6 +107,6 @@ where
         role_id: &str,
         org_id: Option<&str>,
         user_id: Option<&str>,
-        tx: &DatabaseTransaction,
+        db: &ConnX<'_>,
     ) -> Res<Option<AuthzRoleMatch>>;
 }

@@ -2,7 +2,7 @@
 mod setup;
 use setup::*;
 
-// #[create(Note, auth)] calls AmWrapper::exec(ctx), which fills created_by_id
+// #[create(Note, check = authenticated)] calls AmWrapper::exec(ctx), which fills created_by_id
 // from ctx.auth() via IntoAmCtx, this is the mechanism examples/saas's
 // role_create.rs/user_in_role_create.rs/impersonate.rs rely on.
 #[tokio::test]

@@ -23,7 +23,16 @@ pub trait ToPaginationInner {
 impl ToPaginationInner for Pagination {
     fn inner(self, c: &CoreConfig) -> PaginationInner {
         PaginationInner {
-            offset: self.offset.unwrap_or_default(),
+            offset: self
+                .offset
+                .map(|o| {
+                    if o > c.offset_max {
+                        c.offset_max
+                    } else {
+                        o
+                    }
+                })
+                .unwrap_or_default(),
             limit: self
                 .limit
                 .map(|l| {

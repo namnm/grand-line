@@ -17,7 +17,7 @@ where
     O: OrderBy,
 {
     /// Helper to combine order_by and order_by_default with an initial value if all are empty.
-    fn combine(self, order_by_default: Vec<O>) -> Vec<O>;
+    fn combine(self, order_by_default: Vec<O>, c: &CoreConfig) -> Vec<O>;
 }
 
 /// Automatically implement combine for Option<Vec<OrderBy>>.
@@ -25,9 +25,14 @@ impl<O> OrderByImpl<O> for Option<Vec<O>>
 where
     O: OrderBy,
 {
-    fn combine(self, order_by_default: Vec<O>) -> Vec<O> {
+    fn combine(self, order_by_default: Vec<O>, c: &CoreConfig) -> Vec<O> {
         match self {
-            Some(o) if !o.is_empty() => o,
+            // Only the client supplied list is capped, an app own default is its
+            // own choice and a long one there is deliberate.
+            Some(mut o) if !o.is_empty() => {
+                o.truncate(c.order_by_max);
+                o
+            }
             _ => {
                 if order_by_default.is_empty() {
                     vec![O::conf_default()]

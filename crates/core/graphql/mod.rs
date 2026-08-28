@@ -12,7 +12,6 @@ mod extension;
 mod grand_line_data;
 mod grand_line_data_context;
 mod impl_context;
-mod tx_context;
 pub use cache_context::*;
 pub use config::*;
 pub use config_context::*;
@@ -25,7 +24,6 @@ pub use extension::*;
 pub use grand_line_data::*;
 pub use grand_line_data_context::*;
 pub use impl_context::*;
-pub use tx_context::*;
 
 mod prelude {
     pub use super::err::MyErr;

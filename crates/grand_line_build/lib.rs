@@ -3,7 +3,25 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process;
 use syn::{Attribute, Item, ItemFn, Meta, parse_file, punctuated::Punctuated, token::Comma};
+
+// ----------------------------------------------------------------------------
+// Failure reporting
+// ----------------------------------------------------------------------------
+
+/// Report a fatal build script error and stop the build.
+/// cargo::error= with two colons (rust 1.84) is a real directive read from stdout,
+/// the cargo:error= on stderr this used to print was read by nothing, so every
+/// failure here let the build pass with an empty or stale schema.
+#[allow(
+    clippy::exit,
+    reason = "a build script cannot return an error, exiting is how it fails the build"
+)]
+fn fail(msg: &str) -> ! {
+    println!("cargo::error=grand_line_build: {msg}");
+    process::exit(1);
+}
 
 // ----------------------------------------------------------------------------
 // Public API
@@ -12,15 +30,16 @@ use syn::{Attribute, Item, ItemFn, Meta, parse_file, punctuated::Punctuated, tok
 /// Scan src/ of the current crate and generate $OUT_DIR/grand_line_schema.rs
 /// containing pub struct Query(...) and pub struct Mutation(...).
 ///
-/// Call from build.rs:
-/// ```rust
+/// Call from build.rs, no_run because it only works with cargo's build script
+/// env vars set, and now fails the build rather than silently doing nothing:
+/// ```no_run
 /// fn main() {
 ///     grand_line_build::generate_schema();
 /// }
 /// ```
 ///
 /// Then in your crate:
-/// ```rust
+/// ```ignore
 /// include!(concat!(env!("OUT_DIR"), "/grand_line_schema.rs"));
 /// ```
 pub fn generate_schema() {
@@ -29,7 +48,7 @@ pub fn generate_schema() {
 
 /// Builder for more control: multiple source dirs and extra merged types.
 ///
-/// ```rust
+/// ```no_run
 /// grand_line_build::SchemaBuilder::new()
 ///     .scan("src")
 ///     .scan("../other_crate/src")
@@ -41,6 +60,7 @@ pub struct SchemaBuilder {
     dirs: Vec<String>,
     extra_query: Vec<String>,
     extra_mutation: Vec<String>,
+    extra_subscription: Vec<String>,
 }
 
 impl SchemaBuilder {
@@ -50,6 +70,7 @@ impl SchemaBuilder {
             dirs: vec![],
             extra_query: vec![],
             extra_mutation: vec![],
+            extra_subscription: vec![],
         }
     }
 
@@ -71,6 +92,12 @@ impl SchemaBuilder {
         self
     }
 
+    /// Prepend an extra type to Subscription (e.g. "FileMergedSubscription").
+    pub fn extra_subscription(mut self, ty: &str) -> Self {
+        self.extra_subscription.push(ty.to_owned());
+        self
+    }
+
     /// Scan all configured dirs, compute resolver struct names, and write
     /// $OUT_DIR/grand_line_schema.rs.
     pub fn generate(self) {
@@ -78,39 +105,62 @@ impl SchemaBuilder {
             Ok(v) => v,
             Err(e) => {
                 let msg = format!("CARGO_MANIFEST_DIR not set: {e}");
-                eprintln!("cargo:error=grand_line_build: {msg}");
-                return;
+                fail(&msg);
             }
         };
         let out_dir = match env::var("OUT_DIR") {
             Ok(v) => v,
             Err(e) => {
                 let msg = format!("OUT_DIR not set: {e}");
-                eprintln!("cargo:error=grand_line_build: {msg}");
-                return;
+                fail(&msg);
             }
         };
 
-        let mut query_types = self.extra_query;
-        let mut mutation_types = self.extra_mutation;
+        let dirs = match resolve_dirs(Path::new(&manifest_dir), &self.dirs) {
+            Ok(v) => v,
+            Err(msg) => fail(&msg),
+        };
 
-        for rel_dir in &self.dirs {
-            let abs_dir = Path::new(&manifest_dir).join(rel_dir);
-            scan_dir(&abs_dir, &mut query_types, &mut mutation_types);
+        let mut roots = Roots {
+            query: self.extra_query,
+            mutation: self.extra_mutation,
+            subscription: self.extra_subscription,
+        };
+
+        for abs_dir in &dirs {
+            scan_dir(abs_dir, &mut roots);
             let abs_dir = abs_dir.display();
             println!("cargo:rerun-if-changed={abs_dir}");
         }
 
-        let query_types = dedup_warn(query_types, "query");
-        let mutation_types = dedup_warn(mutation_types, "mutation");
+        roots.query = dedup_warn(roots.query, "query");
+        roots.mutation = dedup_warn(roots.mutation, "mutation");
+        roots.subscription = dedup_warn(roots.subscription, "subscription");
 
-        let code = generate(&query_types, &mutation_types);
+        let code = generate(&roots);
         let out_path = PathBuf::from(&out_dir).join("grand_line_schema.rs");
         if let Err(e) = fs::write(&out_path, code) {
             let msg = format!("failed to write grand_line_schema.rs: {e}");
-            eprintln!("cargo:error=grand_line_build: {msg}");
+            fail(&msg);
         }
     }
+}
+
+/// Resolve every configured scan dir against manifest_dir, erroring on the first
+/// one that is not a directory. A stale path used to scan nothing and keep the
+/// build green, which is how a refactor left several dead scan entries behind.
+pub fn resolve_dirs(manifest_dir: &Path, dirs: &[String]) -> Result<Vec<PathBuf>, String> {
+    dirs.iter()
+        .map(|rel| {
+            let abs = manifest_dir.join(rel);
+            if abs.is_dir() {
+                return Ok(abs);
+            }
+            let display = abs.display();
+            let msg = format!("scan dir not found: {rel} (resolved to {display})");
+            Err(msg)
+        })
+        .collect()
 }
 
 impl Default for SchemaBuilder {
@@ -123,7 +173,7 @@ impl Default for SchemaBuilder {
 // File scanning - uses syn for accurate AST parsing
 // ----------------------------------------------------------------------------
 
-fn scan_dir(dir: &Path, query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
+fn scan_dir(dir: &Path, out: &mut Roots) {
     if !dir.exists() {
         return;
     }
@@ -133,29 +183,29 @@ fn scan_dir(dir: &Path, query_types: &mut Vec<String>, mutation_types: &mut Vec<
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            scan_dir(&path, query_types, mutation_types);
+            scan_dir(&path, out);
         } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
             let content = fs::read_to_string(&path).unwrap_or_default();
-            scan_file(&content, query_types, mutation_types);
+            scan_file(&content, out);
         }
     }
 }
 
-fn scan_file(content: &str, query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
+fn scan_file(content: &str, out: &mut Roots) {
     let Ok(file) = parse_file(content) else {
         return;
     };
-    scan_items(&file.items, query_types, mutation_types);
+    scan_items(&file.items, out);
 }
 
-fn scan_items(items: &[Item], query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
+fn scan_items(items: &[Item], out: &mut Roots) {
     for item in items {
         match item {
-            Item::Fn(ifn) => scan_fn(ifn, query_types, mutation_types),
+            Item::Fn(ifn) => scan_fn(ifn, out),
             // Recurse into inline mod blocks.
             Item::Mod(m) => {
                 if let Some((_, items)) = &m.content {
-                    scan_items(items, query_types, mutation_types);
+                    scan_items(items, out);
                 }
             }
             _ => {}
@@ -163,7 +213,7 @@ fn scan_items(items: &[Item], query_types: &mut Vec<String>, mutation_types: &mu
     }
 }
 
-fn scan_fn(ifn: &ItemFn, query_types: &mut Vec<String>, mutation_types: &mut Vec<String>) {
+fn scan_fn(ifn: &ItemFn, out: &mut Roots) {
     let f = ifn.sig.ident.to_string();
     let resolver_attrs = ifn
         .attrs
@@ -183,10 +233,10 @@ fn scan_fn(ifn: &ItemFn, query_types: &mut Vec<String>, mutation_types: &mut Vec
             return;
         }
         let struk = resolver_struct_name(&f, &crud, &model, operation);
-        if operation == "query" {
-            query_types.push(struk);
-        } else {
-            mutation_types.push(struk);
+        match operation {
+            "query" => out.query.push(struk),
+            "subscription" => out.subscription.push(struk),
+            _ => out.mutation.push(struk),
         }
     }
 }
@@ -202,9 +252,18 @@ const CRUD_MACROS: &[(&str, &str, &str)] = &[
     ("create", "create", "mutation"),
     ("update", "update", "mutation"),
     ("delete", "delete", "mutation"),
+    ("subscribe", "changed", "subscription"),
 ];
 
 const MANUAL_MACROS: &[(&str, &str)] = &[("query", "query"), ("mutation", "mutation")];
+
+/// Root resolver struct names collected from one scan, one bucket per operation.
+#[derive(Default)]
+struct Roots {
+    query: Vec<String>,
+    mutation: Vec<String>,
+    subscription: Vec<String>,
+}
 
 fn detect_resolver_attr(attr: &Attribute) -> Option<(String, &'static str, String)> {
     let macro_name = attr.path().get_ident()?.to_string();
@@ -275,19 +334,22 @@ fn dedup_warn(types: Vec<String>, kind: &str) -> Vec<String> {
 // Code generation
 // ----------------------------------------------------------------------------
 
-fn generate(query_types: &[String], mutation_types: &[String]) -> String {
+fn generate(roots: &Roots) -> String {
     let mut out: Vec<String> = vec![];
-    if !query_types.is_empty() {
-        gen_merged_object(&mut out, "Query", query_types);
+    if !roots.query.is_empty() {
+        gen_merged_object(&mut out, "Query", &roots.query, "MergedObject");
     }
-    if !mutation_types.is_empty() {
-        gen_merged_object(&mut out, "Mutation", mutation_types);
+    if !roots.mutation.is_empty() {
+        gen_merged_object(&mut out, "Mutation", &roots.mutation, "MergedObject");
+    }
+    if !roots.subscription.is_empty() {
+        gen_merged_object(&mut out, "Subscription", &roots.subscription, "MergedSubscription");
     }
     out.join("\n")
 }
 
-fn gen_merged_object(out: &mut Vec<String>, name: &str, types: &[String]) {
+fn gen_merged_object(out: &mut Vec<String>, name: &str, types: &[String], derive: &str) {
     let types = types.join(",");
-    out.push("#[derive(Default, MergedObject)]".to_owned());
+    out.push(format!("#[derive(Default, {derive})]"));
     out.push(format!("pub struct {name}({types});"));
 }

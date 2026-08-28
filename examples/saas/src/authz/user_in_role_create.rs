@@ -6,7 +6,7 @@ pub struct UserInRoleCreate {
     pub role_id: String,
 }
 
-#[create(UserInRole, authz(realm = "org"))]
+#[create(UserInRole, check = authz_org)]
 fn resolver() {
     let org_id = ctx.authz().await?;
     am_create!(UserInRole {

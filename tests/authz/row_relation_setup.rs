@@ -50,11 +50,11 @@ pub struct PostInTag {
     pub tag_id: String,
 }
 
-// Root resolvers: authz checks happen here, relations inherit the cached context.
-#[detail(Post, authz(realm = "org"))]
+// Root resolvers: the authz guard runs here, relations inherit the cached context.
+#[detail(Post, check = authz_org)]
 fn postDetail() {
 }
-#[detail(Comment, authz(realm = "org"))]
+#[detail(Comment, check = authz_org)]
 fn commentDetail() {
 }
 
@@ -87,7 +87,7 @@ pub struct RowRelationSetup {
 
 pub async fn row_relation_setup(row_pol: RowPolicy, cfg: AuthzConfig) -> Res<RowRelationSetup> {
     let org_impl = Org::authz_default_impl();
-    let role_impl: Box<dyn AuthzRoleImpl> = Box::new(TestRoleImpl);
+    let role_impl = Role::authz_default_impl::<UserInRole>();
     let session_impl: Box<dyn AuthSessionImpl> = Box::new(TestSessionImpl);
     let tmp = tmp_db!(User, Org, Role, UserInRole, Post, Comment, PostMeta, Tag, PostInTag,);
     let s = schema_q::<Q>(&tmp.db)

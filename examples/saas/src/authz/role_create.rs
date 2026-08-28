@@ -7,7 +7,7 @@ pub struct RoleCreate {
     pub row_policy: JsonValue,
 }
 
-#[create(Role, authz(realm = "org"))]
+#[create(Role, check = authz_org)]
 fn role_create() {
     let org_id = ctx.authz().await?;
     am_create!(Role {

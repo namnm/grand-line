@@ -2,11 +2,13 @@
 
 mod context;
 mod db;
+mod models;
 mod utils;
 
 pub mod export {
     pub use crate::context::*;
     pub use crate::db::*;
+    pub use crate::models::*;
     pub use crate::utils::*;
 }
 

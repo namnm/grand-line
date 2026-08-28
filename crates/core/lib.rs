@@ -3,12 +3,14 @@
 mod db;
 mod graphql;
 mod graphql_types;
+mod subscription;
 mod utils;
 
 pub mod export {
     pub use crate::db::*;
     pub use crate::graphql::*;
     pub use crate::graphql_types::*;
+    pub use crate::subscription::*;
     pub use crate::utils::*;
     pub use _proc::*;
     pub use _utils_proc::{PartialEqString, field_names};
@@ -34,7 +36,10 @@ pub mod prelude {
     pub use crate::reexport::*;
     pub use async_graphql::{
         Error as GraphQLErr, MaybeUndefined as Undefined, Result as GraphQLRes, Schema as GraphQLSchema,
-        Value as GraphQLValue, extensions::*, *,
+        Value as GraphQLValue,
+        extensions::*,
+        futures_util::{Stream, StreamExt, future::BoxFuture},
+        *,
     };
     pub use async_trait::async_trait;
     pub use sea_orm::{

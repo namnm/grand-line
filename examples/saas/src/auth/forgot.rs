@@ -5,14 +5,14 @@ pub struct Forgot {
     pub email: Email,
 }
 
-#[mutation(auth(unauthenticated))]
+#[mutation(check = unauthenticated)]
 fn forgot(data: Forgot) -> OtpWithSecret {
     ctx.auth_otp_ensure_re_request(OTP_TY_FORGOT, &data.email.0).await?;
 
     let u = User::find()
         .include_deleted(false)
         .filter(UserColumn::Email.eq(&data.email.0))
-        .one_or_404(tx)
+        .one_or_404(db)
         .await?;
 
     let otp = rand_utils::otp();
@@ -30,7 +30,7 @@ fn forgot(data: Forgot) -> OtpWithSecret {
         otp_salt,
         otp_hashed,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
     // NOTE: replace this with a real mailer call.

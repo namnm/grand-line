@@ -1,3 +1,4 @@
+use super::check::*;
 use grand_line::prelude::*;
 
 #[model]
@@ -7,13 +8,13 @@ pub struct Task {
     pub org_id: String,
 }
 
-#[query(authz(realm = "org"))]
+#[query(check = authz_org)]
 fn tasks(order_by: Option<Vec<TaskOrderBy>>) -> Vec<TaskGql> {
     let filter = ctx.authz_row::<TaskFilter>().await?;
     Task::find()
         .filter_option(filter)
         .chain(order_by)
         .gql_select(ctx)?
-        .all(tx)
+        .all(db)
         .await?
 }

@@ -64,7 +64,7 @@ fn resolver() {
 
 #[update(Todo)]
 fn resolver() {
-    Todo::find_by_id(&id).exists_or_404(tx).await?;
+    Todo::find_by_id(&id).exists_or_404(db).await?;
     am_update!(Todo {
         id: id.clone(),
         content: data.content,
@@ -73,7 +73,7 @@ fn resolver() {
 
 #[delete(Todo)]
 fn resolver() {
-    Todo::find_by_id(&id).exists_or_404(tx).await?;
+    Todo::find_by_id(&id).exists_or_404(db).await?;
 }
 
 #[delete(Todo, permanent = false)] // remove the permanent option
@@ -86,7 +86,7 @@ Use `resolver_inputs` to define fully custom parameters instead of the ones the 
 ```rs
 #[update(Todo, resolver_inputs)]
 fn todo_toggle_done(id: String) {
-    let todo = Todo::find_by_id(&id).one_or_404(tx).await?;
+    let todo = Todo::find_by_id(&id).one_or_404(db).await?;
     am_update!(Todo {
         id: id.clone(),
         done: !todo.done,

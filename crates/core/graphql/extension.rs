@@ -1,4 +1,6 @@
 use super::prelude::*;
+use async_graphql::futures_util::stream::{self, BoxStream, StreamExt as _};
+use async_graphql::parser::types::{ExecutableDocument, OperationType};
 
 /// Extension to insert GrandLineData on each request, then cleanup at the end of each request.
 /// The extension also handle error automatically to only expose client errors to the client.
@@ -11,6 +13,15 @@ impl ExtensionFactory for GrandLineExtension {
 }
 
 struct GrandLineExtensionImpl;
+
+/// Releases the request transaction when dropped, see GrandLineExtension::subscribe.
+struct TxRelease(Arc<GrandLineData>);
+
+impl Drop for TxRelease {
+    fn drop(&mut self) {
+        self.0.tx_release();
+    }
+}
 
 #[async_trait]
 impl Extension for GrandLineExtensionImpl {
@@ -26,6 +37,46 @@ impl Extension for GrandLineExtensionImpl {
         next.run(ctx, request.data(Arc::new(gl))).await
     }
 
+    /// Decide whether this request writes, before any resolver runs. Only a
+    /// mutation needs a transaction, so a query and a subscription read from the
+    /// pool instead, paying for no BEGIN and pinning no connection.
+    async fn parse_query(
+        &self,
+        ctx: &ExtensionContext<'_>,
+        query: &str,
+        variables: &Variables,
+        next: NextParseQuery<'_>,
+    ) -> ServerResult<ExecutableDocument> {
+        let doc = next.run(ctx, query, variables).await?;
+        let write = doc.operations.iter().any(|(_, o)| o.node.ty == OperationType::Mutation);
+        if write && let Ok(gl) = ctx.grand_line() {
+            gl.set_write();
+        }
+        Ok(doc)
+    }
+
+    /// Release the request transaction when a subscription stream ends or is
+    /// dropped. execute() never runs for a subscription, so the cleanup that
+    /// normally happens there has to hang off the stream's own lifetime instead.
+    fn subscribe<'s>(
+        &self,
+        ctx: &ExtensionContext<'_>,
+        stream: BoxStream<'s, Response>,
+        next: NextSubscribe<'_>,
+    ) -> BoxStream<'s, Response> {
+        let stream = next.run(ctx, stream);
+        let Some(gl) = ctx.data_opt_impl::<Arc<GrandLineData>>().map(Arc::clone) else {
+            return stream;
+        };
+        // Held by the stream state, so a client disconnecting mid stream releases
+        // the transaction just like a stream that ends on its own.
+        stream::unfold((stream, TxRelease(gl)), |(mut s, guard)| async move {
+            let r = s.next().await?;
+            Some((r, (s, guard)))
+        })
+        .boxed()
+    }
+
     /// Cleanup GrandLineData at the end of each request.
     async fn execute(
         &self,
@@ -35,12 +86,33 @@ impl Extension for GrandLineExtensionImpl {
     ) -> Response {
         let mut r = next.run(ctx, operation_name).await;
         match ctx.grand_line() {
-            Ok(gl) => {
-                if let Err(e) = gl.cleanup(!r.errors.is_empty()).await {
+            Ok(gl) => match gl.cleanup(!r.errors.is_empty()).await {
+                Ok(c) => {
+                    if c.rolled_back {
+                        // data still holds whatever the resolvers produced before the
+                        // error, and none of it exists any more. A client reading only
+                        // data would see rows that were never written. Only a request
+                        // that actually had a transaction gets nulled, so a query
+                        // keeps graphql's partial success, it undid nothing.
+                        r.data = GraphQLValue::Null;
+                    }
+                    let broker = ctx.subscription_config().broker();
+                    for e in c.events {
+                        if let Err(e) = broker.publish(e).await {
+                            r.errors.push(e.into());
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Nothing was persisted, so the data collected from the resolvers
+                    // never made it to the database. Returning it would read as a
+                    // success to any client that only looks at data.
+                    r.data = GraphQLValue::Null;
                     r.errors.push(e.into());
                 }
-            }
+            },
             Err(e) => {
+                r.data = GraphQLValue::Null;
                 r.errors.push(e.into());
             }
         }

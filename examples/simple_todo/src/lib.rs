@@ -87,7 +87,7 @@ pub struct TodoUpdate {
 fn resolver() {
     let d = json_string(&data)?;
     println!("todoUpdate id={id} data={d}");
-    Todo::find_by_id(&id).exists_or_404(tx).await?;
+    Todo::find_by_id(&id).exists_or_404(db).await?;
     am_update!(Todo {
         id: id.clone(),
         content: data.content,
@@ -99,7 +99,7 @@ fn resolver() {
 #[update(Todo, resolver_inputs)]
 fn todo_toggle_done(id: String) {
     println!("todoToggleDone id={id}");
-    let todo = Todo::find_by_id(&id).one_or_404(tx).await?;
+    let todo = Todo::find_by_id(&id).one_or_404(db).await?;
     am_update!(Todo {
         id: id.clone(),
         done: !todo.done,
@@ -110,7 +110,23 @@ fn todo_toggle_done(id: String) {
 #[delete(Todo)]
 fn resolver() {
     println!("todoDelete id={id}");
-    Todo::find_by_id(&id).exists_or_404(tx).await?;
+    Todo::find_by_id(&id).exists_or_404(db).await?;
+}
+
+// subscribe to every change of Todo, the crud mutations above publish
+// automatically, the body contributes an extra filter like #[detail] does
+// the client selects created / updated / deleted, each with its own fields
+#[subscribe(Todo)]
+fn resolver() {
+}
+
+// we can also have a custom name, scoped to the todos still to do
+#[subscribe(Todo)]
+fn todo_pending_changed() {
+    filter!(Todo {
+        done: false,
+    })
+    .into()
 }
 
 // manual query: count number of all done Todo
@@ -119,17 +135,23 @@ fn todo_count_done() -> u64 {
     let f = filter!(Todo {
         done: true,
     });
-    f.into_select().count(tx).await?
+    f.into_select().count(db).await?
 }
 
 // manual mutation: soft delete all done Todo
+// a hand written mutation publishes its own events
 #[mutation]
 fn todo_delete_done() -> Vec<TodoGql> {
     let f = filter!(Todo {
         done: true,
     });
-    Todo::soft_delete_many()?.filter(f.clone()).exec(tx).await?;
-    f.gql_select_id().all(tx).await?
+    let r = f.clone().into_select().all(db).await?;
+    Todo::soft_delete_many()?.filter(f).exec(db).await?;
+    for t in &r {
+        ctx.subscription_queue::<Todo>(SubscriptionOperation::Delete, &t.id)
+            .await?;
+    }
+    r.iter().map(|t| TodoGql::from_id(&t.id)).collect()
 }
 
 // ----------------------------------------------------------------------------
@@ -196,12 +218,12 @@ fn now_millis() -> i64 {
 
 grand_line::include_generated_schema! {}
 
-/// The app's fully-wired GraphQL schema type, no subscriptions.
-pub type AppSchema = GraphQLSchema<Query, Mutation, EmptySubscription>;
+/// The app's fully-wired GraphQL schema type.
+pub type AppSchema = GraphQLSchema<Query, Mutation, Subscription>;
 
 /// Builds the app schema wired with db.
-pub fn schema(db: &DatabaseConnection) -> SchemaBuilder<Query, Mutation, EmptySubscription> {
-    GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
+pub fn schema(db: &DatabaseConnection) -> SchemaBuilder<Query, Mutation, Subscription> {
+    GraphQLSchema::build(Query::default(), Mutation::default(), Subscription::default())
         .extension(GrandLineExtension)
         .data(Arc::new(db.clone()))
 }

@@ -2,11 +2,16 @@
 
 cargo test --no-default-features --features test_utils,sqlite --test err;
 
+cargo test --no-default-features --features test_utils,sqlite --test tx;
 cargo test --no-default-features --features test_utils,sqlite --test model;
 cargo test --no-default-features --features test_utils,sqlite --test relationship;
 cargo test --no-default-features --features test_utils,sqlite --test soft_delete;
+cargo test --no-default-features --features test_utils,sqlite --test check;
+cargo test --no-default-features --features test_utils,sqlite,subscription --test subscription;
 
 cargo test --no-default-features --features test_utils,sqlite,axum,auth --test auth;
 cargo test --no-default-features --features test_utils,sqlite,axum,authz --test authz;
 
 cargo test --no-default-features --features test_utils,i18n --test i18n;
+
+cargo test -p grand_line_build;

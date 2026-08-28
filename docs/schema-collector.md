@@ -28,6 +28,9 @@ grand_line_build = { path = "../../crates/grand_line_build" }
 Create or edit `build.rs` at the crate root:
 
 ```rs
+fn main() {
+    grand_line_build::generate_schema();
+}
 ```
 
 This scans `src/` of the current crate. Then include the generated file in your crate root:

@@ -11,7 +11,7 @@
   "exec": {
     "cwd": "${configDir}",
     "commands": [{
-      "command": "cargo +nightly fmt --all",
+      "command": "rustfmt +nightly --edition 2024",
       "exts": ["rs"],
     }],
   },

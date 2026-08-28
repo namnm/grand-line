@@ -24,10 +24,10 @@ pub type AppSchema = GraphQLSchema<Query, Mutation, EmptySubscription>;
 
 /// Builds the app schema wired with db and the real Saas auth/authz implementations.
 pub fn schema(db: &DatabaseConnection) -> SchemaBuilder<Query, Mutation, EmptySubscription> {
-    let session_impl: Box<dyn AuthSessionImpl> = Box::new(SaasAuthSessionImpl);
-    let otp_impl: Box<dyn AuthOtpImpl> = Box::new(SaasAuthOtpImpl);
+    let session_impl = LoginSession::auth_default_impl();
+    let otp_impl = Otp::auth_default_impl();
     let org_impl = Org::authz_default_impl();
-    let role_impl: Box<dyn AuthzRoleImpl> = Box::new(SaasRoleImpl);
+    let role_impl = Role::authz_default_impl::<UserInRole>();
 
     GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
         .extension(GrandLineExtension)

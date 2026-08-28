@@ -19,10 +19,10 @@ Todo::find()
     .chain(order_by)           // apply a Vec<TodoOrderBy>
     .gql_select(ctx)?          // select only columns requested in the GQL look-ahead
     .gql_select_id()           // select only id (for delete response)
-    .exists_or_404(tx).await?; // error if no row matches
+    .exists_or_404(db).await?; // error if no row matches
 
-Todo::find().one_or_404(tx).await?; // one() + error if None
-selector.one_or_404(tx).await?;     // same on Selector<SelectModel<G>>
+Todo::find().one_or_404(db).await?; // one() + error if None
+selector.one_or_404(db).await?;     // same on Selector<SelectModel<G>>
 ```
 
 Available on `Filter` and `OrderBy` via `IntoSelect`:

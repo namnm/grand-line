@@ -12,6 +12,9 @@ pub struct CrudAttr {
     /// When true (delete only), adds a permanent: Option<bool> input so callers
     /// can request a hard delete instead of a soft delete.
     pub permanent: bool,
+    /// When true (subscribe only), delivers events whose row no longer exists,
+    /// carrying just its id and with the subscription's filters not applied.
+    pub allow_permanent_delete: bool,
     #[field_names(skip)]
     pub model: String,
     #[field_names(skip)]
@@ -26,6 +29,7 @@ impl TryFrom<Attr> for CrudAttr {
             permanent: a
                 .bool(Self::FIELD_PERMANENT)?
                 .unwrap_or(FEATURE_RESOLVER_DELETE_PERMANENT),
+            allow_permanent_delete: a.bool(Self::FIELD_ALLOW_PERMANENT_DELETE)?.unwrap_or_default(),
             model: a.model_from_first_path()?,
             ra: a.try_into()?,
         })
@@ -42,6 +46,13 @@ impl AttrValidate for CrudAttr {
                     true
                 } else {
                     f != Self::FIELD_PERMANENT
+                }
+            })
+            .filter(|f| {
+                if a.attr == MacroTy::Subscribe {
+                    true
+                } else {
+                    f != Self::FIELD_ALLOW_PERMANENT_DELETE
                 }
             })
             .chain(ResolverTyAttr::attr_fields(a))
@@ -71,8 +82,8 @@ impl CrudAttr {
                 let msg = format!("{gql_name} output should be empty unless resolver_output=true, found {output}");
                 return Err(SynErr::new(*span, msg));
             }
-            if !self.ra.tx || !self.ra.ctx {
-                let msg = format!("{gql_name} output requires tx, ctx");
+            if !self.ra.db || !self.ra.ctx {
+                let msg = format!("{gql_name} output requires db, ctx");
                 return Err(SynErr::new(*span, msg));
             }
         }
@@ -82,8 +93,8 @@ impl CrudAttr {
             );
             return Err(SynErr::new(*span, msg));
         }
-        if self.ra.tx && !self.ra.ctx {
-            let msg = format!("{gql_name} tx requires ctx");
+        if self.ra.db && !self.ra.ctx {
+            let msg = format!("{gql_name} db requires ctx");
             return Err(SynErr::new(*span, msg));
         }
         Ok(())

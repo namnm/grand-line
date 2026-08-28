@@ -79,7 +79,7 @@ where
             None
         };
 
-        let tx = &*self.tx().await?;
+        let db = &self.db().await?;
         let m = self
             .authz_role_impl()?
             .find_matching(
@@ -87,7 +87,7 @@ where
                 &role_id,
                 org.as_ref().map(|o| o.id.as_str()),
                 user_id.as_deref(),
-                tx,
+                db,
             )
             .await?;
 
@@ -148,7 +148,7 @@ where
     }
 
     /// Return the root resolver's cache key from the current resolver's path.
-    /// Because #[authz] is only allowed on root resolvers, the cache only ever
+    /// Because the authz guard only runs on root resolvers, the cache only ever
     /// holds single-segment keys. Nested resolvers just need the first non-numeric
     /// path segment (the root alias or field name) and verify it is in the cache.
     async fn authz_cache_key(&self) -> Res<String> {
@@ -170,7 +170,7 @@ where
         }
 
         drop(guard);
-        Err(MyErr::MissingMacro.into())
+        Err(MyErr::MissingGuard.into())
     }
 }
 

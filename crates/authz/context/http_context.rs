@@ -23,10 +23,10 @@ where
         }
 
         let org_impl = self.authz_org_impl()?;
-        let tx = &*self.tx().await?;
+        let db = &self.db().await?;
 
         org_impl
-            .find_by_id(&v, tx)
+            .find_by_id(&v, db)
             .await?
             .ok_or_else(|| self.authz_err().clone())
     }

@@ -6,7 +6,7 @@ pub struct InvitationCreate {
     pub role_id: String,
 }
 
-#[mutation(authz(realm = "org"))]
+#[mutation(check = authz_org)]
 fn invitation_create(data: InvitationCreate) -> OtpWithSecret {
     let org_id = ctx.authz().await?;
 
@@ -29,7 +29,7 @@ fn invitation_create(data: InvitationCreate) -> OtpWithSecret {
         otp_salt,
         otp_hashed,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
     // NOTE: replace this with a real mailer call.

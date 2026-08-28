@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 /// Umbrella trait combining every auth context trait, the entry point used
-/// by the #[operation(auth)] macro and by other crates (e.g. authz) that just need
+/// by the authenticated/unauthenticated guards and by other crates (e.g. authz) that just need
 /// to know who the current user is.
 #[async_trait]
 pub trait AuthContext<'a>

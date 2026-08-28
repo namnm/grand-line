@@ -1,5 +1,6 @@
 mod attr_default_flags;
 mod attr_ty;
+mod auth;
 mod authz;
 mod ensure_default_tail;
 mod err;
@@ -11,9 +12,11 @@ mod naming;
 mod order_by;
 mod resolver_fn_shape;
 mod sql_enum;
+mod subscription;
 mod unwrap_option;
 pub use attr_default_flags::*;
 pub use attr_ty::*;
+pub use auth::*;
 pub use authz::*;
 pub use ensure_default_tail::*;
 pub use err::*;
@@ -25,6 +28,7 @@ pub use naming::*;
 pub use order_by::*;
 pub use resolver_fn_shape::*;
 pub use sql_enum::*;
+pub use subscription::*;
 pub use unwrap_option::*;
 
 #[cfg(feature = "debug_macro")]

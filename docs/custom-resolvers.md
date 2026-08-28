@@ -7,7 +7,7 @@ fn todo_count_done() -> u64 {
         done: true,
     })
     .into_select()
-    .count(tx)
+    .count(db)
     .await?
 }
 
@@ -16,11 +16,8 @@ fn todo_delete_done() -> Vec<TodoGql> {
     let f = filter!(Todo {
         done: true,
     });
-    Todo::soft_delete_many()?
-        .filter(f.clone())
-        .exec(tx)
-        .await?;
-    f.gql_select_id().all(tx).await?
+    Todo::soft_delete_many()?.filter(f.clone()).exec(db).await?;
+    f.gql_select_id().all(db).await?
 }
 ```
 

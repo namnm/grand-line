@@ -37,6 +37,29 @@ Opt out per model:
 #[model(by_id = false)]      // no *_by_id fields
 ```
 
+## Model attributes
+
+Placed directly **under** `#[model]`, each one implements a framework trait on the entity so your model can back a built-in DI impl without any hand-written lookup code. They require the `auth`/`authz` feature and a few specific field names, and error at compile time naming the field when one is missing.
+
+| Attribute               | Backs                                  | Docs                                                |
+| ----------------------- | -------------------------------------- | --------------------------------------------------- |
+| `#[auth_session]`       | the default `AuthSessionImpl`          | [Authentication](authentication.md#setup)           |
+| `#[auth_otp]`           | the default `AuthOtpImpl`              | [Authentication](authentication.md#setup)           |
+| `#[authz_org]`          | the default `AuthzOrgImpl`             | [Authorization](authorization.md#setup)             |
+| `#[authz_role]`         | the default `AuthzRoleImpl`            | [Authorization](authorization.md#setup)             |
+| `#[authz_user_in_role]` | the role lookup's user assignment side | [Authorization](authorization.md#setup)             |
+| `#[authz_org_id]`       | the `ctx.authz_org_*` scoping helpers  | [Authorization](authorization.md#org-scoped-models) |
+
+```rs
+#[model(deleted_at = false, by_id = false)]
+#[auth_session]
+pub struct LoginSession {
+    pub user_id: String,
+    #[graphql(skip)]
+    pub secret_hashed: String,
+}
+```
+
 ## Field attributes
 
 **`#[default(...)]`** - applied at insert when the field is omitted from `am_create!`:
@@ -54,7 +77,9 @@ pub struct Todo {
 
 A `bool`/numeric field with no exposed create input (see [CRUD resolvers](crud-resolvers.md)) still needs a `#[default(...)]` if nothing ever sets it explicitly - the underlying column has no default of its own otherwise, and an insert that omits it fails with a NOT NULL constraint error.
 
-**`#[graphql(skip)]`** - stored in the DB, hidden from the GraphQL schema.
+**`#[graphql(skip)]`** - stored in the DB, hidden from the GraphQL schema. Also dropped from the `History` snapshot (see [History](history.md#what-the-snapshot-stores)).
+
+**`#[history(skip)]`** - stored in the DB and exposed over GraphQL as usual, only left out of the `History` snapshot. For a column that is fine to serve but not worth retaining in an audit trail.
 
 **`#[sql_expr(...)]`** - GraphQL-only computed column, evaluated by the database:
 
@@ -77,6 +102,41 @@ async fn resolve_full_name(u: &UserGql, _ctx: &Context<'_>) -> Res<String> {
 ```
 
 `sql_dep` lists which underlying SQL columns must be selected for this resolver to run - the framework only fetches columns actually requested in the GraphQL selection, so any column the Rust function reads has to be declared here.
+
+### Reading a related row from a resolver
+
+`sql_dep` covers the columns of the model the field is on. To read a row of _another_ model with dataloader batching, use `gql_load_with` and name the columns yourself:
+
+```rs
+#[resolver(sql_dep = "org_id")]
+pub org_label: String,
+
+async fn resolve_org_label(u: &UserGql, ctx: &Context<'_>) -> Res<String> {
+    let id = u.org_id.clone().ok_or(CoreDbErr::GqlResolverNone)?;
+    let db = &ctx.db().await?;
+
+    let org = Org::gql_load_with(
+        ctx,
+        db,
+        OrgColumn::Id,
+        id,
+        None, // authz_row
+        None, // include_deleted
+        None, // extra filter
+        Org::gql_look_ahead_cols(&[OrgColumn::Name, OrgColumn::Slug]),
+    )
+    .await?
+    .ok_or(CoreDbErr::Db404)?;
+
+    org.name.ok_or(CoreDbErr::GqlResolverNone.into())
+}
+```
+
+The plain `gql_load` picks its columns from the calling field's own GraphQL selection set. A scalar resolver has no selection set of its own, so `gql_load` cannot know what to select there and returns an error naming `gql_load_with` - it does not silently hand back a row of `None`s. Use `gql_load` only from a relation field.
+
+`Org::gql_look_ahead_all()` loads every column reachable over GraphQL when the column list would be tedious. It also evaluates every `#[sql_expr]` the model has, so prefer naming columns when that matters. `#[graphql(skip)]` columns are never included by either.
+
+Don't reach for a plain `Org::find().one(db)` here - it works, but it runs one query per parent row instead of one batched query per request.
 
 **Performance note:** requesting a `#[sql_expr]` or `#[resolver(sql_dep = ...)]` field from a `#[create]`/`#[update]` response triggers a second `SELECT ... WHERE id = ?` to refetch the row with those columns, on top of the insert/update itself - the write statement itself doesn't return computed/virtual columns. Not a bug, just worth knowing when you see an unexpected extra query in a mutation.
 

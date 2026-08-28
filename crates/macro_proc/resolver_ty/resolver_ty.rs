@@ -73,32 +73,13 @@ impl ResolverFn for ResolverTy {
         Ok(self.item.body.clone())
     }
 
-    fn root_operation_ty(&self) -> SynRes<Option<String>> {
-        let ty = self.ty.to_string();
-        let operations = ["Query", "Mutation", "Subscription"];
-        let operation = operations
-            .iter()
-            .find(|o| ty.ends_with(*o))
-            .copied()
-            .map(|o| o.to_owned());
-        if operation.is_none() {
-            let valid = operations.join(", ");
-            let msg = format!("root resolver {ty} should be one of: {valid}");
-            return Err(SynErr::new(self.ty.span(), msg));
-        }
-        Ok(operation)
-    }
-
-    fn tx(&self) -> bool {
-        self.ra.tx
+    fn db(&self) -> bool {
+        self.ra.db
     }
     fn ctx(&self) -> bool {
         self.ra.ctx
     }
-    fn auth(&self) -> Option<AuthAttr> {
-        self.ra.auth.clone()
-    }
-    fn authz(&self) -> Option<AuthzAttr> {
-        self.ra.authz.clone()
+    fn check(&self) -> Vec<CheckAttr> {
+        self.ra.check.clone()
     }
 }

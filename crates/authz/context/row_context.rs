@@ -65,14 +65,14 @@ where
     /// Helper to execute the dsl script using authz handler from trait definition.
     async fn authz_execute_script(&self, h: &Arc<dyn AuthzHandlers>, script: &str) -> Res<Option<JsonValue>>;
 
-    /// Similar to authz_row but do not return error if not in authz macro.
-    /// To make it graceful and can be used in relationship without root authz macro.
+    /// Similar to authz_row but do not return error when no authz guard ran.
+    /// To make it graceful and can be used in relationship without a root guard.
     async fn authz_row_graceful<F>(&self) -> Res<Option<F>>
     where
         F: DeserializeOwned + Clone + Send + Sync + 'static,
     {
         match self.authz_row::<F>().await {
-            Err(e) if e.0.code() == MyErr::MissingMacro.code() => Ok(None),
+            Err(e) if e.0.code() == MyErr::MissingGuard.code() => Ok(None),
             f => f,
         }
     }

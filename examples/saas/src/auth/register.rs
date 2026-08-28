@@ -6,12 +6,12 @@ pub struct Register {
     pub password: String,
 }
 
-#[mutation(auth(unauthenticated))]
+#[mutation(check = unauthenticated)]
 fn register(data: Register) -> OtpWithSecret {
     let exists = User::find()
         .include_deleted(false)
         .filter(UserColumn::Email.eq(&data.email.0))
-        .exists(tx)
+        .exists(db)
         .await?;
     if exists {
         return Err(SaasErr::RegisterEmailExists.into());
@@ -34,7 +34,7 @@ fn register(data: Register) -> OtpWithSecret {
         otp_salt,
         otp_hashed,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
     // NOTE: replace this with a real mailer call.

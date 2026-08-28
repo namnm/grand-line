@@ -22,6 +22,9 @@ pub fn auth_headers(mut h: HeaderMap, org_id: &str, user_id: &str, role_id: &str
     h
 }
 
+#[path = "../_fixtures/check.rs"]
+mod check;
+pub use check::*;
 #[path = "../_fixtures/user.rs"]
 mod user;
 pub use user::*;
@@ -44,6 +47,7 @@ pub use row_policy::*;
 // ---------------------------------------------------------------------------
 
 #[model]
+#[authz_role]
 pub struct Role {
     pub name: String,
     pub realm: String,
@@ -53,6 +57,7 @@ pub struct Role {
 }
 
 #[model]
+#[authz_user_in_role]
 pub struct UserInRole {
     pub user_id: String,
     pub role_id: String,
@@ -60,56 +65,9 @@ pub struct UserInRole {
 }
 
 // ---------------------------------------------------------------------------
-// DI impls wiring the local Role/UserInRole/current-user into authz's engine
+// DI impl wiring the current user into authz's engine, Role/UserInRole use the
+// framework defaults from #[authz_role]/#[authz_user_in_role] above
 // ---------------------------------------------------------------------------
-
-pub struct TestRoleImpl;
-#[async_trait]
-impl AuthzRoleImpl for TestRoleImpl {
-    async fn find_matching(
-        &self,
-        check: &AuthzEnsure,
-        role_id: &str,
-        org_id: Option<&str>,
-        user_id: Option<&str>,
-        tx: &DatabaseTransaction,
-    ) -> Res<Option<AuthzRoleMatch>> {
-        let mut q = Role::find()
-            .include_deleted(false)
-            .filter_by_id(role_id)
-            .filter(RoleColumn::Realm.eq(&check.realm));
-
-        q = if let Some(org_id) = org_id {
-            q.filter(RoleColumn::OrgId.eq(org_id))
-        } else {
-            q.filter(RoleColumn::OrgId.is_null())
-        };
-
-        if let Some(user_id) = user_id {
-            let mut sub = UserInRole::find()
-                .include_deleted(false)
-                .select_only()
-                .column(UserInRoleColumn::RoleId)
-                .filter(UserInRoleColumn::UserId.eq(user_id));
-            sub = if let Some(org_id) = org_id {
-                sub.filter(UserInRoleColumn::OrgId.eq(org_id))
-            } else {
-                sub.filter(UserInRoleColumn::OrgId.is_null())
-            };
-            q = q.filter(RoleColumn::Id.in_subquery(sub.into_query()));
-        }
-
-        let Some(role) = q.one(tx).await? else {
-            return Ok(None);
-        };
-
-        Ok(Some(AuthzRoleMatch {
-            role_id: role.id,
-            col_policy: ColPolicy::from_json(role.col_policy)?,
-            row_policy: RowPolicy::from_json(role.row_policy)?,
-        }))
-    }
-}
 
 /// Test-only AuthSessionImpl: there is no real login flow in this suite, so
 /// the bearer token's id is treated as the user id directly, accepted as long
@@ -134,34 +92,34 @@ impl AuthSessionImpl for TestSessionImpl {
 // Query resolvers
 // ---------------------------------------------------------------------------
 
-#[query(authz(realm = "org"))]
+#[query(check = authz_org)]
 fn org_primitive() -> i64 {
     0
 }
 
-#[query(authz(realm = "org"))]
+#[query(check = authz_org)]
 fn org() -> OrgGql {
     let org_id = ctx.authz().await?;
     Org::find()
         .include_deleted(false)
         .filter_by_id(&org_id)
         .gql_select(ctx)?
-        .one_or_404(tx)
+        .one_or_404(db)
         .await?
 }
 
-#[query(authz(realm = "system", skip_org))]
+#[query(check = authz_system)]
 fn system_primitive() -> i64 {
     0
 }
 
-#[query(authz(realm = "system", skip_org))]
+#[query(check = authz_system)]
 fn system(org_id: String) -> OrgGql {
     Org::find()
         .include_deleted(false)
         .filter_by_id(&org_id)
         .gql_select(ctx)?
-        .one_or_404(tx)
+        .one_or_404(db)
         .await?
 }
 
@@ -201,7 +159,7 @@ pub async fn setup_with_col_policy(org1_admin: ColPolicy) -> Res<Setup> {
 
 pub async fn setup_with_policy(org1_admin: ColPolicy, org1_row: RowPolicy) -> Res<Setup> {
     let org_impl = Org::authz_default_impl();
-    let role_impl: Box<dyn AuthzRoleImpl> = Box::new(TestRoleImpl);
+    let role_impl = Role::authz_default_impl::<UserInRole>();
     let session_impl: Box<dyn AuthSessionImpl> = Box::new(TestSessionImpl);
 
     let tmp = tmp_db!(User, Org, Role, UserInRole, Task);

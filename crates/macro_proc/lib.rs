@@ -1,4 +1,6 @@
 mod crud;
+#[cfg(any(feature = "auth", feature = "authz"))]
+mod di;
 mod model;
 mod resolver_ty;
 mod utils;
@@ -6,6 +8,8 @@ mod utils;
 #[allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 mod prelude {
     pub use crate::crud::*;
+    #[cfg(any(feature = "auth", feature = "authz"))]
+    pub use crate::di::*;
     pub use crate::model::*;
     pub use crate::resolver_ty::*;
     pub use crate::utils::*;
@@ -208,6 +212,65 @@ pub fn am_update_many(item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn am_soft_delete_many(item: TokenStream) -> TokenStream {
     expr_array_am_wrapper(item, "ActiveModel", "AmSoftDelete")
+}
+
+/// Registers the annotated fn as a root Subscription field streaming every change
+/// to the model, the body contributes a Detail applied to each event.
+#[proc_macro_attribute]
+pub fn subscribe(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_subscribe(attr, item)
+}
+
+// ----------------------------------------------------------------------------
+// model di impls
+// ----------------------------------------------------------------------------
+
+/// Implements AuthSessionModel so the model can back the framework default
+/// AuthSessionImpl, place it directly under #[model].
+#[cfg(feature = "auth")]
+#[proc_macro_attribute]
+pub fn auth_session(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_auth_session(&attr, item)
+}
+
+/// Implements AuthOtpModel so the model can back the framework default
+/// AuthOtpImpl, place it directly under #[model].
+#[cfg(feature = "auth")]
+#[proc_macro_attribute]
+pub fn auth_otp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_auth_otp(&attr, item)
+}
+
+/// Marks the model as the org lookup target so it can back the framework
+/// default AuthzOrgImpl, place it directly under #[model].
+#[cfg(feature = "authz")]
+#[proc_macro_attribute]
+pub fn authz_org(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_authz_org(&attr, item)
+}
+
+/// Marks the model as org scoped so the ctx.authz_org_* helpers can scope its
+/// rows to the current authz org, place it directly under #[model].
+#[cfg(feature = "authz")]
+#[proc_macro_attribute]
+pub fn authz_org_id(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_authz_org_id(&attr, item)
+}
+
+/// Implements AuthzRoleModel so the model can back the framework default
+/// AuthzRoleImpl, place it directly under #[model].
+#[cfg(feature = "authz")]
+#[proc_macro_attribute]
+pub fn authz_role(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_authz_role(attr, item)
+}
+
+/// Implements AuthzUserInRoleModel so DefaultRoleImpl can resolve user to role
+/// assignments, place it directly under #[model].
+#[cfg(feature = "authz")]
+#[proc_macro_attribute]
+pub fn authz_user_in_role(attr: TokenStream, item: TokenStream) -> TokenStream {
+    gen_authz_user_in_role(&attr, item)
 }
 
 /// Automatically derive ThisErr, GrandLineErrDerive, Debug.

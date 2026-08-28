@@ -21,7 +21,7 @@ model_updated_at = ["_proc/model_updated_at"]
 model_deleted_at = ["_proc/model_deleted_at"]
 model_by_id = ["_proc/model_by_id"]
 # resolver flags
-resolver_tx = ["_proc/resolver_tx"]
+resolver_db = ["_proc/resolver_db"]
 resolver_ctx = ["_proc/resolver_ctx"]
 resolver_relation_count = ["_proc/resolver_relation_count"]
 resolver_include_deleted = ["_proc/resolver_include_deleted"]
@@ -29,6 +29,8 @@ resolver_delete_permanent = ["_proc/resolver_delete_permanent"]
 resolver_authz_row = ["_proc/resolver_authz_row"]
 # crates
 tracing = ["async-graphql/tracing"]
+subscription = ["_proc/subscription"]
+subscription_redis = ["subscription", "dep:redis"]
 auth = ["_proc/auth"]
 authz = ["_proc/authz"]
 
@@ -39,6 +41,7 @@ _utils_proc = { path = "../macro_utils_proc", default-features = false }
 async-graphql = { version = "^7.2", default-features = false, features = ["chrono", "chrono-duration", "chrono-tz", "dataloader", "decimal", "string_number", "boxed-trait"] }
 async-trait = { version = "^0.1", default-features = false }
 chrono = { version = "^0.4", default-features = false, features = ["now", "serde"] }
+redis = { version = "^1.6", optional = true, default-features = false, features = ["tokio-comp"] }
 sea-orm = { version = "^2.0", default-features = false, features = ["macros", "runtime-tokio-rustls", "with-chrono", "with-json", "with-rust_decimal"] }
 serde = { version = "^1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "^1.0", default-features = false }

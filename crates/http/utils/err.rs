@@ -14,9 +14,6 @@ pub enum MyErr {
     #[error("ip address is missing in the request headers")]
     #[client]
     HeaderIp404,
-    #[error("user agent is missing in the request headers")]
-    #[client]
-    HeaderUa404,
 
     // ------------------------------------------------------------------------
     // server errors

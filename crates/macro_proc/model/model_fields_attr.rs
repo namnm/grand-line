@@ -93,6 +93,7 @@ fn attr_is_virtual(attrs: &[Attr]) -> Option<VirtualTy> {
 fn attr_sql(attrs: &[Attr]) -> SynRes<Vec<Attribute>> {
     let mut tobe_removed = AttrTy::all().iter().map(|f| f.to_string()).collect::<HashSet<_>>();
     tobe_removed.insert(AttrTy::Graphql.to_string());
+    tobe_removed.insert(AttrTy::History.to_string());
     attrs
         .iter()
         .filter(|a| !tobe_removed.contains(&a.attr))
@@ -115,4 +116,11 @@ fn attr_gql(attrs: &[Attr]) -> SynRes<Vec<Attribute>> {
 /// This field can be in the gql model to support sql dep.
 pub fn attr_is_gql_skip(attrs: &[Attr]) -> bool {
     attrs.iter().any(|a| a.is("graphql") && a.has("skip"))
+}
+
+/// Check if we should not include this field in the History data snapshot.
+/// For a column that is fine over graphql but should not be retained in an audit trail,
+/// #[graphql(skip)] already implies it.
+pub fn attr_is_history_skip(attrs: &[Attr]) -> bool {
+    attrs.iter().any(|a| a.is("history") && a.has("skip"))
 }

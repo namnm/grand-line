@@ -1,13 +1,13 @@
 use crate::prelude::*;
 
-#[mutation(authz(realm = "org"))]
+#[mutation(check = authz_org)]
 fn impersonate(user_id: String, reason: String) -> LoginSessionWithSecret {
     let org_id = ctx.authz().await?;
 
     UserInRole::find()
         .filter(UserInRoleColumn::UserId.eq(&user_id))
         .filter(UserInRoleColumn::OrgId.eq(&org_id))
-        .exists_or_404(tx)
+        .exists_or_404(db)
         .await?;
 
     let ip = ctx.get_ip()?;
@@ -20,7 +20,7 @@ fn impersonate(user_id: String, reason: String) -> LoginSessionWithSecret {
         ip,
         ua: ua.to_json()?,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
     am_create!(Impersonation {

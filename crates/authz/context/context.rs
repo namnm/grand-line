@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 /// Umbrella trait combining every authz context trait, the entry point used
-/// by the #[authz] macro.
+/// by the authz guard.
 #[async_trait]
 pub trait AuthzContext<'a>
 where
@@ -14,7 +14,7 @@ where
         + AuthzRowContext<'a>,
 {
     /// Return the org id resolved by the current operation's authz check.
-    /// Errors if #[authz] was not applied, the check failed, or the check
+    /// Errors if no authz guard ran, the check failed, or the check
     /// did not require org scoping.
     async fn authz(&self) -> Res<String> {
         let k = self.authz_cache_key().await?;
@@ -22,7 +22,7 @@ where
         let guard = m.lock().await;
         let org_id = guard
             .get(&k)
-            .ok_or(MyErr::MissingMacro)?
+            .ok_or(MyErr::MissingGuard)?
             .as_ref()
             .as_ref()
             .ok_or_else(|| self.authz_err().clone())?

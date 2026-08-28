@@ -31,11 +31,11 @@ where
         E: AuthzImplOrgId,
     {
         let org_id = self.authz().await?;
-        let tx = &*self.tx().await?;
+        let db = &self.db().await?;
         E::find()
             .filter_by_id(id)
             .filter(E::col_org_id().eq(org_id))
-            .one_or_404(tx)
+            .one_or_404(db)
             .await
     }
 
@@ -45,15 +45,15 @@ where
         E: AuthzImplOrgId,
     {
         let org_id = self.authz().await?;
-        let tx = &*self.tx().await?;
+        let db = &self.db().await?;
         E::find()
             .filter_by_id(id)
             .filter(E::col_org_id().eq(&org_id))
-            .exists_or_404(tx)
+            .exists_or_404(db)
             .await?;
         E::soft_delete_by_id(id)?
             .filter(E::col_org_id().eq(&org_id))
-            .exec(tx)
+            .exec(db)
             .await?;
         Ok(E::G::from_id(id))
     }

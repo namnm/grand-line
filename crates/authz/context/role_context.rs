@@ -7,7 +7,7 @@ where
     Self: AuthzCacheContext<'a>,
 {
     /// Return the cached role/org for the current operation's authz check.
-    /// Errors with MissingMacro if #[authz] was not applied to the root
+    /// Errors with MissingGuard if no authz guard ran on the root
     /// resolver, or with the configured authz_err if the check found no role.
     async fn authz_role(&self) -> Res<Arc<AuthzCacheItem>> {
         let k = self.authz_cache_key().await?;
@@ -15,7 +15,7 @@ where
         let guard = m.lock().await;
         let v = guard
             .get(&k)
-            .ok_or(MyErr::MissingMacro)?
+            .ok_or(MyErr::MissingGuard)?
             .as_ref()
             .ok_or_else(|| self.authz_err().clone())?;
         let v = Arc::clone(v);

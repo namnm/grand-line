@@ -38,7 +38,7 @@ fn try_gen_count(attr: AttrParse, r: ResolverTyItem) -> SynRes<TokenStream> {
             let #extra = #extra.add_option(#authz_row);
             #model::gql_count(
                 ctx,
-                tx,
+                db,
                 filter,
                 #include_deleted,
                 #extra,

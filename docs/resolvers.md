@@ -2,7 +2,7 @@
 
 ## Resolver bodies
 
-Resolver bodies are blocks, not functions - `return` only works with errors. `ctx: &Context<'_>` and `tx: &DatabaseTransaction` are always injected.
+Resolver bodies are blocks, not functions - `return` only works with errors. `ctx: &Context<'_>` and `db: &ConnX<'_>` are always injected.
 
 ```rs
 #[query]
@@ -31,15 +31,80 @@ fn resolver() {
 `ctx` is injected into every resolver. Core methods, always available:
 
 ```rs
-ctx.tx().await?                       // Arc<DatabaseTransaction>
+ctx.db().await?                       // ConnX - transaction or pooled connection
+ctx.tx().await?                       // ConnX - forces the transaction open
+ctx.db_pool().await?                  // &DatabaseConnection - the pool itself
 ctx.cache(|| async { ... }).await?    // Arc<T> - per-request memoize by type
 ```
 
 Auth (`auth` feature) and authz (`authz` feature) add their own methods to `ctx` - see [Authentication](authentication.md) and [Authorization](authorization.md).
 
-## Transactions
+## Guards (`check`)
 
-`GrandLineExtension` manages one lazy transaction per request - commits on success, rolls back on any error.
+`check` runs one or more `ctx` methods before the resolver body and aborts the resolver if any of them returns an error. The macro emits nothing but the call, so the logic stays in a plain trait you implement on `Context` and can unit test on its own:
+
+```rs
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Plan {
+    Free,
+    Pro,
+}
+
+#[async_trait]
+pub trait BillingCheck {
+    /// Passes when the request resolves to any subscribed workspace.
+    async fn subscribed(&self) -> Res<()>;
+    /// Passes only when the resolved workspace is on the required plan.
+    async fn plan(&self, required: Plan) -> Res<()>;
+}
+
+#[async_trait]
+impl BillingCheck for Context<'_> {
+    async fn subscribed(&self) -> Res<()> {
+        // .. your own lookup, through ctx.db()
+        Ok(())
+    }
+    async fn plan(&self, required: Plan) -> Res<()> {
+        // ..
+        Ok(())
+    }
+}
+```
+
+Put the trait in your app's `prelude` and name it in the attribute:
+
+| Attribute                            | Generated                     |
+| ------------------------------------ | ----------------------------- |
+| `check = subscribed`                 | `ctx.subscribed().await?;`    |
+| `check = plan(Plan::Pro)`            | `ctx.plan(Plan::Pro).await?;` |
+| `check(subscribed, plan(Plan::Pro))` | both, in the order written    |
+
+```rs
+#[query(check = subscribed)]
+fn my_query() -> bool {
+}
+
+#[search(Task, check = plan(Plan::Pro))]
+fn resolver() {
+}
+```
+
+Works on `#[query]`, `#[mutation]`, and every crud macro. Notes:
+
+- Guards run before the body and after `db` is available, so a guard can query through `ctx.db()`. `ctx = false` with a `check` is a compile error.
+- The value a guard returns is discarded, only its `?` matters, so any `Res<T>` signature works.
+- Only a bare name or a call is accepted - `check = a::b` and `check = x.y()` are rejected at macro expansion.
+- A guard is the only place a resolver states who may call it. The `created_by_id`/`updated_by_id`/`deleted_by_id` audit fields are independent of it - with the `auth` feature on they are filled from `ctx.auth()` whenever the request happens to be authenticated, and left unset otherwise.
+
+## Connections and transactions
+
+`GrandLineExtension` decides what a request needs from its operation type, before any resolver runs.
+
+| Operation      | `db` is                 | Cost                                                     |
+| -------------- | ----------------------- | -------------------------------------------------------- |
+| `mutation`     | the request transaction | one `BEGIN`, commits on success, rolls back on any error |
+| `query`        | a pooled connection     | none, no transaction is ever opened                      |
+| `subscription` | a pooled connection     | none, see [Subscriptions](subscriptions.md)              |
 
 ```rs
 GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
@@ -48,4 +113,28 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
     .finish()
 ```
 
-**Known limitation:** all resolvers in a request share one `DatabaseTransaction`, i.e. one underlying DB connection. Sibling GraphQL fields (including sibling relation resolvers) may be scheduled concurrently as Rust futures, but their SQL statements still serialize one at a time on that connection - there is no query-level parallelism within a request today. Giving read-only requests their own pooled connections (instead of one shared transaction) would let sibling relations actually run in parallel; this is not implemented yet. Mutations would keep the single-transaction model for write consistency.
+The injected `db` is a `ConnX`, not a raw pool handle. It implements sea-orm's `ConnectionTrait`, so it goes wherever a connection goes: `.one(db)`, `.all(db)`, `.exec(db)`.
+
+Three names, easy to mix up, so worth stating once:
+
+|                             | Is                                     | Use it for                           |
+| --------------------------- | -------------------------------------- | ------------------------------------ |
+| `db` (injected), `ctx.db()` | `ConnX`, the request's own connection  | everything                           |
+| `ctx.tx()`                  | `ConnX`, forced onto the transaction   | a query that turns out to write      |
+| `ctx.db_pool()`             | `&DatabaseConnection`, the pool itself | a write that must survive a rollback |
+
+It is a borrow tied to the request, never an owning handle, and that is what makes the commit safe. Committing consumes the transaction, so anything still holding one would block it; with a borrow the compiler refuses to let a connection outlive the request in the first place, rather than leaving it as a rule to remember.
+
+A query that turns out to write forces the transaction open with `ctx.tx()`. Every later `ctx.db()` in that request returns the transaction too, so a read never sees around a write that preceded it:
+
+```rs
+#[query]
+fn my_query() -> bool {
+    ctx.tx().await?; // from here on this request is transactional
+    true
+}
+```
+
+`ctx.db_pool()` steps outside the request entirely. The otp attempt counter is the framework's own use of it, so a failed resolve still counts against the limit after the request rolls back, see [Authentication](authentication.md).
+
+**Known limitation:** inside a mutation every resolver shares the one transaction, i.e. one underlying DB connection. Sibling GraphQL fields, relation resolvers included, may be scheduled concurrently as Rust futures, but their statements still serialize on that connection. Queries no longer have this problem, they read from the pool.

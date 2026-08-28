@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[mutation(auth)]
+#[mutation(check = authenticated)]
 fn org_invitation_resolve(data: OtpResolve) -> UserInRoleGql {
     let user_id = ctx.auth().await?;
 
@@ -8,7 +8,7 @@ fn org_invitation_resolve(data: OtpResolve) -> UserInRoleGql {
         .auth_otp_ensure_resolve(OTP_TY_ORG_INVITATION, &data.id, &data.secret, &data.otp)
         .await?;
 
-    let u = User::find_by_id(&user_id).one_or_404(tx).await?;
+    let u = User::find_by_id(&user_id).one_or_404(db).await?;
     if u.email != m.email {
         return Err(SaasErr::InvitationEmailMismatch.into());
     }
@@ -20,21 +20,21 @@ fn org_invitation_resolve(data: OtpResolve) -> UserInRoleGql {
         role_id: d.role_id,
         org_id: Some(d.org_id),
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
-    Otp::delete_by_id(&m.id).exec(tx).await?;
+    Otp::delete_by_id(&m.id).exec(db).await?;
 
     uir.into_gql(ctx).await?
 }
 
-#[mutation(auth)]
+#[mutation(check = authenticated)]
 fn org_invitation_reject(data: OtpResolve) -> OtpGql {
     // No authentication required (mirrors a plain "unsubscribe"-style link).
     // Proof of ownership is the id+secret+otp challenge itself, not a session.
     let m = ctx
         .auth_otp_ensure_resolve(OTP_TY_ORG_INVITATION, &data.id, &data.secret, &data.otp)
         .await?;
-    Otp::delete_by_id(&m.id).exec(tx).await?;
+    Otp::delete_by_id(&m.id).exec(db).await?;
     OtpGql::from_id(&m.id)
 }

@@ -20,13 +20,14 @@ model_updated_at = []
 model_deleted_at = []
 model_by_id = []
 # resolver flags
-resolver_tx = []
+resolver_db = []
 resolver_ctx = []
 resolver_relation_count = []
 resolver_include_deleted = []
 resolver_delete_permanent = []
 resolver_authz_row = []
 # biz
+subscription = []
 auth = []
 authz = []
 

@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 /// Describes the pieces of one generated resolver method, implementors supply
 /// the raw fn signature/body parts, resolver_fn assembles them into the final
-/// async fn token stream with auth/authz/tx/ctx wiring applied.
+/// async fn token stream with guard/db/ctx wiring applied.
 pub trait ResolverFn
 where
     Self: AttrDebug,
@@ -13,28 +13,17 @@ where
     fn output(&self) -> SynRes<Ts2>;
     fn body(&self) -> SynRes<Ts2>;
 
-    /// Name of the root operation type (Query/Mutation/Subscription) this
-    /// resolver belongs to, None for non-root resolvers, authz is only
-    /// available when this returns Some.
-    fn root_operation_ty(&self) -> SynRes<Option<String>> {
-        Ok(None)
-    }
-
-    /// Whether the generated resolver opens a db transaction, true by default.
-    fn tx(&self) -> bool {
+    /// Whether the generated resolver receives the db parameter, true by default.
+    fn db(&self) -> bool {
         true
     }
     /// Whether the generated resolver receives the ctx parameter, true by default.
     fn ctx(&self) -> bool {
         true
     }
-    /// Auth requirement to enforce before the body runs, None means no check.
-    fn auth(&self) -> Option<AuthAttr> {
-        None
-    }
-    /// Authz requirement to enforce before the body runs, None means no check.
-    fn authz(&self) -> Option<AuthzAttr> {
-        None
+    /// Ctx guards to call in order before the body runs, empty means no guard.
+    fn check(&self) -> Vec<CheckAttr> {
+        vec![]
     }
 
     /// Doc-comment strings from the original field definition.
@@ -51,59 +40,31 @@ where
     }
 
     /// Builds the complete async fn token stream for this resolver: wraps the
-    /// body with auth/authz checks and a transaction as configured, injects
+    /// body with the declared ctx guards and the db connection as configured, injects
     /// ctx into the input list, wraps the output in Res<..>, and attaches the
     /// #[graphql(..)] attribute and doc comments.
     fn resolver_fn(&self) -> SynRes<Ts2> {
         let mut body = self.body()?;
         let ctx = self.ctx();
 
-        if let Some(auth) = self.auth() {
+        let checks = self.check();
+        if !checks.is_empty() {
             if !ctx {
-                return Err(self.syn_err("auth requires ctx"));
+                return Err(self.syn_err("check requires ctx"));
             }
-            let check = if auth.unauthenticated {
-                "unauthenticated"
-            } else {
-                "authenticated"
-            };
-            let pascal = check.to_pascal_case().ts2_or_err()?;
-            let ensure = quote!(AuthEnsure::#pascal);
+            let calls = checks.iter().map(CheckAttr::call);
             body = quote! {
-                ctx.auth_ensure_in_macro(#ensure).await?;
+                #(#calls)*
                 #body
             };
         }
 
-        if let Some(authz) = self.authz() {
+        if self.db() {
             if !ctx {
-                return Err(self.syn_err("authz requires ctx"));
-            }
-            self.root_operation_ty()?
-                .ok_or_else(|| self.syn_err("authz only available in root resolvers"))?;
-            let realm = authz.realm;
-            let org = !authz.skip_org;
-            let user = !authz.skip_user;
-            let ensure = quote! {
-                AuthzEnsure {
-                    realm: #realm.to_owned(),
-                    org: #org,
-                    user: #user,
-                }
-            };
-            body = quote! {
-                ctx.authz_ensure_in_macro(#ensure).await?;
-                #body
-            };
-        }
-
-        let tx = self.tx();
-        if tx {
-            if !ctx {
-                return Err(self.syn_err("tx requires ctx"));
+                return Err(self.syn_err("db requires ctx"));
             }
             body = quote! {
-                let tx = &*ctx.tx().await?;
+                let db = &ctx.db().await?;
                 #body
             };
         }

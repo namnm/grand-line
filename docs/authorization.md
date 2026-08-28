@@ -1,15 +1,69 @@
 # Authorization
 
-The `authz` feature (implies `auth`) provides role-based access control with org scoping, field-level (col) policy checks, and row-level filtering. Like `auth`, it ships primitives, not concrete models - you define your own `Org`, `Role`, and `UserInRole` (any shape you like) and implement two DI traits so the framework can look them up. See the [saas example](https://github.com/nongdan-dev/grand-line/blob/master/examples/saas/src/authz) for a full implementation.
+The `authz` feature (implies `auth`) provides role-based access control with org scoping, field-level (col) policy checks, and row-level filtering. Like `auth`, it ships primitives, not concrete models - you define your own `Org`, `Role`, and `UserInRole` (any shape you like) and a macro per model derives the DI impls the framework looks them up through. See the [saas example](https://github.com/nongdan-dev/grand-line/blob/master/examples/saas/src/authz) for a full implementation.
 
 ## Setup
 
-Define `Org` and implement the marker trait `AuthzOrg` on it - this gets you a default `AuthzOrgImpl` for free:
+Define your own `Org`, `Role`, and `UserInRole`, and mark each with its macro right under `#[model]`. The macros implement the traits the framework's default DI impls read, so there is no lookup code to write:
 
 ```rs
+#[model]
+#[authz_org]
+pub struct Org {
+    pub name: String,
+}
+
+#[model]
+#[authz_role(fallback = "system")]
+pub struct Role {
+    pub name: String,
+    /// Groups multiple roles into a realm, e.g. "org" or "system".
+    pub realm: String,
+    pub col_policy: JsonValue,
+    pub row_policy: JsonValue,
+    /// None for realm-wide roles not tied to a single org.
+    pub org_id: Option<String>,
+}
+
+#[model]
+#[authz_user_in_role]
+pub struct UserInRole {
+    pub user_id: String,
+    pub role_id: String,
+    pub org_id: Option<String>,
+}
 ```
 
-Define `Role` and `UserInRole` yourself, then implement `AuthzRoleImpl` - given the current request's realm/org/user requirements plus the `X-Role-Id` header value, find the matching role (or `None`):
+| Macro                   | Fields it reads, on top of `id` from `#[model]` |
+| ----------------------- | ----------------------------------------------- |
+| `#[authz_org]`          | none, it only marks the org lookup target       |
+| `#[authz_role]`         | `realm`, `col_policy`, `row_policy`, `org_id`   |
+| `#[authz_user_in_role]` | `user_id`, `role_id`, `org_id`                  |
+
+`#[authz_role]` and `#[authz_user_in_role]` also mark their model org scoped, same as [`#[authz_org_id]`](#org-scoped-models) below.
+
+`fallback = "system"` is optional: when no role matches the requested realm, the lookup retries in that realm with no org scoping, i.e. a `system` role acts on every org. Leave it off to never fall back.
+
+Wire the derived impls onto the schema:
+
+```rs
+GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
+    .extension(GrandLineExtension)
+    .data(Arc::new(db.clone()))
+    .data(Org::authz_default_impl())
+    .data(Role::authz_default_impl::<UserInRole>())
+    .data(session_impl) // still needed - authz is built on top of auth
+    .data(otp_impl)
+    .finish()
+```
+
+`AuthzOrgImpl`/`AuthzRoleImpl` are mandatory, same as `AuthSessionImpl`/`AuthOtpImpl` - missing either errors with `OrgImplNotFound`/`RoleImplNotFound`. `AuthzConfig` is optional (falls back to `AuthzConfig::default()`), and lets you override the header names, swap `unauthorized_err` (e.g. for `CoreDbErr::Db404` if you don't want to reveal that a resource exists), or plug in `AuthzHandlers` for row policy (see [below](#row-policy-and-authz_row)).
+
+Every `authz`-gated request must include the `X-Role-Id` header (the id of the role being acted as), plus `X-Org-Id` unless the check opts out via `skip_org()`.
+
+### Writing the role lookup by hand
+
+The macros are a shortcut, not a requirement. When your role matching needs something the default doesn't express (roles resolved through a group table, more than one fallback realm), drop `#[authz_role]` and implement `AuthzRoleImpl` yourself - given the request's realm/org/user requirements plus the `X-Role-Id` header value, find the matching role (or `None`):
 
 ```rs
 pub struct MyRoleImpl;
@@ -17,17 +71,17 @@ pub struct MyRoleImpl;
 impl AuthzRoleImpl for MyRoleImpl {
     async fn find_matching(
         &self,
-        check: &AuthzEnsure, // { realm, org: bool, user: bool } - what this resolver's #[authz] requires
+        check: &AuthzEnsure, // { realm, org: bool, user: bool } - what this resolver's guard requires
         role_id: &str,       // from the X-Role-Id header
         org_id: Option<&str>, // from the X-Org-Id header, only Some if check.org
         user_id: Option<&str>, // from ctx.auth(), only Some if check.user
-        tx: &DatabaseTransaction,
+        db: &ConnX<'_>,
     ) -> Res<Option<AuthzRoleMatch>> {
         let Some(role) = Role::find()
             .include_deleted(false)
             .filter_by_id(role_id)
             .filter(RoleColumn::Realm.eq(&check.realm))
-            .one(tx)
+            .one(db)
             .await?
         else {
             return Ok(None);
@@ -42,58 +96,67 @@ impl AuthzRoleImpl for MyRoleImpl {
 }
 ```
 
-Wire both onto the schema:
-
 ```rs
-let org_impl = Org::authz_default_impl();
 let role_impl: Box<dyn AuthzRoleImpl> = Box::new(MyRoleImpl);
-
-GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
-    .extension(GrandLineExtension)
-    .data(Arc::new(db.clone()))
-    .data(org_impl)
-    .data(role_impl)
-    .data(session_impl) // still needed - authz is built on top of auth
-    .data(otp_impl)
-    .finish()
 ```
 
-`AuthzOrgImpl`/`AuthzRoleImpl` are mandatory, same as `AuthSessionImpl`/`AuthOtpImpl` - missing either errors with `OrgImplNotFound`/`RoleImplNotFound`. `AuthzConfig` is optional (falls back to `AuthzConfig::default()`), and lets you override the header names, swap `unauthorized_err` (e.g. for `CoreDbErr::Db404` if you don't want to reveal that a resource exists), or plug in `AuthzHandlers` for row policy (see [below](#row-policy-and-authz_row)).
+## `authz_ensure` guard
 
-Every `authz`-gated request must include the `X-Role-Id` header (the id of the role being acted as), plus `X-Org-Id` unless the resolver's realm opts out via `skip_org`.
+`authz` ships one `ctx` guard, `authz_ensure(AuthzEnsure)`, used through the [`check`](resolvers.md#guards-check) resolver attribute. Realm categorizes scope - a common convention, not a fixed enum (the realm string is whatever you compare against in your own `AuthzRoleImpl`):
 
-## `authz` attribute
+| realm    | `AuthzEnsure`                                         | Checks     |
+| -------- | ----------------------------------------------------- | ---------- |
+| `org`    | `AuthzEnsure::realm("org")`                           | user + org |
+| `system` | `AuthzEnsure::realm("system").skip_org()`             | user only  |
+| `public` | `AuthzEnsure::realm("public").skip_org().skip_user()` | none       |
 
-Realm categorizes scope - a common convention, not a fixed enum (the realm string is whatever you compare against in your own `AuthzRoleImpl`):
+Wrap the realms your app uses in one guard each and put the trait in your prelude, so a resolver only has to name the realm:
 
-| realm    | Attribute                                         | Checks     |
-| -------- | ------------------------------------------------- | ---------- |
-| `org`    | `#[authz(realm = "org")]`                         | user + org |
-| `system` | `#[authz(realm = "system", skip_org)]`            | user only  |
-| `public` | `#[authz(realm = "public", skip_user, skip_org)]` | none       |
+```rs
+#[async_trait]
+pub trait MyCheck<'a>
+where
+    Self: AuthzEnsureContext<'a>,
+{
+    /// Requires an org realm role scoped to the request org and user.
+    async fn authz_org(&self) -> Res<()> {
+        self.authz_ensure(AuthzEnsure::realm("org")).await
+    }
+    /// Requires a system realm role, not scoped to any org.
+    async fn authz_system(&self) -> Res<()> {
+        self.authz_ensure(AuthzEnsure::realm("system").skip_org()).await
+    }
+}
+
+#[async_trait]
+impl<'a> MyCheck<'a> for Context<'a> {
+}
+```
 
 ```rs
 // Org-scoped: requires Authorization + X-Org-Id + X-Role-Id headers
-#[query(authz(realm = "org"))]
+#[query(check = authz_org)]
 fn org_dashboard() -> OrgGql {
     let org_id = ctx.authz().await?;
-    Org::find_by_id(&org_id).gql_select(ctx)?.one_or_404(tx).await?
+    Org::find_by_id(&org_id).gql_select(ctx)?.one_or_404(db).await?
 }
 
 // System-wide: requires Authorization + X-Role-Id (no X-Org-Id)
-#[query(authz(realm = "system", skip_org))]
+#[query(check = authz_system)]
 fn system_dashboard() -> String {
     "ok".to_string()
 }
 
 // Works on all CRUD macros - use authz_row for row-level filtering
-#[search(Task, authz(realm = "org"))]
+#[search(Task, check = authz_org)]
 fn resolver() {
     ctx.authz_row::<TaskFilter>().await?.into()
 }
 ```
 
 By default a mismatch (missing role, wrong org, wrong realm, user not assigned) surfaces as `AuthzErr::Unauthorized`; set `AuthzConfig.unauthorized_err` to change it.
+
+The guard is only meaningful on a root resolver: its result is cached under the root field and every nested relation reads that cache. Reading `ctx.authz()`/`ctx.authz_row()` in a resolver no guard ran on errors with `AuthzErr::MissingGuard`.
 
 ## `ctx` methods
 
@@ -104,7 +167,9 @@ ctx.authz_row::<F>().await? // -> Res<Option<F>>, row-level filter from the role
 ctx.org_unchecked().await?  // -> Res<Arc<OrgMinimal>>, org from X-Org-Id without an auth/authz check
 ```
 
-For a model implementing `AuthzImplOrgId` (`fn col_org_id() -> Self::C`, one method, mark any org-scoped model with it), four extra helpers cover the common "CRUD scoped to the current authz org" boilerplate:
+### Org scoped models
+
+Mark any model that belongs to a single org with `#[authz_org_id]` (already implied by `#[authz_role]`/`#[authz_user_in_role]`), and four extra helpers cover the common "CRUD scoped to the current authz org" boilerplate:
 
 ```rs
 ctx.authz_org_search::<Role>().await?         // -> Res<Search<RoleOrderBy>>, filtered to the current org
@@ -115,31 +180,23 @@ ctx.authz_org_soft_delete::<Role>(&id).await? // -> Res<RoleGql>, soft-delete by
 
 ```rs
 #[model]
-pub struct Role {
-    pub name: String,
-    pub realm: String,
-    pub col_policy: JsonValue,
-    pub row_policy: JsonValue,
-    pub org_id: Option<String>,
+#[authz_org_id]
+pub struct Task {
+    pub title: String,
+    pub org_id: String,
 }
 
-impl AuthzImplOrgId for Role {
-    fn col_org_id() -> Self::C {
-        RoleColumn::OrgId
-    }
-}
-
-#[search(Role, authz(realm = "org"))]
+#[search(Role, check = authz_org)]
 fn resolver() {
     ctx.authz_org_search::<Role>().await?
 }
 
-#[detail(Role, authz(realm = "org"))]
+#[detail(Role, check = authz_org)]
 fn resolver() {
     ctx.authz_org_filter::<Role>().await?
 }
 
-#[mutation(authz(realm = "org"))]
+#[mutation(check = authz_org)]
 fn role_delete(id: String) -> RoleGql {
     ctx.authz_org_soft_delete::<Role>(&id).await?
 }
@@ -236,10 +293,10 @@ am_create!(Role {
 })
 ```
 
-Inside a resolver, call `ctx.authz_row::<F>()`. Authorization is already guaranteed by the macro. Returns `None` when no entry exists for this field (all rows accessible), or `Some(F)` when the script produced a filter:
+Inside a resolver, call `ctx.authz_row::<F>()`. Authorization is already guaranteed by the guard. Returns `None` when no entry exists for this field (all rows accessible), or `Some(F)` when the script produced a filter:
 
 ```rs
-#[search(Task, authz(realm = "org"))]
+#[search(Task, check = authz_org)]
 fn resolver() {
     ctx.authz_row::<TaskFilter>().await?.into()
 }

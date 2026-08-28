@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[mutation(auth(unauthenticated))]
+#[mutation(check = unauthenticated)]
 fn forgot_resolve(data: OtpResolve, password: String) -> LoginSessionWithSecret {
     rand_utils::password_validate(&password)?;
 
@@ -14,11 +14,11 @@ fn forgot_resolve(data: OtpResolve, password: String) -> LoginSessionWithSecret 
         id: d.user_id.clone(),
         password_hashed,
     })
-    .exec_without_ctx(tx)
+    .exec_without_ctx(db)
     .await?;
 
-    let ls = login_session_create(ctx, tx, &d.user_id).await?;
-    Otp::delete_by_id(&m.id).exec(tx).await?;
+    let ls = login_session_create(ctx, db, &d.user_id).await?;
+    Otp::delete_by_id(&m.id).exec(db).await?;
 
     ls
 }

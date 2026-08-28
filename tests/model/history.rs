@@ -1,5 +1,9 @@
 use grand_line::prelude::*;
 
+fn has_col(data: &JsonValue, col: &str) -> bool {
+    data.as_object().is_some_and(|o| o.contains_key(col))
+}
+
 // ---------------------------------------------------------------------------
 // History recorded for each mutating operation
 // ---------------------------------------------------------------------------
@@ -290,6 +294,154 @@ async fn history_record_delete_permanent() -> Res<()> {
         h.data.str("/title"),
         "In Which We Meet Mr. Jones",
         "history data snapshot should capture the title",
+    );
+
+    tmp.drop().await
+}
+
+// ---------------------------------------------------------------------------
+// Columns kept out of the data snapshot
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn history_data_drops_graphql_skip_col() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model(history)]
+        pub struct Agent {
+            pub name: String,
+            #[graphql(skip)]
+            pub badge_hashed: String,
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(Agent, History);
+
+    am_create!(Agent {
+        name: "Olivia Dunham",
+        badge_hashed: "hashed_02121991",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let Some(h) = History::find().one(&tmp.db).await? else {
+        return TestErr::expect("auto-recorded history entry should exist");
+    };
+
+    pretty_eq!(
+        has_col(&h.data, "badge_hashed"),
+        false,
+        "history snapshot should drop the graphql skipped column",
+    );
+    pretty_eq!(
+        h.data.str("/name"),
+        "Olivia Dunham",
+        "history snapshot should keep the exposed columns",
+    );
+
+    tmp.drop().await
+}
+
+#[tokio::test]
+async fn history_data_drops_history_skip_col() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model(history)]
+        pub struct Case {
+            pub title: String,
+            #[history(skip)]
+            pub note: String,
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(Case, History);
+
+    let c = am_create!(Case {
+        title: "The Ghost Network",
+        note: "Roy McComb hears the pattern",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    // history(skip) only opts out of the audit trail, the column itself is untouched
+    pretty_eq!(
+        c.note,
+        "Roy McComb hears the pattern",
+        "history skipped column should still be stored on the model",
+    );
+
+    let Some(h) = History::find().one(&tmp.db).await? else {
+        return TestErr::expect("auto-recorded history entry should exist");
+    };
+
+    pretty_eq!(
+        has_col(&h.data, "note"),
+        false,
+        "history snapshot should drop the history skipped column",
+    );
+    pretty_eq!(
+        h.data.str("/title"),
+        "The Ghost Network",
+        "history snapshot should keep the retained columns",
+    );
+
+    tmp.drop().await
+}
+
+// ---------------------------------------------------------------------------
+// Diffing two snapshots
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn history_diff_lists_changed_cols() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model(history)]
+        pub struct Episode {
+            pub title: String,
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(Episode, History);
+
+    let e = am_create!(Episode {
+        title: "Pilot",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    am_update!(Episode {
+        id: e.id,
+        title: "The Ghost Network"
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let history = History::find().all(&tmp.db).await?;
+    let Some(created) = history.iter().find(|h| h.operation == HistoryOperation::Create) else {
+        return TestErr::expect("create history entry should exist");
+    };
+    let Some(updated) = history.iter().find(|h| h.operation == HistoryOperation::Update) else {
+        return TestErr::expect("update history entry should exist");
+    };
+
+    let changes = History::diff(created, updated);
+    let Some(title) = changes.iter().find(|c| c.col == "title") else {
+        return TestErr::expect("diff should report the title change");
+    };
+
+    pretty_eq!(title.from, json!("Pilot"), "diff from should be the old title");
+    pretty_eq!(title.to, json!("The Ghost Network"), "diff to should be the new title",);
+    pretty_eq!(
+        changes.iter().any(|c| c.col == "id"),
+        false,
+        "diff should not report an unchanged column",
     );
 
     tmp.drop().await

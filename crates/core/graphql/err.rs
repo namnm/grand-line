@@ -29,6 +29,8 @@ pub enum MyErr {
     LoaderKeyNone {
         col: String,
     },
+    #[error("data loader ran after the request was already finished")]
+    LoaderTxGone,
 
     #[error("cache cannot downcast from once cell arc")]
     CacheDowncast,

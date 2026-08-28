@@ -62,7 +62,9 @@ where
     exec_assert_err(s, q, Some(v), e).await
 }
 
-async fn exec<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>) -> Response
+/// Execute a query/mutation with optional variables and return the raw response,
+/// for a test that wants to inspect errors itself.
+pub async fn exec<Q, M, S>(s: &GraphQLSchema<Q, M, S>, q: &str, v: Option<GraphQLValue>) -> Response
 where
     Q: ObjectType + Default + 'static,
     M: ObjectType + Default + 'static,

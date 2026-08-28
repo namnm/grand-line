@@ -26,9 +26,12 @@ where
             a.downcast::<DataLoader<LoaderX<E>>>()
                 .map_err(|_| MyErr::LoaderDowncast)?
         } else {
+            // Downgraded right away, the request owns the only strong ref, see
+            // LoaderX for why the loader must not hold one.
+            let gl_weak = Arc::downgrade(self.grand_line_arc()?);
             let a = Arc::new(DataLoader::new(
                 LoaderX {
-                    tx: gl.tx().await?,
+                    gl: gl_weak,
                     col,
                     look_ahead,
                     condition,

@@ -114,11 +114,16 @@ pub fn gql_attr(gql_fields: &[(Field, Vec<Attr>)]) -> SynRes<GqlAttr> {
 
         // Use the effective graphql name (user override or auto camelCase) so
         // GQL_SELECT maps the correct GraphQL field name to its SQL columns.
-        let auto_gql_name = name.to_string().to_lower_camel_case();
-        let effective_gql_name = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
-        select.push(quote! {
-            m.entry(#effective_gql_name).or_insert_with(HashSet::new).insert(#name_str);
-        });
+        // A skipped field has no resolver, so no client can ever name it, and
+        // keeping it here would make GQL_SELECT a list of every column instead of
+        // the reachable ones. It stays in GQL_COLS, an sql_dep still resolves it.
+        if !attr_is_gql_skip(a) {
+            let auto_gql_name = name.to_string().to_lower_camel_case();
+            let effective_gql_name = gql_name_override.as_deref().unwrap_or(&auto_gql_name);
+            select.push(quote! {
+                m.entry(#effective_gql_name).or_insert_with(HashSet::new).insert(#name_str);
+            });
+        }
 
         into.push(if opt {
             quote! {
