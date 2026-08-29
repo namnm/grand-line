@@ -1,6 +1,6 @@
 use super::prelude::*;
 use async_graphql::futures_util::stream::{self, BoxStream, StreamExt as _};
-use async_graphql::parser::types::{ExecutableDocument, OperationType};
+use async_graphql::parser::types::{DocumentOperations, ExecutableDocument, OperationType};
 
 /// Extension to insert GrandLineData on each request, then cleanup at the end of each request.
 /// The extension also handle error automatically to only expose client errors to the client.
@@ -34,10 +34,16 @@ impl Extension for GrandLineExtensionImpl {
     ) -> ServerResult<Request> {
         let db = ctx.data_opt::<Arc<DatabaseConnection>>().ok_or(MyErr::CtxDb404)?;
         let gl = GrandLineData::new(Arc::clone(db));
+        // Record the operation the client selected before the document is
+        // parsed, parse_query then classifies only that operation.
+        gl.set_operation_name(request.operation_name.clone()).await;
         next.run(ctx, request.data(Arc::new(gl))).await
     }
 
-    /// Decide whether this request writes, before any resolver runs. Only a
+    /// Decide whether this request writes, before any resolver runs. Only the
+    /// operation the client selected decides this: a document carrying both a
+    /// query and an unused mutation must not pin a transaction for the query,
+    /// which is what resolvers.md#connections-and-transactions promises. Only a
     /// mutation needs a transaction, so a query and a subscription read from the
     /// pool instead, paying for no BEGIN and pinning no connection.
     async fn parse_query(
@@ -48,8 +54,25 @@ impl Extension for GrandLineExtensionImpl {
         next: NextParseQuery<'_>,
     ) -> ServerResult<ExecutableDocument> {
         let doc = next.run(ctx, query, variables).await?;
-        let write = doc.operations.iter().any(|(_, o)| o.node.ty == OperationType::Mutation);
-        if write && let Ok(gl) = ctx.grand_line() {
+        let gl = ctx.grand_line().ok();
+        let op_name = match gl.as_ref() {
+            Some(gl) => gl.operation_name().await,
+            None => None,
+        };
+        let write = match op_name.as_deref() {
+            Some(n) => match &doc.operations {
+                // Single is always the one anonymous operation, a named
+                // operationName never selects it, async-graphql rejects the
+                // request right after.
+                DocumentOperations::Single(_) => false,
+                DocumentOperations::Multiple(m) => m.get(n).is_some_and(|o| o.node.ty == OperationType::Mutation),
+            },
+            // No operationName: an ambiguous multi-operation document is
+            // rejected by async-graphql later anyway, so keep the conservative
+            // any-operation-may-write behavior.
+            None => doc.operations.iter().any(|(_, o)| o.node.ty == OperationType::Mutation),
+        };
+        if write && let Some(gl) = gl {
             gl.set_write();
         }
         Ok(doc)

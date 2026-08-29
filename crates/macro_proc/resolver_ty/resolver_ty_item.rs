@@ -7,6 +7,10 @@ pub struct ResolverTyItem {
     pub inputs: Ts2,
     pub output: Ts2,
     pub body: Ts2,
+    /// Doc-comment strings from the annotated fn, one per /// line (with the
+    /// leading space preserved), carried into the generated resolver so the
+    /// schema keeps its introspection descriptions.
+    pub docs: Vec<String>,
     pub span: Span,
 }
 
@@ -17,6 +21,7 @@ impl Default for ResolverTyItem {
             inputs: Default::default(),
             output: Default::default(),
             body: Default::default(),
+            docs: Default::default(),
             span: Span::call_site(),
         }
     }
@@ -64,11 +69,14 @@ impl Parse for ResolverTyItem {
         let body = ifn.block.stmts;
         let body = quote!(#(#body)*);
 
+        let docs = attr_docs(&ifn.attrs);
+
         Ok(Self {
             gql_name,
             inputs,
             output,
             body,
+            docs,
             span,
         })
     }

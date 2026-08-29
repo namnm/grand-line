@@ -1,6 +1,7 @@
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use axum::extract::{ConnectInfo, State};
-use axum::http::{HeaderMap, HeaderValue};
+use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::middleware;
 use axum::routing::post;
 use axum::{Router, serve};
 use core::net::SocketAddr;
@@ -18,6 +19,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let app = Router::new()
         .route("/api/graphql", post(graphql_handler))
         .with_state(schema)
+        // Fills x-socket-addr from the real connection, the source get_ip reads
+        // by default, so the safe configuration cannot be forgotten.
+        .layer(middleware::from_fn(socket_addr_layer))
         .layer(CorsLayer::permissive())
         .into_make_service_with_connect_info::<SocketAddr>();
 
@@ -32,15 +36,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-async fn graphql_handler(
-    State(schema): State<AppSchema>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    mut headers: HeaderMap,
-    req: GraphQLRequest,
-) -> GraphQLResponse {
-    if let Ok(value) = HeaderValue::from_str(&addr.to_string()) {
-        headers.insert(H_SOCKET_ADDR, value);
-    }
+/// The HeaderMap still has to reach the graphql context, HttpContext reads it
+/// from the request data (see HttpAxumContext::get_headers), so every ctx header
+/// helper, bearer token and cookie included, depends on this. socket_addr_layer
+/// only fills x-socket-addr in the request headers, it cannot inject the map.
+async fn graphql_handler(State(schema): State<AppSchema>, headers: HeaderMap, req: GraphQLRequest) -> GraphQLResponse {
     let req = req.into_inner().data(headers);
     schema.execute(req).await.into()
 }

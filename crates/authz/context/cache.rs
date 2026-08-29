@@ -15,8 +15,15 @@ pub struct AuthzCacheItem {
     pub org: Option<Arc<OrgMinimal>>,
 }
 
-/// Per-request cache for authz results.
-pub type AuthzCache = Mutex<HashMap<String, Option<Arc<AuthzCacheItem>>>>;
+/// One cached authz result: the check that produced it plus the role it matched.
+/// The check is part of the entry, not the key, so a resolver guarded by two
+/// `authz_ensure` calls with different requirements evaluates both instead of
+/// the second one silently reusing the first one's result.
+pub type AuthzCacheEntry = (AuthzEnsure, Option<Arc<AuthzCacheItem>>);
+
+/// Per-request cache for authz results, keyed by the root field's alias and
+/// holding one entry per distinct check run for that field.
+pub type AuthzCache = Mutex<HashMap<String, Vec<AuthzCacheEntry>>>;
 
 /// Per-request cache for authz_row results, keyed by (filter TypeId, field path).
 /// Avoids calling the handler repeatedly for the same field in the same request

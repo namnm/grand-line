@@ -11,6 +11,12 @@ pub struct AuthzConfig {
     /// Can be configured to use CoreDbErr::Db404 to not leak the existence status.
     pub unauthorized_err: GrandLineErr,
     pub handlers: Arc<dyn AuthzHandlers>,
+    /// A row policy entry whose handler declines (execute_script returns None)
+    /// denies by default: "a policy is configured but nothing handled it" and
+    /// "no policy for this path" are opposites on a security boundary and must
+    /// not both resolve to no filter. Set this to true to restore the lenient
+    /// integration mode, where an unhandled policy entry behaves like no entry.
+    pub allow_unhandled_row_policy: bool,
 }
 
 impl Default for AuthzConfig {
@@ -20,6 +26,7 @@ impl Default for AuthzConfig {
             role_id_header_key: H_ROLE_ID,
             unauthorized_err: MyErr::Unauthorized.into(),
             handlers: Arc::new(DefaultHandlers),
+            allow_unhandled_row_policy: false,
         }
     }
 }

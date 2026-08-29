@@ -22,8 +22,9 @@ where
         let guard = m.lock().await;
         let org_id = guard
             .get(&k)
+            .and_then(|es| es.first())
             .ok_or(MyErr::MissingGuard)?
-            .as_ref()
+            .1
             .as_ref()
             .ok_or_else(|| self.authz_err().clone())?
             .org

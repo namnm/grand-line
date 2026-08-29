@@ -95,6 +95,7 @@ Works on `#[query]`, `#[mutation]`, and every crud macro. Notes:
 - The value a guard returns is discarded, only its `?` matters, so any `Res<T>` signature works.
 - Only a bare name or a call is accepted - `check = a::b` and `check = x.y()` are rejected at macro expansion.
 - A guard is the only place a resolver states who may call it. The `created_by_id`/`updated_by_id`/`deleted_by_id` audit fields are independent of it - with the `auth` feature on they are filled from `ctx.auth()` whenever the request happens to be authenticated, and left unset otherwise.
+- Two authz guards on one resolver are both evaluated, each on its own realm/org/user requirements, so the resolver runs only if all of them pass. What follows the guards - `ctx.authz_role()` and the row policy it carries - comes from the **first** one listed, so put the guard whose row policy should apply first.
 
 ## Connections and transactions
 

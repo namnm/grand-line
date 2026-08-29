@@ -145,6 +145,10 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
     let order_by = ty_order_by(&model)?;
     filter_and_or_not(&filter, &mut filter_struk, &mut filter_query)?;
 
+    // serde field names of the generated filter, for the FilterKeys impl used by
+    // the authz row boundary to strictly validate policy produced filters
+    let filter_keys = filter_key_names(&filter_struk);
+
     // ------------------------------------------------------------------------
     // history skip: columns dropped from the History data snapshot.
     // Anything hidden from graphql stays hidden in the audit trail too, otherwise
@@ -442,6 +446,11 @@ fn try_gen_model(attr: AttrParse, mut item: ItemStruct) -> SynRes<TokenStream> {
                     self.not.clone().map(|b| *b)
                 }
             }
+            impl FilterKeys for #filter {
+                fn known_keys() -> &'static [&'static str] {
+                    &[#(#filter_keys,)*]
+                }
+            }
             impl From<#filter> for Condition {
                 fn from(f: #filter) -> Self {
                     let mut c = Self::all();
@@ -541,4 +550,27 @@ fn gen_virtual_resolvers(
         }
     }
     Ok(virtual_resolvers)
+}
+
+/// Serde field names of the generated filter struct, scanned out of the
+/// assembled `#[graphql(name = ..)] pub field: ty,` entries, and/or/not and the
+/// virtual relation filters included. serde sees the plain field names, the
+/// graphql name overrides never reach deserialization.
+fn filter_key_names(struk: &[Ts2]) -> Vec<String> {
+    use proc_macro2::TokenTree;
+    struk
+        .iter()
+        .filter_map(|s| {
+            let mut toks = s.clone().into_iter();
+            while let Some(t) = toks.next() {
+                if let TokenTree::Ident(i) = t
+                    && i == "pub"
+                    && let Some(TokenTree::Ident(n)) = toks.next()
+                {
+                    return Some(n.to_string());
+                }
+            }
+            None
+        })
+        .collect()
 }

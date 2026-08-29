@@ -27,4 +27,14 @@ pub enum MyErr {
     RoleImplNotFound,
     #[error("authz row cache downcast failed")]
     RowCacheDowncast,
+    #[error("a row policy is configured for this path but its handler did not produce a filter")]
+    RowPolicyUnhandled,
+    #[error(
+        "row policy produced an empty filter, which would match every row, return at least one field or remove the policy entry"
+    )]
+    RowPolicyFilterEmpty,
+    #[error("row policy filter key {k} is not a field of the target filter")]
+    RowPolicyFilterKey {
+        k: String,
+    },
 }

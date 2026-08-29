@@ -215,6 +215,11 @@ async fn cookie_defaults_to_same_site_lax_and_root_path() -> Res<()> {
         true,
         "default cookie should be scoped to Path=/, got {c}"
     );
+    pretty_eq!(
+        c.contains("Secure"),
+        true,
+        "cookies should be Secure by default, got {c}"
+    );
 
     d.tmp.drop().await
 }
@@ -253,6 +258,45 @@ async fn cookie_follows_the_configured_same_site_and_path() -> Res<()> {
         c.contains("Secure"),
         true,
         "SameSite=None is only accepted together with Secure, got {c}"
+    );
+
+    d.tmp.drop().await
+}
+
+// ---------------------------------------------------------------------------
+// Secure follows HttpConfig::cookie_secure
+// ---------------------------------------------------------------------------
+
+// Browsers drop a Secure cookie over plain http, so cookie based login
+// silently never worked in local development and there was nothing to
+// configure. The default stays Secure, opting out is explicit.
+#[tokio::test]
+async fn cookie_can_opt_out_of_secure_for_plain_http() -> Res<()> {
+    let d = setup().await?;
+
+    let c = HttpConfig {
+        cookie_secure: false,
+        ..Default::default()
+    };
+    let s = d.s.data(d.h).data(c).finish();
+
+    let q = "
+    mutation {
+        cookieTest
+    }
+    ";
+    let r = exec_assert_ok(&s, q, None).await;
+    let c = set_cookie_header(&r);
+
+    pretty_eq!(
+        c.contains("Secure"),
+        false,
+        "cookie_secure = false should drop the Secure attribute, got {c}"
+    );
+    pretty_eq!(
+        c.contains("HttpOnly"),
+        true,
+        "HttpOnly is not affected by cookie_secure, got {c}"
     );
 
     d.tmp.drop().await

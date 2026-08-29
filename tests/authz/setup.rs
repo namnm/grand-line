@@ -123,6 +123,16 @@ fn system(org_id: String) -> OrgGql {
         .await?
 }
 
+#[query(check = authz_org_then_system)]
+fn double_guard_rejects() -> bool {
+    true
+}
+
+#[query(check = authz_org_twice)]
+fn double_guard_accepts() -> bool {
+    true
+}
+
 #[derive(Default, MergedObject)]
 pub struct Query(
     TasksQuery,
@@ -130,6 +140,8 @@ pub struct Query(
     OrgQuery,
     SystemPrimitiveQuery,
     SystemQuery,
+    DoubleGuardRejectsQuery,
+    DoubleGuardAcceptsQuery,
 );
 
 // ---------------------------------------------------------------------------

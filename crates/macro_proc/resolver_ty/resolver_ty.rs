@@ -82,4 +82,8 @@ impl ResolverFn for ResolverTy {
     fn check(&self) -> Vec<CheckAttr> {
         self.ra.check.clone()
     }
+
+    fn docs(&self) -> Vec<String> {
+        self.item.docs.clone()
+    }
 }

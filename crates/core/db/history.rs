@@ -11,13 +11,18 @@ pub enum HistoryOperation {
 
 /// Shared history log, one row per create/update/delete across every model with
 /// #[model(history)] enabled. entity_type is the owning model's name
-/// (EntityX::model_name()), entity_id is that model's row id.
+/// (EntityX::model_name()), entity_id is that model's row id. org_id is the
+/// owning model's org_id column, when it has one, the signal #[authz_org_id]
+/// requires exactly that name, so a row policy has something to scope the
+/// shared audit table with.
 #[model(updated_at = false, deleted_at = false, by_id = false)]
 pub struct History {
     pub entity_type: String,
     pub entity_id: String,
     pub operation: HistoryOperation,
     pub by_id: Option<String>,
+    /// The audited row's org_id, None when the owning model has no org column.
+    pub org_id: Option<String>,
     /// Row snapshot, already stripped of every column the owning model keeps out
     /// of the api (see History::snapshot).
     /// Skipped from graphql on purpose: a json blob has no columns, so neither
@@ -47,13 +52,15 @@ impl History {
         M: ModelX<E>,
         D: ConnectionTrait,
     {
+        let (org_id, data) = Self::snapshot::<E, M>(model)?;
         #[allow(clippy::use_self)]
         let am = am_create!(History {
             entity_type: E::model_name().to_owned(),
             entity_id: model.get_id(),
             operation,
             by_id,
-            data: Self::snapshot::<E, M>(model)?,
+            org_id,
+            data,
         })
         .into_am_without_ctx();
 
@@ -76,13 +83,15 @@ impl History {
         let ams = models
             .iter()
             .map(|m| {
+                let (org_id, data) = Self::snapshot::<E, M>(m)?;
                 #[allow(clippy::use_self)]
                 let am = am_create!(History {
                     entity_type: E::model_name().to_owned(),
                     entity_id: m.get_id(),
                     operation,
                     by_id: by_id.clone(),
-                    data: Self::snapshot::<E, M>(m)?,
+                    org_id,
+                    data,
                 })
                 .into_am_without_ctx();
                 Ok(am)
@@ -93,22 +102,24 @@ impl History {
         Ok(())
     }
 
-    /// Row snapshot with every EntityX::history_skip column removed, so a column
-    /// hidden from the api never reappears as cleartext json in the audit trail.
-    /// Redacting on write rather than on read is the only option that works,
-    /// nothing downstream can filter inside an opaque json value.
-    fn snapshot<E, M>(model: &M) -> Res<JsonValue>
+    /// The owning row's org_id and its snapshot. The org column is read before
+    /// the history_skip stripping: an org scope survives in the dedicated column
+    /// even when the model keeps org_id out of the audit json.
+    fn snapshot<E, M>(model: &M) -> Res<(Option<String>, JsonValue)>
     where
         E: EntityX<M = M>,
         M: ModelX<E>,
     {
         let mut data = model.to_json()?;
+        // #[authz_org_id] requires the column to be named org_id, so a model that
+        // declares org scoping is exactly a model with that field
+        let org_id = data.get("org_id").and_then(JsonValue::as_str).map(str::to_owned);
         if let Some(o) = data.as_object_mut() {
             for k in E::history_skip() {
                 o.remove(*k);
             }
         }
-        Ok(data)
+        Ok((org_id, data))
     }
 
     // ------------------------------------------------------------------------

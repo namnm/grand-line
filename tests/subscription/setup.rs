@@ -39,6 +39,27 @@ fn resolver() {
 fn resolver() {
 }
 
+/// A row written by a subscription resolver's detached job, nothing else
+/// produces this name.
+pub const DETACHED_NAME: &str = "detached-job";
+
+/// Detaches a job writing a row, then lets the generated code finish the
+/// transaction. cleanup never runs for a subscription, execute() is skipped
+/// and the stream's lifetime is handled by TxRelease, so this job only runs if
+/// tx_finish spawns the queue after its commit.
+#[subscribe(Experiment)]
+fn experiment_detached_changed() {
+    ctx.detach(move |db| async move {
+        am_create!(Experiment {
+            name: DETACHED_NAME.to_owned(),
+        })
+        .exec_without_ctx(db.as_ref())
+        .await?;
+        Ok(())
+    })
+    .await?;
+}
+
 #[gql_input]
 pub struct ExperimentCreateQuiet {
     pub name: String,
@@ -82,6 +103,7 @@ pub struct Subscription(
     ExperimentChangedSubscription,
     ExperimentOpenChangedSubscription,
     ExperimentGoneChangedSubscription,
+    ExperimentDetachedChangedSubscription,
 );
 
 // ---------------------------------------------------------------------------
@@ -136,6 +158,16 @@ subscription {
     experimentGoneChanged {
         deleted {
             id
+        }
+    }
+}
+";
+
+pub const S_DETACHED: &str = "
+subscription {
+    experimentDetachedChanged {
+        created {
+            name
         }
     }
 }
@@ -238,6 +270,22 @@ where
     S: Stream<Item = Response> + Unpin,
 {
     drop(timeout(Duration::from_secs(1), stream.next()).await);
+}
+
+/// Polls for the row a subscription resolver's detached job writes.
+pub async fn wait_detached(tmp: &TmpDb) -> Res<u64> {
+    let mut n = 0;
+    for _ in 0..100u8 {
+        n = Experiment::find()
+            .filter(ExperimentColumn::Name.eq(DETACHED_NAME))
+            .count(&tmp.db)
+            .await?;
+        if n >= 1 {
+            return Ok(n);
+        }
+        sleep(Duration::from_millis(10)).await;
+    }
+    Ok(n)
 }
 
 /// Reads the next subscription payload, or fails the test after timing out so a

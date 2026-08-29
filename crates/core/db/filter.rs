@@ -1,5 +1,19 @@
 use super::prelude::*;
 
+/// The serde field names a filter accepts. Generated filters deserialize
+/// leniently (`#[serde(default)]`, unknown keys silently dropped) because
+/// client input is coerced by graphql first. A filter arriving from the
+/// authorization boundary (see authz_row) is validated against this list
+/// instead, so a typo in policy data cannot silently produce an empty filter,
+/// i.e. an empty WHERE, i.e. every row. The model macro generates the impl.
+pub trait FilterKeys {
+    fn known_keys() -> &'static [&'static str];
+}
+
+// ---------------------------------------------------------------------------
+// FilterX, condition plus include_deleted helpers
+// ---------------------------------------------------------------------------
+
 /// Helper trait to combine filter and filter_extra.
 pub trait FilterX
 where

@@ -108,9 +108,40 @@ impl AuthzHandlers for WrongTypeHandler {
     }
 }
 
+// Handler returning an object with no fields at all. An empty filter applies
+// no WHERE clause, so it must not pass the authz boundary as "unrestricted":
+// an empty policy payload is an error, not an accident.
+pub struct EmptyFilterHandler;
+#[async_trait]
+impl AuthzHandlers for EmptyFilterHandler {
+    async fn execute_script(&self, _ctx: &Context<'_>, _script: &str) -> Res<Option<JsonValue>> {
+        Ok(Some(json!({})))
+    }
+}
+
+// Handler returning an unknown field nested one level down, inside an OR branch.
+// The nested value is the same filter type, so the same key check has to reach
+// it, otherwise the very same typo is still silently dropped and the branch
+// becomes an empty filter that matches every row.
+pub struct NestedUnknownFieldHandler;
+#[async_trait]
+impl AuthzHandlers for NestedUnknownFieldHandler {
+    async fn execute_script(&self, _ctx: &Context<'_>, _script: &str) -> Res<Option<JsonValue>> {
+        let f = json!({
+            "or": [
+                { "org_id": "fringe-division" },
+                { "unknown_col": "x" },
+            ],
+        });
+        Ok(Some(f))
+    }
+}
+
 // Handler returning an unknown field not present in TaskFilter.
-// serde uses #[serde(default)] without deny_unknown_fields, so the field is
-// silently dropped and the filter is effectively empty (no WHERE clause applied).
+// The filter itself deserializes leniently for client input (#[serde(default)]
+// without deny_unknown_fields), but the authz boundary validates every key
+// against the filter's known fields first, so the payload is rejected instead
+// of silently deserializing into an empty filter (no WHERE clause applied).
 pub struct UnknownFieldHandler;
 #[async_trait]
 impl AuthzHandlers for UnknownFieldHandler {

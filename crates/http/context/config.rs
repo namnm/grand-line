@@ -35,6 +35,12 @@ pub struct HttpConfig {
     /// Without it the browser derives one from the request uri, so a cookie set
     /// from /api/graphql is never sent to any other path.
     pub cookie_path: &'static str,
+    /// Whether every cookie set_cookie writes carries Secure.
+    /// Browsers drop a Secure cookie over plain http, so cookie based login
+    /// silently never works in local development. Only turn this off for
+    /// deployments that are genuinely plain http end to end, e.g. tests or an
+    /// http-only local environment behind no proxy.
+    pub cookie_secure: bool,
 }
 
 impl Default for HttpConfig {
@@ -43,6 +49,7 @@ impl Default for HttpConfig {
             ip_source: HttpIpSource::SocketAddr,
             cookie_same_site: SameSite::Lax,
             cookie_path: "/",
+            cookie_secure: true,
         }
     }
 }

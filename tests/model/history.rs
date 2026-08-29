@@ -471,3 +471,67 @@ async fn history_flag_false_by_default() -> Res<()> {
 
     tmp_db!(Observer).drop().await
 }
+
+// ---------------------------------------------------------------------------
+// The org column, populated from the owning model's org_id
+// ---------------------------------------------------------------------------
+
+// A model declaring an org column, the name #[authz_org_id] requires, has that
+// org recorded on every history entry it produces, so a row policy has
+// something to scope the shared audit table with. A model without an org
+// column leaves it unset.
+#[tokio::test]
+async fn history_captures_the_owning_model_org_id() -> Res<()> {
+    mod test {
+        use super::*;
+
+        #[model(history)]
+        pub struct Folder {
+            pub org_id: Option<String>,
+            pub name: String,
+        }
+
+        #[model(history)]
+        pub struct Loose {
+            pub name: String,
+        }
+    }
+    use test::*;
+
+    let tmp = tmp_db!(Folder, Loose, History);
+
+    am_create!(Folder {
+        org_id: Some("org-1".to_owned()),
+        name: "Fringe Division",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+    am_create!(Loose {
+        name: "No org",
+    })
+    .exec_without_ctx(&tmp.db)
+    .await?;
+
+    let history = History::find().all(&tmp.db).await?;
+    pretty_eq!(history.len(), 2, "one entry per audited row");
+
+    let Some(folder) = history.iter().find(|h| h.entity_type == "Folder") else {
+        return TestErr::expect("folder history entry should exist");
+    };
+    pretty_eq!(
+        folder.org_id.as_deref(),
+        Some("org-1"),
+        "the org column should carry the owning row's org_id",
+    );
+
+    let Some(loose) = history.iter().find(|h| h.entity_type == "Loose") else {
+        return TestErr::expect("loose history entry should exist");
+    };
+    pretty_eq!(
+        loose.org_id.is_none(),
+        true,
+        "a model without an org column should leave it unset",
+    );
+
+    tmp.drop().await
+}

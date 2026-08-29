@@ -31,11 +31,32 @@ async fn no_row_policy_returns_all() -> Res<()> {
     d.tmp.drop().await
 }
 
-// execute_script returning Ok(None) -> no filter applied -> all tasks returned.
+// A policy entry exists for this path but the handler declines (execute_script
+// returns Ok(None)). Untreated that failed open: "configured but unhandled"
+// resolved to no filter, i.e. unrestricted access, silently, because nothing
+// tells the two states apart. It is now an error unless the app opts into the
+// lenient integration mode.
 #[tokio::test]
-async fn script_none_returns_all() -> Res<()> {
+async fn unhandled_row_policy_denies_by_default() -> Res<()> {
     let c = AuthzConfig {
         handlers: Arc::new(NoneHandler),
+        ..Default::default()
+    };
+    let d = row_setup(Some("any"), Some(c)).await?;
+
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
+
+    d.tmp.drop().await
+}
+
+// Opting into allow_unhandled_row_policy restores the old integration mode: an
+// unhandled entry behaves like no entry, access stays open until the handler
+// is written, and the app has said so out loud in its config.
+#[tokio::test]
+async fn unhandled_row_policy_passes_through_when_opted_in() -> Res<()> {
+    let c = AuthzConfig {
+        handlers: Arc::new(NoneHandler),
+        allow_unhandled_row_policy: true,
         ..Default::default()
     };
     let d = row_setup(Some("any"), Some(c)).await?;
@@ -208,25 +229,53 @@ async fn handler_wrong_type_returns_internal_server() -> Res<()> {
 }
 
 // Handler returns JSON with a field that does not exist in TaskFilter.
-// TaskFilter uses #[serde(default)] without deny_unknown_fields, so the unknown
-// field is silently dropped and the resulting filter is empty (all fields None).
-// An empty filter applies no WHERE clause, so all tasks are returned.
+// The filter deserializes leniently for client input (#[serde(default)],
+// unknown keys silently dropped), which turned a single typo in policy data
+// into an empty filter, i.e. an empty WHERE, i.e. every row, invisible from
+// both sides. The authz boundary validates every key against the filter's
+// known fields instead and rejects the payload.
 #[tokio::test]
-async fn handler_unknown_field_silently_ignored_returns_all() -> Res<()> {
+async fn handler_unknown_field_is_rejected_instead_of_returning_all() -> Res<()> {
     let c = AuthzConfig {
         handlers: Arc::new(UnknownFieldHandler),
         ..Default::default()
     };
     let d = row_setup(Some("any"), Some(c)).await?;
 
-    let expected = value!({
-        "tasks": [{
-            "title": "Analyze the tissue sample",
-        }, {
-            "title": "Investigate the pattern",
-        }],
-    });
-    exec_assert(&d.schema, Q, None, &expected).await;
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
+
+    d.tmp.drop().await
+}
+
+// The same typo one level down, inside an OR branch. Validating only the top
+// level would let it through, and an OR branch that deserializes to an empty
+// filter matches every row, so the whole OR does too.
+#[tokio::test]
+async fn handler_nested_unknown_field_is_rejected() -> Res<()> {
+    let c = AuthzConfig {
+        handlers: Arc::new(NestedUnknownFieldHandler),
+        ..Default::default()
+    };
+    let d = row_setup(Some("any"), Some(c)).await?;
+
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
+
+    d.tmp.drop().await
+}
+
+// Handler returns an object with no fields at all. An empty filter means no
+// WHERE clause, so at the authz boundary an empty payload is an error rather
+// than an unrestricted query; a policy that really wants every row should not
+// have an entry for the path.
+#[tokio::test]
+async fn empty_filter_from_policy_is_rejected() -> Res<()> {
+    let c = AuthzConfig {
+        handlers: Arc::new(EmptyFilterHandler),
+        ..Default::default()
+    };
+    let d = row_setup(Some("any"), Some(c)).await?;
+
+    exec_assert_err(&d.schema, Q, None, &CoreGraphQLErr::InternalServer).await?;
 
     d.tmp.drop().await
 }

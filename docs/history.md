@@ -29,7 +29,8 @@ pub struct History {
     pub entity_type: String, // the owning model's name, e.g. "Todo"
     pub entity_id: String,   // that model's row id
     pub operation: HistoryOperation,
-    pub by_id: Option<String>, // who performed it, None if unavailable
+    pub by_id: Option<String>,  // who performed it, None if unavailable
+    pub org_id: Option<String>, // the owning row's org, None if the model has no org column
     #[graphql(skip)]
     pub data: JsonValue, // row snapshot at that point, see What the snapshot stores
 }
@@ -71,6 +72,10 @@ Redaction has to happen on write because nothing downstream can see inside a JSO
 
 `#[history(skip)]` only affects the audit trail. The column is still stored, still queryable, still exposed over GraphQL.
 
+## Scoping History to an org
+
+Every audited model with an `org_id` column - the name [`#[authz_org_id]`](authorization.md#org-scoped-models) requires - has that value recorded on each of its history entries in the dedicated `org_id` column. A row policy on a `History` search can then filter `orgId` like on any other model, instead of the audit table being all-or-nothing. Models without an org column leave it unset.
+
 ## Diffing two entries
 
 Entries store snapshots rather than deltas, so a diff is computed on read:
@@ -101,4 +106,3 @@ History recording and the write it documents share one transaction: `History::ad
 
 - **Bulk `Entity::insert_many` bypasses history.** Only the `Vec<AmWrapper<AmCreate, ..>>` exec path (`am_create_many!` + `.exec(ctx)`/`.exec_without_ctx(db)`) records history per row - calling sea-orm's raw `insert_many` directly skips it. See [Design notes](contribution/design-notes.md#known-limitations).
 - **No "restore this version" helper.** `History::diff` is the only reader helper - otherwise `History` is a log you query and interpret yourself.
-- **`History` has no org column, so a row policy cannot scope it.** Even with `data` skipped, `entity_id`, `by_id` and the timestamps of every audited model are in one table. Don't put a plain `#[search(History)]` behind a guard that isn't as strong as the strongest model you audit.

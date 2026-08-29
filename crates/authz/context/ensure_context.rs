@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 /// Authz check parameters for a single guard call.
+#[derive(Clone, PartialEq, Eq)]
 pub struct AuthzEnsure {
     /// Role realm required, e.g. system, org, public.
     pub realm: String,

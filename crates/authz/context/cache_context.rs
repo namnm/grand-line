@@ -32,14 +32,21 @@ where
 
         let m = self.authz_cache_or_init().await?;
         let mut guard = m.lock().await;
-        if let Some(v) = guard.get(&alias) {
-            let v = v.clone();
+        // Only a cache entry produced by the very same check satisfies this call:
+        // two guards on one resolver with different realm/org/user requirements
+        // must each be evaluated, the alias alone would let the second one
+        // silently inherit the first one's result.
+        if let Some(v) = guard
+            .get(&alias)
+            .and_then(|es| es.iter().find(|(c, _)| *c == check))
+            .map(|(_, v)| v.clone())
+        {
             drop(guard);
             return Ok(v);
         }
 
-        let v = self.authz_without_cache(check).await?.map(Arc::new);
-        guard.insert(alias.clone(), v.clone());
+        let v = self.authz_without_cache(check.clone()).await?.map(Arc::new);
+        guard.entry(alias.clone()).or_default().push((check, v.clone()));
         drop(guard);
 
         // Store the path map so any nested resolver can translate its alias-based

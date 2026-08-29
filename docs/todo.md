@@ -83,74 +83,6 @@ but `DeletePermanent` and `Cleanup` are destructive enough to warrant deny by
 default. Whatever is chosen belongs in the Setup section of the doc, not buried
 further down.
 
-### 4. A typo in a row policy filter is an authorization bypass
-
-**Why.** `#[gql_input]` derives `Deserialize` with `#[serde(default)]` and without
-`deny_unknown_fields`, and the generated `*Filter` types go through it. A row
-policy that produces `{ "organizationIDD": "..." }` instead of `organizationId`
-therefore deserializes into an **empty** filter, and an empty filter is an empty
-`WHERE`, i.e. every row. The repo's own
-[`row_handlers.rs`](../tests/authz/row_handlers.rs) has an `UnknownFieldHandler`
-fixture documenting exactly this behavior.
-
-A single typo in policy data, the kind nothing type checks, silently turns a
-tenant scoped query into a cross-tenant read. This is the most dangerous item in
-the file because the failure is invisible from both sides: the policy looks
-configured, the query looks filtered.
-
-**Fix.** Deserialize a filter arriving from the authorization boundary strictly.
-Either a `deny_unknown_fields` variant of the generated filter used only by
-`authz_row_get_filter`, or a hand written check that every key in the json maps to
-a known field before deserializing. Separately, stop letting `{}` mean
-unrestricted at that boundary: an empty filter from a policy should be an error or
-an explicit `AllowAll`, never an accident.
-
-### 5. A row policy whose handler returns `None` fails open
-
-**Why.** [`authz_row_get_filter`](../crates/authz/context/row_context.rs) finds the
-row policy script for the path, calls the app's `execute_script`, and returns
-`Ok(None)` when the handler returns `None`. `None` from that function means "no
-filter", so the query runs unrestricted. The code comment says this is deliberate,
-so incremental integration is never blocked before a handler is written.
-
-The problem is that `None` now covers two states that are opposites on a security
-boundary: _no policy is configured for this path_, and _a policy is configured but
-nothing handled it_. The second should deny.
-
-**Fix.** Split them. No policy entry stays `None`. A policy entry whose handler
-declines becomes an error (`RowPolicyUnhandled`) or a deny-all filter. Keep the
-current behavior behind an explicit `allow_unhandled_row_policy: bool` on
-`AuthzConfig`, defaulting to `false`, so an app opting into the lenient mode says
-so out loud. Add a test that a configured policy plus a `None` handler returns an
-error rather than rows.
-
-### 6. A second authz guard on the same resolver is silently skipped
-
-**Why.** [`authz_with_cache`](../crates/authz/context/cache_context.rs) caches the
-authz result under the root field's alias and, on a hit, returns the stored value
-while discarding its `check: AuthzEnsure` argument entirely:
-
-```rs
-if let Some(v) = guard.get(&alias) {
-    let v = v.clone();
-    drop(guard);
-    return Ok(v);
-}
-```
-
-The guard system supports multiple guards per resolver, `check(guard_one, guard_two)`,
-and `authz_ensure` is a plain ctx method, so nothing stops a consumer combining two
-authz guards with different requirements. The first populates the cache, the second
-hits it and passes without its own realm/org/user requirements ever being
-evaluated. Everything downstream (`authz()`, `authz_role()`, `authz_row()`) then
-follows the first guard's role.
-
-**Fix.** Make the cache key reflect what was checked: include the realm plus the
-org/user flags in the key, or on a hit whose check differs, re-run
-`authz_without_cache` and keep the stricter outcome. Rejecting two `authz_ensure`
-guards at macro expansion time is cheaper but weaker, consumer guards wrap
-`authz_ensure` in traits the macro cannot see through.
-
 ### 7. `gql_update` returns the updated row without re-applying the row policy
 
 **Why.** [`gql_update`](../crates/core/db/entity.rs) runs the write with the
@@ -194,22 +126,6 @@ consider rejecting the write when the _new_ value would fall outside the policy.
 ---
 
 ## P1 - correctness bugs, latent but severe when hit
-
-### 8. `History` has no org column, so a row policy cannot scope it
-
-**Why.** The original half of this item (secrets landing in `History.data`) is
-fixed, see the Fixed section. What remains is the row boundary. `History` carries
-`entity_type`, `entity_id`, `by_id` and timestamps for every audited model in one
-shared table, and has no column an authz row policy can filter on. A
-`#[search(History)]` is therefore all-or-nothing: whoever passes the guard sees the
-audit metadata of every model and every org, even with `data` redacted.
-
-**Fix.** Give `History` an optional org column that the owning model can populate,
-so a row policy has something to filter on. `_core` cannot depend on `_authz`, so
-the mapping has to be declared by the model rather than assumed by the framework,
-e.g. reusing the `#[authz_org_id]` signal already used for org scoping. Until then,
-the docs say not to expose `History` behind a guard weaker than the strongest model
-being audited.
 
 ### 9. A row policy that references `deleted_at` is silently cancelled
 
@@ -470,40 +386,6 @@ does, or keep the precedence and reject a config carrying both `*` and a specifi
 entry for the same field at startup. A validator warning is the minimum, since the
 current behavior is invisible until an audit.
 
-### 20. The write/transaction decision reads the whole document, not the selected operation
-
-**Why.** `GrandLineExtension::parse_query` sets the write flag with
-`doc.operations.iter().any(|(_, o)| o.node.ty == OperationType::Mutation)`, with no
-regard for `operationName`. A document carrying both a query and an unused mutation
-puts the request on the transaction path even when the client selected the query:
-
-```graphql
-query CheapQuery { .. }
-mutation UnusedMutation { .. }
-```
-
-with `operationName = CheapQuery`. No wrong write happens, but the request opens
-and pins a transaction it does not need, which contradicts what
-[resolvers.md](resolvers.md#connections-and-transactions) promises and is a cheap
-resource-exhaustion lever against a small pool.
-
-**Fix.** Resolve `operationName` first and classify only the selected operation.
-
-### 21. `tx_finish` commits but never spawns detached jobs
-
-**Why.** `GrandLineData::tx_finish` commits and clears the write flag but does not
-call `detached_spawn`. `cleanup` is the only place detached jobs run, and `cleanup`
-never runs for a subscription: the extension's `execute` is skipped and the
-stream's lifetime is handled by `TxRelease` instead. A subscription resolver
-calling `ctx.detach(..)` therefore queues a job that never runs, and
-`detach`'s doc says "queued to run after this request commits", a promise
-`tx_finish` breaks.
-
-**Fix.** Have `tx_finish` call `detached_spawn` after a successful commit, the same
-rule as `cleanup`. If the intent is that subscriptions never run detached work,
-say so on `detach` and make `tx_finish` drop the queue explicitly rather than
-leaking it.
-
 ### 22. The redis publish connection is cached forever, with no reconnect
 
 **Why.** `RedisBroker` in
@@ -622,19 +504,6 @@ alongside the password update. In the docs, make session invalidation on a
 credential change an explicit app duty. Consider a session generation column on the
 `#[auth_session]` contract as a roadmap item so the default impl can enforce it.
 
-### 30. `x-socket-addr` has no framework-provided source
-
-**Why.** `HttpIpSource::SocketAddr` is the default and reads the `x-socket-addr`
-header, which no HTTP server sets on its own. The only place in the repo that
-populates it is the saas example's `main.rs`. It is documented in
-[authentication.md](authentication.md) now, but an app that forgets still gets
-`HeaderIp404` on every login, and there is no http docs page of its own.
-
-**Fix.** Ship an axum layer in `_http_axum` that inserts `x-socket-addr` from
-`ConnectInfo<SocketAddr>` before the GraphQL handler, so the safe configuration is
-the default and cannot be forgotten. A dedicated http docs page would also give
-`get_ip` / `get_ua` / `set_cookie` a home that is not the authentication page.
-
 ### 31. `[file_upload]` hardening for the file package
 
 **Why and fix**, each small and independent:
@@ -660,18 +529,6 @@ the default and cannot be forgotten. A dedicated http docs page would also give
 
 ## P3 - footguns, polish and documentation
 
-### 32. Generated resolvers lose their doc comments from the schema
-
-**Why.** `ResolverFn::docs()` defaults to `vec![]` and `ResolverTy` never overrides
-it, so a `///` comment on a `#[query]` / `#[mutation]` / crud resolver does not
-become a GraphQL field description. Only model field resolvers (`GenResolver`)
-implement `docs()`. For a framework whose whole surface is generated, losing
-introspection docs is a real DX cost.
-
-**Fix.** Carry `#[doc = ..]` through `ResolverTyItem` into `ResolverTy` and
-implement `docs()`, the emitter already splices them. Add an SDL snapshot test that
-pins a description so it cannot regress.
-
 ### 33. `gen_auth_by_id` turns every auth error into "no actor"
 
 **Why.** [`auth.rs`](../crates/macro_proc/utils/auth.rs) emits
@@ -683,17 +540,6 @@ Only the genuine "unauthenticated" case should produce `None`.
 **Fix.** Match on the error and return `None` only for the not-authenticated code,
 logging the rest. At minimum log at warn when `ctx.auth()` fails for any other
 reason, so a broken auth lookup does not masquerade as anonymous writes.
-
-### 34. The session cookie hardcodes `Secure` with no opt-out
-
-**Why.** `set_cookie` always emits `Secure`. `HttpConfig` now exposes `same_site`
-and `path` but not this. On plain http, `http://localhost` included, browsers drop
-the cookie, so cookie-based login silently never works in local development and
-there is nothing to configure. Bearer tokens still work, which makes it easy to
-misread as a client bug.
-
-**Fix.** Add `cookie_secure: bool` to `HttpConfig`, default `true`, and pass it
-through in `set_cookie`, matching how `same_site` and `path` are already handled.
 
 ### 35. i18n calls itself ICU MessageFormat but is a subset, and fails silently
 
@@ -788,7 +634,23 @@ a resolve on a soft-deleted row would still zero its attempt counter.
 - CLAUDE.md's Formatting Rules table reads "Semicolon: colon (,)", which names a
   colon while showing a comma. Should be "comma (,)".
 
-### 41. Close the `From<async_graphql::Error> for GrandLineErr` request
+### 41. The saas example's `main.rs` wiring has no test
+
+**Why.** Every saas test builds the schema itself and attaches the `HeaderMap`
+by hand, so `graphql_handler` and the router in `main.rs` are compiled but never
+executed. That is how the item 30 change silently dropped `.data(headers)` from
+the handler: it compiled, the whole suite stayed green, and every `ctx` header
+helper (bearer token, cookie, ip, ua) would have failed at runtime with
+`CtxHeaders404` masked as an internal server error. Caught in review, not by a
+test.
+
+**Fix.** Export the router builder from the example's lib (`pub fn app(schema)`)
+so `main` is a thin `serve(app(..))`, then drive it in a test the way
+[`tests/auth/http_layer.rs`](../tests/auth/http_layer.rs) already drives a router:
+one request through the real router asserting an authenticated call works. That
+covers the header plumbing, the layer, and their ordering in one go.
+
+### 42. Close the `From<async_graphql::Error> for GrandLineErr` request
 
 **Why not.** The case that prompted it was reaching for the raw db handle, and
 `ctx.db().await?` already covers that. For the general case,
@@ -814,6 +676,55 @@ instead, and drop the request.
 ## Fixed in this session
 
 Recorded so they are not re-reported.
+
+- **A typo in a row policy filter is an authorization bypass (todo item 4).**
+  A filter arriving from the authorization boundary is validated strictly:
+  `crates/core/db/filter.rs` gains `FilterKeys`, the model macro implements it
+  for every generated filter with the serde field names, and
+  `authz_row_get_filter` rejects unknown keys (`RowPolicyFilterKey`) and empty
+  objects (`RowPolicyFilterEmpty`) before deserializing. A typo in policy data
+  can no longer become an empty filter, i.e. an empty WHERE, i.e. every row.
+  The key check recurses through `and`/`or`/`not`, whose branches hold the same
+  filter type: validating only the top level left the identical typo silently
+  dropped one level down, and a branch that deserializes to an empty filter
+  matches every row, so the whole `OR` does too.
+- **A row policy whose handler returns `None` fails open (todo item 5).**
+  `AuthzConfig` gains `allow_unhandled_row_policy: bool`, default `false`. A
+  policy entry whose handler declines now errors with `RowPolicyUnhandled`;
+  no policy entry still means no filter. The old lenient behavior is an
+  explicit opt-in.
+- **A second authz guard on the same resolver is silently skipped (todo
+  item 6).** The per-request authz cache stores one entry per `(check, result)`
+  under the field's alias, and `authz_with_cache` only serves a hit whose
+  `AuthzEnsure` equals the current check. Two guards with different
+  requirements each run; two equal checks still share one lookup.
+- **`History` has no org column (todo item 8).** `History` gains
+  `org_id: Option<String>`, populated from the owning model's `org_id` column
+  (the name `#[authz_org_id]` requires) before the snapshot is stripped of
+  history-skipped columns. A row policy can now scope the shared audit table.
+- **The write/transaction decision reads the whole document (todo item 20).**
+  `prepare_request` records the request's `operationName` on `GrandLineData`,
+  and `parse_query` classifies only the selected operation. A named query next
+  to an unused mutation no longer opens and pins a transaction.
+- **`tx_finish` commits but never spawns detached jobs (todo item 21).**
+  `tx_finish` now calls `detached_spawn` after a successful commit, the same
+  rule as `cleanup`. A subscription resolver's `ctx.detach` job runs instead
+  of leaking in the queue forever.
+- **`x-socket-addr` has no framework-provided source (todo item 30).**
+  `_http_axum` ships `socket_addr_layer`, an axum middleware that fills
+  `x-socket-addr` from `ConnectInfo<SocketAddr>` (overwriting anything a
+  client sent) and passes requests without connect info through untouched.
+  The saas example uses it instead of hand-rolling the header. Its handler still
+  has to put the `HeaderMap` into the request data, the layer only fills a
+  header and cannot inject the map that `HttpAxumContext::get_headers` reads.
+- **Generated resolvers lose their doc comments from the schema (todo item
+  32).** `ResolverTyItem` carries the annotated fn's `#[doc]` attributes
+  through to `ResolverTy::docs()`, so `///` comments on `#[query]`,
+  `#[mutation]` and crud resolvers become GraphQL field descriptions. Pinned
+  by an SDL test.
+- **The session cookie hardcodes `Secure` with no opt-out (todo item 34).**
+  `HttpConfig` gains `cookie_secure: bool`, default `true`, passed through in
+  `set_cookie` like `same_site` and `path`.
 
 - **`data` is now nulled when a transaction was actually rolled back** (the open
   decision). `cleanup` returns whether it rolled anything back, and the extension

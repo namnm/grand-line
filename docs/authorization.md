@@ -326,4 +326,6 @@ AuthzConfig {
 }
 ```
 
-`authz_row` results and field-path resolution are cached per request, and alias-aware - `myTasks: tasks { ... }` still resolves the row policy for the real field `tasks`, so aliasing a query can't be used to bypass a row policy.
+The filter returned by a handler crosses the authorization boundary, so it is validated strictly: every key of the JSON object must map to a known field of the filter type, and an empty object is an error. The generated filters deserialize leniently (that is right for client input, which graphql coerces first), but without this check a single typo in policy data - `{"organizationIDD": ...}` instead of `organizationId` - would silently deserialize into an empty filter, i.e. an empty `WHERE`, i.e. every row. A handler returning `Ok(None)` errors too: "no policy entry for this path" and "a policy is configured but nothing handled it" are opposites, and only the first means no filter. Set `allow_unhandled_row_policy: true` on `AuthzConfig` to restore the lenient integration mode while you wire handlers up.
+
+`authz_row` results and field-path resolution are cached per request, and alias-aware - `myTasks: tasks { ... }` still resolves the row policy for the real field `tasks`, so aliasing a query can't be used to bypass a row policy. The guard cache is keyed by what was checked, not just by field: a resolver combining two `authz_ensure` guards with different realm/org/user requirements (`check(guard_one, guard_two)`) evaluates both, the second one never inherits the first one's result.

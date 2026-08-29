@@ -2,6 +2,7 @@ mod attr;
 mod bulk;
 mod default;
 mod detail_not_found;
+mod docs;
 mod history;
 mod limits;
 mod look_ahead;

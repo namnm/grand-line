@@ -121,11 +121,12 @@ where
         Ok(v)
     }
 
-    /// Append a Set-Cookie response header, http-only and secure, expiring
+    /// Append a Set-Cookie response header, http-only, expiring
     /// expires milliseconds from now.
-    /// SameSite and Path come from HttpConfig, leaving either implicit lets the
-    /// browser decide: no SameSite means Lax, which a cross origin app never sends,
-    /// and no Path scopes the cookie to the directory of the request uri.
+    /// SameSite, Path and Secure come from HttpConfig, leaving either implicit
+    /// lets the browser decide: no SameSite means Lax, which a cross origin app
+    /// never sends, and no Path scopes the cookie to the directory of the
+    /// request uri. Secure defaults to on, see HttpConfig::cookie_secure.
     #[allow(
         clippy::arithmetic_side_effects,
         reason = "shifting now by an expiry the caller passes from config, not by client input"
@@ -134,7 +135,7 @@ where
         let c = self.http_config();
         let v = Cookie::build(Cookie::new(k, v))
             .http_only(true)
-            .secure(true)
+            .secure(c.cookie_secure)
             .same_site(c.cookie_same_site)
             .path(c.cookie_path)
             .max_age(Duration::seconds(expires / 1000))

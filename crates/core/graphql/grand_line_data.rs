@@ -28,6 +28,9 @@ pub struct GrandLineData {
     pub(crate) events: Mutex<Vec<SubscriptionEvent>>,
     /// Work queued to run after this request commits, see detach.
     pub(crate) detached: Mutex<Vec<BoxFuture<'static, ()>>>,
+    /// The operationName the client selected, recorded from the request before
+    /// the document is parsed, see GrandLineExtension::parse_query.
+    pub(crate) operation_name: Mutex<Option<String>>,
 }
 
 impl GrandLineData {
@@ -40,7 +43,18 @@ impl GrandLineData {
             cache: Mutex::new(HashMap::new()),
             events: Mutex::new(vec![]),
             detached: Mutex::new(vec![]),
+            operation_name: Mutex::new(None),
         }
+    }
+
+    /// Records the operation the client selected, before the document is parsed.
+    pub(crate) async fn set_operation_name(&self, n: Option<String>) {
+        *self.operation_name.lock().await = n;
+    }
+
+    /// The operation the client selected, if it named one.
+    pub(crate) async fn operation_name(&self) -> Option<String> {
+        self.operation_name.lock().await.clone()
     }
 
     /// Marks this request as writing, so db() hands out the transaction.
@@ -132,6 +146,14 @@ impl GrandLineData {
     pub(crate) async fn tx_finish(&self) -> Res<()> {
         self.commit().await?;
         self.write.store(false, Ordering::SeqCst);
+        // cleanup never runs for a subscription: execute() is skipped and the
+        // stream's lifetime is handled by TxRelease instead. Without this, a
+        // resolver detaching work would queue a job that never runs, breaking
+        // detach's promise to run it after the request commits. Same rule as
+        // cleanup: only ever after a successful commit, a failed commit drops
+        // the queue with the request rather than running work for writes that
+        // never landed.
+        self.detached_spawn().await;
         Ok(())
     }
 
