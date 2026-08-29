@@ -18,6 +18,10 @@ where
 
 #[async_trait]
 impl<'a> AuthCacheContext<'a> for Context<'a> {
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "shifting now by a session expiry the app configures, not by client input"
+    )]
     async fn auth_unchecked_without_cache(&self) -> Res<Option<AuthImplSessionCached>> {
         let mut t = self.get_authorization_token()?;
         if t.is_empty() {

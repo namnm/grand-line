@@ -16,6 +16,10 @@ where
 
 #[async_trait]
 impl<'a> AuthOtpContext<'a> for Context<'a> {
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "shifting a timestamp by an expiry the app configures, not by client input"
+    )]
     async fn auth_otp_ensure_resolve(&self, ty: &str, id: &str, secret: &str, otp: &str) -> Res<AuthImplOtp> {
         let Some(m) = self.auth_otp_impl()?.increment(self, id, ty).await? else {
             return Err(MyErr::OtpResolveInvalid.into());
@@ -34,6 +38,10 @@ impl<'a> AuthOtpContext<'a> for Context<'a> {
         Ok(m)
     }
 
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "shifting a timestamp by a cooldown the app configures, not by client input"
+    )]
     async fn auth_otp_ensure_re_request(&self, ty: &str, email: &str) -> Res<()> {
         let Some(m) = self.auth_otp_impl()?.find(self, ty, email).await? else {
             return Ok(());

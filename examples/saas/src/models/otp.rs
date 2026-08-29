@@ -41,12 +41,21 @@ pub struct Otp {
 
 async fn resolve_remaining_attempt(o: &OtpGql, ctx: &Context<'_>) -> Res<i64> {
     let t = o.total_attempt.ok_or(CoreDbErr::GqlResolverNone)?;
-    Ok(ctx.auth_config().otp_max_attempt - t)
+    // saturating, an attempt counter past the max reports 0 left rather than wrapping
+    Ok(ctx.auth_config().otp_max_attempt.saturating_sub(t))
 }
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "shifting a timestamp by an expiry the app configures, not by client input"
+)]
 async fn resolve_will_expire_at(o: &OtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
     let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
     Ok(t + duration_ms(ctx.auth_config().otp_expires_ms))
 }
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "shifting a timestamp by a cooldown the app configures, not by client input"
+)]
 async fn resolve_can_re_request_at(o: &OtpGql, ctx: &Context<'_>) -> Res<DateTimeUtc> {
     let t = o.created_at.ok_or(CoreDbErr::GqlResolverNone)?;
     Ok(t + duration_ms(ctx.auth_config().otp_re_request_ms))

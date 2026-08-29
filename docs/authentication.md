@@ -1,6 +1,6 @@
 # Authentication
 
-The `auth` feature does **not** ship `register`/`login`/`logout`/`forgot` resolvers, a `User` model, or an OTP/session model. It ships the primitives those resolvers are built from: a session lookup DI trait, an OTP lookup/attempt-limiting DI trait, default impls of both derived from your own models, session cookie/bearer parsing, and a handful of `ctx` methods. You write `User`, your login-session model, your OTP model, and every auth resolver yourself, on top of these primitives - see the [saas example](https://github.com/nongdan-dev/grand-line/blob/master/examples/saas/src/auth) for a complete, working implementation of the flow described below.
+The `auth` feature does **not** ship `register`/`login`/`logout`/`forgot` resolvers, a `User` model, or an OTP/session model. It ships the primitives those resolvers are built from: a session lookup DI trait, an OTP lookup/attempt-limiting DI trait, default impls of both derived from your own models, session cookie/bearer parsing, and a handful of `ctx` methods. You write `User`, your login-session model, your OTP model, and every auth resolver yourself, on top of these primitives - see the [saas example](https://github.com/namnm/grand-line/blob/master/examples/saas/src/auth) for a complete, working implementation of the flow described below.
 
 ## Setup
 
@@ -54,6 +54,38 @@ GraphQLSchema::build(Query::default(), Mutation::default(), EmptySubscription)
 ```
 
 The default `AuthOtpImpl` runs on the plain db connection rather than the request transaction, so an attempt is still counted when the surrounding request later errors and rolls back.
+
+### Cookie attributes and the client IP
+
+`AuthConfig` holds the cookie key and expiry. The attributes the browser actually enforces live on `HttpConfig`, because they apply to every cookie `ctx.set_cookie()` writes, not just the session one:
+
+```rs
+let http_config = HttpConfig {
+    cookie_same_site: SameSite::Lax,     // default
+    cookie_path: "/",                    // default
+    ip_source: HttpIpSource::SocketAddr, // default
+};
+```
+
+- **`cookie_same_site`** is the main CSRF control for a cookie-authenticated API. `Lax` is the default and is right when the browser app and the API share an origin. A browser app served from a **different** origin than the API needs `SameSite::None`, which browsers only accept together with `Secure` (the framework always sets `Secure`). Leaving it implicit means the browser applies `Lax` anyway, and a cross-origin app then silently never sends the cookie - the request just looks unauthenticated, with no error explaining why.
+- **`cookie_path`** defaults to `/`. Without it the browser derives a path from the request URI, so a cookie set from `/api/graphql` is scoped to `/api` and is not sent anywhere else.
+- **`ip_source`** decides where `ctx.get_ip()` reads from. It never guesses across headers:
+
+| `ip_source`                            | Reads                                                        | Use when                         |
+| -------------------------------------- | ------------------------------------------------------------ | -------------------------------- |
+| `HttpIpSource::SocketAddr` (default)   | the `x-socket-addr` header your handler sets from the socket | the app is reachable directly    |
+| `HttpIpSource::Proxy { header, hops }` | the `hops`-th entry from the right of `header`               | a trusted proxy sets that header |
+
+A header is only trustworthy behind a proxy that sets it. Reachable directly, or behind a proxy that appends rather than replaces, any client can pick its own address - and that value usually ends up persisted on the session as audit data. `hops` is `1` for a single proxy appending the address it saw, `2` when another trusted proxy sits behind it.
+
+With `SocketAddr`, your HTTP handler is responsible for setting `x-socket-addr` from the real connection:
+
+```rs
+let addr = ConnectInfo::<SocketAddr>::from_request_parts(&mut parts, &state).await;
+headers.insert(H_SOCKET_ADDR, HeaderValue::from_str(&addr.to_string())?);
+```
+
+`ctx.get_ua()` returns whatever user-agent headers the request carried, and an empty map when it carried none. A programmatic client sending no `User-Agent` is neither unusual nor wrong, so recording an empty one beats refusing the login over a purely informational field. Check the map yourself if your app wants it present.
 
 `AuthSessionImpl`/`AuthOtpImpl` are mandatory - any resolver using an auth guard (or a `ctx.auth*` method) errors with `SessionImplNotFound`/`OtpImplNotFound` if they're missing from schema data.
 

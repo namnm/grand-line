@@ -7,6 +7,10 @@ where
 {
     type E: EntityX;
     /// Format this column as model name and column name joined by a dot, e.g. task.title.
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "capacity hint summing the lengths of two compile time identifiers"
+    )]
     fn to_string_with_model_name(&self) -> String {
         let model = Self::E::model_name();
         let col = self.as_str();
@@ -23,6 +27,12 @@ where
 
     /// Build a data loader cache key from model, column, requested look ahead fields and suffix,
     /// so calls that select different field sets do not collide in the loader cache.
+    /// Assumes look_ahead comes in the canonical order EntityX::gql_look_ahead_of_names
+    /// produces, the key is order sensitive.
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "capacity hint summing the lengths of one request's field names"
+    )]
     fn to_loader_key(&self, look_ahead: &[LookaheadX<Self::E>], suffix: &str) -> String {
         let model = Self::E::model_name();
         let col = self.as_str();

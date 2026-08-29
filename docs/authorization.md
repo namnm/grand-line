@@ -1,6 +1,6 @@
 # Authorization
 
-The `authz` feature (implies `auth`) provides role-based access control with org scoping, field-level (col) policy checks, and row-level filtering. Like `auth`, it ships primitives, not concrete models - you define your own `Org`, `Role`, and `UserInRole` (any shape you like) and a macro per model derives the DI impls the framework looks them up through. See the [saas example](https://github.com/nongdan-dev/grand-line/blob/master/examples/saas/src/authz) for a full implementation.
+The `authz` feature (implies `auth`) provides role-based access control with org scoping, field-level (col) policy checks, and row-level filtering. Like `auth`, it ships primitives, not concrete models - you define your own `Org`, `Role`, and `UserInRole` (any shape you like) and a macro per model derives the DI impls the framework looks them up through. See the [saas example](https://github.com/namnm/grand-line/blob/master/examples/saas/src/authz) for a full implementation.
 
 ## Setup
 

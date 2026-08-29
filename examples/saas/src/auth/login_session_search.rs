@@ -13,6 +13,10 @@ fn resolver() {
     f.into()
 }
 
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "shifting now by a session expiry the app configures, not by client input"
+)]
 async fn get_filter(ctx: &Context<'_>) -> Res<LoginSessionFilter> {
     let user_id = ctx.auth().await?;
     let session_id = ctx.auth_session().await?;

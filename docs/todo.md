@@ -1,12 +1,13 @@
 # todo
 
-Open issues found while reworking resolver guards, model di macros, and reviewing
-the transaction lifecycle. Ordered by priority. Items marked `[file_upload]` only
-exist on that branch and block merging it into master.
+Open issues across the framework. Merged from four audit passes (the original
+todo plus todo2/todo3/todo4), renumbered end to end, every item re-verified
+against master before being kept. Ordered by priority. Items marked
+`[file_upload]` only exist on that branch and block merging it into master.
 
 ---
 
-## P0 - blocks a merge, or loses and leaks data silently
+## P0 - authorization fails open, or a merge is blocked
 
 ### 1. `has_actor` fix lives only on the file_upload merge commit
 
@@ -38,11 +39,11 @@ method is not in scope and `crates/file/resolvers/file_crud.rs` and
 with `test_utils,sqlite,file` only, which hides it, but `make test` (which uses
 the default feature set, authz included) goes red.
 
-**Fix.** Same shape as item 1, the `has_actor` signal: make `authz_row` default to off when the resolver
-declares no `check`, rather than keying purely off a global feature. A resolver
-that never runs an authz guard has no row policy to apply anyway. The quick
-alternative is spelling `authz_row = false` on the four `_file` resolvers, but
-that leaves the same trap for the next package.
+**Fix.** Same shape as item 1, the `has_actor` signal: make `authz_row` default to
+off when the resolver declares no `check`, rather than keying purely off a global
+feature. A resolver that never runs an authz guard has no row policy to apply
+anyway. The quick alternative is spelling `authz_row = false` on the four `_file`
+resolvers, but that leaves the same trap for the next package.
 
 ### 3. `[file_upload]` every file resolver is unauthenticated and cannot be guarded
 
@@ -82,12 +83,122 @@ but `DeletePermanent` and `Cleanup` are destructive enough to warrant deny by
 default. Whatever is chosen belongs in the Setup section of the doc, not buried
 further down.
 
+### 4. A typo in a row policy filter is an authorization bypass
+
+**Why.** `#[gql_input]` derives `Deserialize` with `#[serde(default)]` and without
+`deny_unknown_fields`, and the generated `*Filter` types go through it. A row
+policy that produces `{ "organizationIDD": "..." }` instead of `organizationId`
+therefore deserializes into an **empty** filter, and an empty filter is an empty
+`WHERE`, i.e. every row. The repo's own
+[`row_handlers.rs`](../tests/authz/row_handlers.rs) has an `UnknownFieldHandler`
+fixture documenting exactly this behavior.
+
+A single typo in policy data, the kind nothing type checks, silently turns a
+tenant scoped query into a cross-tenant read. This is the most dangerous item in
+the file because the failure is invisible from both sides: the policy looks
+configured, the query looks filtered.
+
+**Fix.** Deserialize a filter arriving from the authorization boundary strictly.
+Either a `deny_unknown_fields` variant of the generated filter used only by
+`authz_row_get_filter`, or a hand written check that every key in the json maps to
+a known field before deserializing. Separately, stop letting `{}` mean
+unrestricted at that boundary: an empty filter from a policy should be an error or
+an explicit `AllowAll`, never an accident.
+
+### 5. A row policy whose handler returns `None` fails open
+
+**Why.** [`authz_row_get_filter`](../crates/authz/context/row_context.rs) finds the
+row policy script for the path, calls the app's `execute_script`, and returns
+`Ok(None)` when the handler returns `None`. `None` from that function means "no
+filter", so the query runs unrestricted. The code comment says this is deliberate,
+so incremental integration is never blocked before a handler is written.
+
+The problem is that `None` now covers two states that are opposites on a security
+boundary: _no policy is configured for this path_, and _a policy is configured but
+nothing handled it_. The second should deny.
+
+**Fix.** Split them. No policy entry stays `None`. A policy entry whose handler
+declines becomes an error (`RowPolicyUnhandled`) or a deny-all filter. Keep the
+current behavior behind an explicit `allow_unhandled_row_policy: bool` on
+`AuthzConfig`, defaulting to `false`, so an app opting into the lenient mode says
+so out loud. Add a test that a configured policy plus a `None` handler returns an
+error rather than rows.
+
+### 6. A second authz guard on the same resolver is silently skipped
+
+**Why.** [`authz_with_cache`](../crates/authz/context/cache_context.rs) caches the
+authz result under the root field's alias and, on a hit, returns the stored value
+while discarding its `check: AuthzEnsure` argument entirely:
+
+```rs
+if let Some(v) = guard.get(&alias) {
+    let v = v.clone();
+    drop(guard);
+    return Ok(v);
+}
+```
+
+The guard system supports multiple guards per resolver, `check(guard_one, guard_two)`,
+and `authz_ensure` is a plain ctx method, so nothing stops a consumer combining two
+authz guards with different requirements. The first populates the cache, the second
+hits it and passes without its own realm/org/user requirements ever being
+evaluated. Everything downstream (`authz()`, `authz_role()`, `authz_row()`) then
+follows the first guard's role.
+
+**Fix.** Make the cache key reflect what was checked: include the realm plus the
+org/user flags in the key, or on a hit whose check differs, re-run
+`authz_without_cache` and keep the stricter outcome. Rejecting two `authz_ensure`
+guards at macro expansion time is cheaper but weaker, consumer guards wrap
+`authz_ensure` in traits the macro cannot see through.
+
+### 7. `gql_update` returns the updated row without re-applying the row policy
+
+**Why.** [`gql_update`](../crates/core/db/entity.rs) runs the write with the
+caller's authz row filter, then re-reads the response row with no filter at all:
+
+```rs
+let rows_affected = Self::update_many()
+    .filter_by_id(id)
+    .filter_option(authz_row) // policy applied to the write
+    .set(am)
+    .exec(tx)
+    .await?
+    .rows_affected;
+...
+let r = Self::find().filter_by_id(id).gql_select(ctx)?.one_or_404(tx).await?;
+```
+
+The write's `WHERE` is evaluated against the **old** row, so an update that changes
+the very column the policy filters on succeeds, and the re-read hands the caller a
+row that no longer matches their policy. With `org_id = 'orgA'`, a user sets
+`org_id` to `'orgB'` and gets back the row now sitting in orgB. The soft-delete
+branch of `gql_delete` has the same shape for its post-delete history read, smaller
+exposure since the row is leaving the active domain.
+
+**Fix.** Apply the same filter to the post-write read, and treat a miss as the
+authorization error rather than a 404:
+
+```rs
+let r = Self::find()
+    .filter_by_id(id)
+    .filter_option(authz_row)
+    .gql_select(ctx)?
+    .one(tx)
+    .await?
+    .ok_or_else(|| authz_err.clone())?;
+```
+
+Moving a row out of your own scope arguably should not succeed at all, so also
+consider rejecting the write when the _new_ value would fall outside the policy.
+
 ---
 
-### 4. `History` has no org column, so a row policy cannot scope it
+## P1 - correctness bugs, latent but severe when hit
 
-**Why.** Item 4's original half (secrets landing in `History.data`) is fixed, see
-the Fixed section. What remains is the row boundary. `History` carries
+### 8. `History` has no org column, so a row policy cannot scope it
+
+**Why.** The original half of this item (secrets landing in `History.data`) is
+fixed, see the Fixed section. What remains is the row boundary. `History` carries
 `entity_type`, `entity_id`, `by_id` and timestamps for every audited model in one
 shared table, and has no column an authz row policy can filter on. A
 `#[search(History)]` is therefore all-or-nothing: whoever passes the guard sees the
@@ -100,9 +211,54 @@ e.g. reusing the `#[authz_org_id]` signal already used for org scoping. Until th
 the docs say not to expose `History` behind a guard weaker than the strongest model
 being audited.
 
-## P1 - correctness bugs, latent but severe when hit
+### 9. A row policy that references `deleted_at` is silently cancelled
 
-### 5. A subscription keeps the permissions it opened with
+**Why.** `Filter::include_deleted` decides from three inputs, and the authz row
+filter is not one of them:
+
+```rs
+self.include_deleted || include_deleted.unwrap_or_default() || filter.is_some_and(|f| f.has_deleted_at())
+```
+
+`filter` there is the **client** filter. The authz row filter reaches the query
+through `Search::add_option`, which calls `Filter::add_option`, which only ANDs
+`c.into_condition()` and never touches `include_deleted` - even though
+`impl From<F> for Filter` does set it from `has_deleted_at()`. So an admin row
+policy meant to include soft-deleted rows gets `deleted_at IS NULL` added on top
+and returns nothing, with no signal to the policy author. `gql_search`,
+`gql_count`, `gql_detail` and `gql_load_with` all share the shape.
+
+**Fix.** Consult the authz row filter in the same decision. Keep it as a separate
+`Option<Self::F>` alongside `extra` rather than folding it into the condition
+early, then:
+
+```rs
+let inc = extra.include_deleted(include_deleted, filter.as_ref())
+    || authz_row.as_ref().is_some_and(|f| f.has_deleted_at());
+```
+
+Until then, document that a row policy must not reference `deletedAt`.
+
+### 10. Update and soft-delete still operate on soft-deleted rows
+
+**Why.** `Self::find()` does not exclude soft-deleted rows on its own, that is what
+`.include_deleted(false)` is for, and the mutation path never chains it:
+`gql_mutation_check_id` looks the id up with a bare `Self::find().filter_by_id(id)`,
+`gql_update` writes with `update_many().filter_by_id(id).filter_option(authz_row)`,
+and the soft-delete branch of `gql_delete` has no `deleted_at IS NULL` guard
+either. `include_deleted` is exposed on search/count/detail but has no equivalent
+on update/delete.
+
+So a row invisible to every normal query is still updatable by id, soft-deleting
+twice rewrites `deleted_at` and its audit fields again, and history and
+subscriptions both emit a second "delete" for an entity that was already deleted.
+
+**Fix.** Default update and soft-delete to `deleted_at IS NULL`. Permanent delete
+should keep seeing deleted rows deliberately. If a recovery workflow is wanted,
+give it an explicit `restore` mutation rather than letting a plain update resurrect
+a deleted row by accident.
+
+### 11. A subscription keeps the permissions it opened with
 
 **Why.** Guards and the resolver body run once, when the client subscribes. The
 per request cache holding the matched role, its col and row policy, and the
@@ -148,11 +304,31 @@ The alternatives, for the record:
 than one request has the same problem, and the same counter answers it: a
 subscription's `ctx.cache()` entries, any process level cache of policy or config
 an app adds later, invalidation across instances without trusting message
-delivery, and a detached job (item 12, the detached job helper) that started before a change landed and
-should notice before it writes. Design it as a general resource version, keyed by
-principal and by resource, not as an authz specific hack.
+delivery, and a detached job that started before a change landed and should notice
+before it writes. Design it as a general resource version, keyed by principal and
+by resource, not as an authz specific hack.
 
-### 6. `AuthOtpImpl`'s signature lets a consumer lose the attempt increment
+### 12. A commit that succeeded is reported to the client as a failed mutation
+
+**Why.** `GrandLineExtension::execute` commits, then publishes the queued
+subscription events, and pushes any publish error onto the response:
+
+```
+mutation -> SQL ok -> COMMIT ok -> publish fails -> client sees a GraphQL error
+```
+
+A client is entirely reasonable to retry what looks like a failed mutation, and a
+non-idempotent one then runs twice over a first attempt that did persist. With
+several queued events, some may have published before a later one failed.
+
+**Fix.** Decide what subscription delivery is. If it is best effort, a publish
+failure after the commit should log and increment a metric, not turn a successful
+mutation into a failure. If it must be reliable, use a transactional outbox: write
+the event rows inside the same transaction and let a relay publish and retry
+independently. For a backend framework the outbox is the cleaner answer, and it
+also removes the "commit then publish" window entirely.
+
+### 13. `AuthOtpImpl`'s signature lets a consumer lose the attempt increment
 
 **Why.** `auth_otp_ensure_resolve` increments the attempt counter and then returns
 `OtpResolveInvalid` on a bad code. That error rolls the request transaction back.
@@ -174,7 +350,7 @@ async fn increment(&self, db: &DatabaseConnection, id: &str, ty: &str) -> Res<Op
 Same for `find` / `reset` / `delete`. Cheaper fallback if the signature change is
 not wanted: state the requirement and the reason in the doc next to the skeleton.
 
-### 7. `auth_otp_ensure_re_request` deletes on db and re-creates on tx
+### 14. `auth_otp_ensure_re_request` deletes on db and re-creates on tx
 
 **Why.** [`otp_context.rs`](../crates/auth/context/otp_context.rs) deletes the
 stale otp row on the raw connection, so it commits immediately, while the caller
@@ -188,7 +364,58 @@ failed request keeps the stale row (the cooldown check already tolerates that), 
 defer the delete until after the new row is written. The first is simpler and
 matches what the cooldown is for.
 
-### 8. A `#[resolver]` returning an object type still under-selects silently
+### 15. `ilike` is emitted from a compile-time feature and breaks on sqlite and mysql
+
+**Why.** [`filter.rs`](../crates/macro_proc/model/filter.rs) picks the string
+operators with `cfg!(feature = "postgres")` on the **proc-macro** crate:
+
+```rs
+if cfg!(not(feature = "postgres")) {
+    push(f, struk, query, "like")?;
+    push(f, struk, query, "not_like")?;
+}
+if cfg!(feature = "postgres") {
+    push(f, struk, query, "ilike")?;
+    push(f, struk, query, "not_ilike")?;
+}
+```
+
+Same class as item 1: that flag reflects cargo feature unification, not the
+database the process connects to. The workspace default enables postgres, so a
+build that later points at sqlite or mysql still exposes `contentILike`, which
+emits `ILIKE` and is a syntax error on both. `independently.sh` hides it by running
+each suite with `--no-default-features` plus exactly one backend.
+[filtering-sorting.md](filtering-sorting.md) documents the operator list without
+mentioning the feature dependency.
+
+**Fix.** Emit `like`/`not_like` unconditionally, they are valid everywhere,
+postgres included. For `ilike`, either document it as postgres-only and have the
+condition builder return a clear error on another backend, or drop it and let apps
+use `like` with a lowercased column. Either way, stop reading `cfg!` on the
+proc-macro crate for a per-connection decision.
+
+### 16. `insert_many_with_returning` branches on `cfg!(feature = "postgres")`
+
+**Why.** [`am_create_many.rs`](../crates/core/db/am_create_many.rs) picks the bulk
+create strategy from the compiled feature rather than the connection. With
+`returning()` opted in, a build where feature unification pulled postgres in but
+whose process runs against mysql calls `exec_with_returning` on a database with no
+`RETURNING`, and on sqlite the outcome depends on the sea-orm and sqlx versions in
+the lockfile. The function already receives `tx: &D where D: ConnectionTrait`.
+
+**Fix.** Branch on the connection, which is what `get_database_backend()` is for:
+
+```rs
+if tx.get_database_backend() == DbBackend::Postgres {
+    let models = E::insert_many(ams).exec_with_returning(tx).await?;
+    return Ok(models);
+}
+```
+
+The fallback path is correct on every backend, so this also makes a
+`--features postgres` build safe to point anywhere.
+
+### 17. A `#[resolver]` returning an object type still under-selects silently
 
 **Why.** The scalar case is fixed, see the Fixed section: `gql_load` now errors
 when the calling field has no selection set at all. That signal does not cover a
@@ -209,74 +436,9 @@ expose. Keep as a known limitation unless it is reported again.
 
 ---
 
-### 9. The session cookie sets no `SameSite` and no `Path`
-
-**Why.** `HttpContext::set_cookie` sets `http_only` and `secure` and stops there.
-Two things follow, neither of them visible until something breaks:
-
-- With no `SameSite` attribute browsers apply `Lax`, so a browser app on a
-  different origin than the API simply never sends the session cookie, and the
-  request looks unauthenticated with no error explaining why. Such a setup needs
-  `SameSite=None; Secure`, which the framework has no way to express.
-- With no `Path` the browser derives one from the request URI, so a cookie set
-  from `/api/graphql` is scoped to `/api` and is not sent anywhere else.
-
-`SameSite` is also the main CSRF control for a cookie-authenticated API, so
-leaving it implicit is a security decision made by accident.
-
-**Fix.** Put both on `AuthConfig` next to the existing cookie key and expiry, with
-`SameSite=Lax` and `Path=/` as explicit defaults, and say in
-[authentication.md](authentication.md) which value a cross-origin app needs.
-
 ## P2 - robustness and missing patterns
 
-### 10. No supported way to keep working after the mutation returns
-
-**Why.** The per request transaction is held for the whole resolver body, so a
-mutation that kicks off slow work (a solver subprocess, a transcode) either holds
-a connection open for the duration or goes around the framework. Both have already
-happened: a real app hand rolled `tokio::spawn` plus a second transaction, and
-`FfmpegFileHandlers::on_upload_confirm` on the file_upload branch spawns a task
-that races the request transaction - on a fast path it can `UPDATE` the row before
-the request commits (postgres blocks until commit, sqlite can return
-`database is locked`), and if the request rolls back afterwards the task still
-writes `Ready`.
-
-**Fix.** An official detached job queue on `GrandLineData`:
-
-```rs
-detached: Mutex<Vec<BoxFuture<'static, ()>>>,
-
-async fn detach<F, Fu>(&self, f: F) -> Res<()>
-where
-    F: FnOnce(Arc<DatabaseConnection>) -> Fu + Send + 'static,
-    Fu: Future<Output = Res<()>> + Send + 'static;
-```
-
-`cleanup` commits first and only spawns the queued jobs on a successful commit; a
-rollback drops the queue, which is the right semantics - do not run background work
-for a request that did not land. Handing the closure an `Arc<DatabaseConnection>`
-also makes it impossible for a detached job to capture the request transaction, so
-this cannot reintroduce the commit ownership bug fixed earlier this session.
-
-### 11. `grand_line_build` reports errors in a way cargo ignores
-
-**Why.** [`grand_line_build/lib.rs`](../crates/grand_line_build/lib.rs) reports
-every failure with `eprintln!("cargo:error=...")`. Cargo reads build script
-directives from stdout, not stderr, and `cargo:error=` with a single colon is not
-a directive at all (the build-failing form is `cargo::error=`, added in Rust 1.84).
-So a missing `CARGO_MANIFEST_DIR`, a missing `OUT_DIR`, and a failed write of
-`grand_line_schema.rs` all print into a stream nobody reads and let the build pass.
-
-On top of that, `scan(path)` silently scans nothing when the path does not exist.
-A real refactor left several stale `.scan("../../crates/commerce/...")` entries
-pointing at deleted directories and `cargo check` stayed green.
-
-**Fix.** Use `panic!` for all of these - cargo surfaces a build script panic and
-fails the build. Add an `is_dir()` check per configured scan dir with a message
-naming the path.
-
-### 12. `AuthOtpContext` increments before verifying the secret
+### 18. `AuthOtpContext` increments before verifying the secret
 
 **Why.** [`otp_context.rs`](../crates/auth/context/otp_context.rs) calls
 `increment` before checking the code or the secret. The otp row id is handed to
@@ -287,7 +449,126 @@ attempts and lock them out.
 opaque `OtpResolveInvalid` for every failure path so this does not become an
 oracle for which part was wrong.
 
-### 13. Dropping a transaction while its connection is locked panics
+### 19. A `*` col policy entry beats a stricter per-operation entry
+
+**Why.** [`authz_without_cache`](../crates/authz/context/cache_context.rs) reads
+the wildcard first:
+
+```rs
+m.col_policy.get("*").or_else(|| m.col_policy.get(self.field_impl().name()))
+```
+
+The comment says it is intentional, because `col_policy` is allow-only and there is
+no deny entry that could express "everything via `*` except this one operation".
+That is a coherent reason, but the resulting shape reads backwards to anyone
+writing a policy: `*` granting broadly plus `delete` granting narrowly looks like a
+specialization, and is silently the opposite.
+
+**Fix.** Either flip the precedence so an exact operation entry wins over the
+wildcard fallback, which is what every allow-list system people have used before
+does, or keep the precedence and reject a config carrying both `*` and a specific
+entry for the same field at startup. A validator warning is the minimum, since the
+current behavior is invisible until an audit.
+
+### 20. The write/transaction decision reads the whole document, not the selected operation
+
+**Why.** `GrandLineExtension::parse_query` sets the write flag with
+`doc.operations.iter().any(|(_, o)| o.node.ty == OperationType::Mutation)`, with no
+regard for `operationName`. A document carrying both a query and an unused mutation
+puts the request on the transaction path even when the client selected the query:
+
+```graphql
+query CheapQuery { .. }
+mutation UnusedMutation { .. }
+```
+
+with `operationName = CheapQuery`. No wrong write happens, but the request opens
+and pins a transaction it does not need, which contradicts what
+[resolvers.md](resolvers.md#connections-and-transactions) promises and is a cheap
+resource-exhaustion lever against a small pool.
+
+**Fix.** Resolve `operationName` first and classify only the selected operation.
+
+### 21. `tx_finish` commits but never spawns detached jobs
+
+**Why.** `GrandLineData::tx_finish` commits and clears the write flag but does not
+call `detached_spawn`. `cleanup` is the only place detached jobs run, and `cleanup`
+never runs for a subscription: the extension's `execute` is skipped and the
+stream's lifetime is handled by `TxRelease` instead. A subscription resolver
+calling `ctx.detach(..)` therefore queues a job that never runs, and
+`detach`'s doc says "queued to run after this request commits", a promise
+`tx_finish` breaks.
+
+**Fix.** Have `tx_finish` call `detached_spawn` after a successful commit, the same
+rule as `cleanup`. If the intent is that subscriptions never run detached work,
+say so on `detach` and make `tx_finish` drop the queue explicitly rather than
+leaking it.
+
+### 22. The redis publish connection is cached forever, with no reconnect
+
+**Why.** `RedisBroker` in
+[`broker_redis.rs`](../crates/core/subscription/broker_redis.rs) holds the publish
+connection in a `OnceCell<MultiplexedConnection>`, and `get_or_try_init` returns the
+stored value forever. If redis restarts or the connection drops, every later
+publish fails against the stale handle and never re-establishes, so one blip
+becomes a permanent subscription outage on every instance until the process is
+restarted.
+
+**Fix.** On a publish error, drop the cached connection and retry once with a fresh
+one, or use a connection type with built-in reconnect and verify it actually
+reconnects. Add a metric for publish failures so the outage is visible.
+
+### 23. A redis subscribe failure silently ends the stream
+
+**Why.** The subscribe side of the same broker wraps each setup step in `.ok()?`:
+
+```rs
+let client = Client::open(url).ok()?;
+let mut pubsub = client.get_async_pubsub().await.ok()?;
+pubsub.subscribe(channel).await.ok()?;
+```
+
+so a connection failure ends the stream instead of surfacing an actionable error,
+and a payload that fails to deserialize is dropped just as quietly. A transient
+redis outage makes live subscriptions disappear with no explanation on either
+side, and there is no retry or reconnect.
+
+**Fix.** Make the broker abstraction carry errors, `Stream<Result<SubscriptionEvent>>`
+in shape, and give the redis implementation reconnect with bounded exponential
+backoff plus metrics for connect and decode failures.
+
+### 24. `authz_with_cache` holds the cache mutex across the whole role lookup
+
+**Why.** In [`cache_context.rs`](../crates/authz/context/cache_context.rs) the
+`m.lock().await` guard is still alive when `authz_without_cache(check).await` runs,
+and that call does a header read, an `auth()` session resolution, a db query
+through `find_matching`, and a col policy check. Every other authz-guarded root
+resolver in the same request queues on that mutex for the whole duration, so two
+sibling aliased root fields on a read run their guards serially - exactly the
+concurrency the pooled-connection design advertises. Not a deadlock, the inner
+calls never re-lock this map.
+
+**Fix.** Use the shape `CacheContext::cache` already established: take the map lock
+only to fetch or insert a per-key cell, drop it, then `get_or_try_init` the cell
+around the lookup. Concurrent first callers for the same field then share one
+lookup instead of queueing.
+
+### 25. `has_many` and `many_to_many` are N+1 in the number of parents
+
+**Why.** `has_one` / `belongs_to` go through `gql_load` and its dataloader.
+`has_many` and `many_to_many` call `gql_search` once per parent
+([relation.rs](../crates/macro_proc/model/relation.rs)), so listing 100 users and
+their posts is ~101 queries. For a GraphQL framework this is the capability gap
+people notice first.
+
+**Fix.** A batch loader keyed by parent id, `WHERE parent_id IN (..)` then partition
+by parent, and the join-table equivalent for `many_to_many`. The hard part is that
+the loader key must carry filter, order_by, include_deleted and authz row, and that
+per-parent pagination needs window functions. A heuristic that batches the simple
+shape and falls back to per-parent when pagination or a custom resolver is involved
+captures most of the benefit.
+
+### 26. Dropping a transaction while its connection is locked panics
 
 **Why.** sea-orm 2.0.0's `Drop for DatabaseTransaction` calls
 `start_rollback().expect(..)`, and `start_rollback` returns
@@ -303,7 +584,7 @@ down mid statement.
 **Fix.** Low priority now, but `tx_release` could await the lock from a spawned
 task instead of dropping under `try_lock`, which would close the last window.
 
-### 14. Opening the transaction holds its mutex across `db.begin()`
+### 27. Opening the transaction holds its mutex across `db.begin()`
 
 **Why.** `GrandLineData::tx_begin` holds the `tx` mutex for the whole
 `db.begin().await`. When the pool is exhausted every sibling resolver asking for a
@@ -315,7 +596,7 @@ unexplained hanging request. Queries are unaffected, they never call it.
 discarding the loser) or documenting the behavior so the queue is recognizable when
 diagnosing.
 
-### 15. No timeout bounds the request transaction
+### 28. No timeout bounds the request transaction
 
 **Why.** `cleanup` only runs once `next.run()` returns, so a resolver making an
 external call with no timeout holds the transaction and its connection open
@@ -325,7 +606,36 @@ nothing in the framework or the docs bounds it.
 **Fix.** Document the recommendation to set `statement_timeout` and
 `idle_in_transaction_session_timeout` on the database side.
 
-### 16. `[file_upload]` hardening for the file package
+### 29. A password reset leaves every existing session valid (saas example)
+
+**Why.** [`forgot_resolve.rs`](../examples/saas/src/auth/forgot_resolve.rs) stores
+the new password hash and creates a fresh login session, but does nothing to the
+user's other `LoginSession` rows. Anyone holding a bearer token or cookie from
+before the reset keeps full access afterwards, which defeats most of the point of
+the flow. The framework cannot fix this generically: the session contract
+(`AuthSessionImpl::find` by id and secret) has no generation or epoch column that
+bulk revocation could key off, and authentication.md never says invalidating
+sessions on a credential change is the app's job.
+
+**Fix.** In the example, delete the user's other sessions inside `forgot_resolve`
+alongside the password update. In the docs, make session invalidation on a
+credential change an explicit app duty. Consider a session generation column on the
+`#[auth_session]` contract as a roadmap item so the default impl can enforce it.
+
+### 30. `x-socket-addr` has no framework-provided source
+
+**Why.** `HttpIpSource::SocketAddr` is the default and reads the `x-socket-addr`
+header, which no HTTP server sets on its own. The only place in the repo that
+populates it is the saas example's `main.rs`. It is documented in
+[authentication.md](authentication.md) now, but an app that forgets still gets
+`HeaderIp404` on every login, and there is no http docs page of its own.
+
+**Fix.** Ship an axum layer in `_http_axum` that inserts `x-socket-addr` from
+`ConnectInfo<SocketAddr>` before the GraphQL handler, so the safe configuration is
+the default and cannot be forgotten. A dedicated http docs page would also give
+`get_ip` / `get_ua` / `set_cookie` a home that is not the authentication page.
+
+### 31. `[file_upload]` hardening for the file package
 
 **Why and fix**, each small and independent:
 
@@ -348,71 +658,137 @@ nothing in the framework or the docs bounds it.
 
 ---
 
-### 17. A client can ask for an unbounded `offset`
+## P3 - footguns, polish and documentation
 
-**Why.** `CoreConfig` clamps `limit` through `limit_max`, but `Pagination::inner`
-passes `offset` straight through untouched. `offset: 100000000` against a large
-table is a full scan the database cannot shortcut, from a single ordinary looking
-query. `order_by` has the same shape of problem, a client may send an arbitrarily
-long `Vec<OrderBy>`, though the database usually rejects that first.
+### 32. Generated resolvers lose their doc comments from the schema
 
-**Fix.** An `offset_max` on `CoreConfig` alongside `limit_max`, clamped the same
-way, and a cap on the number of `order_by` entries accepted.
+**Why.** `ResolverFn::docs()` defaults to `vec![]` and `ResolverTy` never overrides
+it, so a `///` comment on a `#[query]` / `#[mutation]` / crud resolver does not
+become a GraphQL field description. Only model field resolvers (`GenResolver`)
+implement `docs()`. For a framework whose whole surface is generated, losing
+introspection docs is a real DX cost.
 
-### 18. `get_ip` trusts client supplied headers
+**Fix.** Carry `#[doc = ..]` through `ResolverTyItem` into `ResolverTy` and
+implement `docs()`, the emitter already splices them. Add an SDL snapshot test that
+pins a description so it cannot regress.
 
-**Why.** `HttpContext::get_ip` reads `x-real-ip`, then `x-forwarded-for`, then
-`x-socket-addr`, with no notion of which of those a proxy is actually setting.
-Behind a proxy that overwrites them this is right; reachable directly, or behind a
-proxy that appends rather than replaces, any client picks its own address. The
-saas example persists that value on the login session as audit data, so what looks
-like a record of where a session came from is client controlled.
+### 33. `gen_auth_by_id` turns every auth error into "no actor"
 
-**Fix.** Make the source configurable rather than a fixed fallback chain: let the
-app say which header its proxy sets and how many hops to trust, and fall back to
-the socket address when nothing is configured. Until then, say plainly in the docs
-that the header chain is only trustworthy behind a proxy that overwrites it.
+**Why.** [`auth.rs`](../crates/macro_proc/utils/auth.rs) emits
+`ctx.auth().await.ok()`, so a database error or a malformed session becomes `None`
+and the history entry records no actor. The audit trail silently loses the "who"
+for writes that did have an authenticated user, with nothing logged to say why.
+Only the genuine "unauthenticated" case should produce `None`.
 
-### 19. A missing `User-Agent` header blocks login
+**Fix.** Match on the error and return `None` only for the not-authenticated code,
+logging the rest. At minimum log at warn when `ctx.auth()` fails for any other
+reason, so a broken auth lookup does not masquerade as anonymous writes.
 
-**Why.** `get_ua` returns `HeaderUa404` when the `user-agent` header is absent, and
-the saas login path calls `ctx.get_ua()?` to record the session. A programmatic
-client that sends no `User-Agent`, which is neither unusual nor wrong, cannot log
-in at all. A purely informational field is a hard failure.
+### 34. The session cookie hardcodes `Secure` with no opt-out
 
-**Fix.** Let `get_ua` return what it found and leave the decision to the caller, or
-keep a strict variant and have the session helper use the lenient one. Recording
-an empty user agent is strictly better than refusing the login.
+**Why.** `set_cookie` always emits `Secure`. `HttpConfig` now exposes `same_site`
+and `path` but not this. On plain http, `http://localhost` included, browsers drop
+the cookie, so cookie-based login silently never works in local development and
+there is nothing to configure. Bearer tokens still work, which makes it easy to
+misread as a client bug.
 
-### 20. `arithmetic_side_effects` is allowed workspace wide
+**Fix.** Add `cookie_secure: bool` to `HttpConfig`, default `true`, and pass it
+through in `set_cookie`, matching how `same_site` and `path` are already handled.
 
-**Why.** The workspace lints switch the whole clippy restriction group on and then
-allow `arithmetic_side_effects` globally. Release builds wrap silently on overflow,
-and the codebase does have hand written arithmetic on untrusted sizes, the depth
-counter in the i18n template parser among them. That particular one is safe, its
-counter is always at least one when it is decremented, but the guarantee comes
-from reading the loop rather than from the compiler.
+### 35. i18n calls itself ICU MessageFormat but is a subset, and fails silently
 
-**Fix.** Drop the global allow and put a narrow `#[allow]` with a reason at the
-handful of sites that need it, which is also what makes the safe ones self
-documenting.
+Three related gaps in [`intl.rs`](../crates/i18n/libs/intl.rs), all the same shape:
+input that looks like valid ICU produces partially rendered output instead of an
+error.
 
-## P3 - documentation
+- **Plural bodies are not re-rendered.** After picking a case the code does
+  `out.push_str(&t.replace('#', &count.to_string()))` and pushes the result
+  directly, so `{count, plural, one{{name} has # item} other{..}}` picks the right
+  branch and leaves `{name}` as literal text.
+- **An unknown formatter type falls back to raw.** `parse_placeholder` maps
+  anything unrecognized to `Ph::Raw`, so `{amount, numbr}` prints the unformatted
+  value with no signal that the type was misspelled.
+- **No apostrophe escaping.** ICU uses a single quote to escape braces, `'{name}'`
+  meaning literal `{name}`. The parser does not handle quotes at all, so prose
+  containing an apostrophe before a brace is parsed as a placeholder.
 
-### 21. Mixing `ctx.db_pool()` and the request connection is only half documented
+**Fix.** Pick a contract and enforce it. Either implement the recursive render,
+the type validation and the quoting rule properly, or rename the contract to
+"ICU-like subset" in the docs and **reject** the syntax that is not supported
+rather than half-rendering it. Erroring on an unknown formatter type is the
+cheapest first step and catches the most likely mistake.
 
-**Why.** [resolvers.md](resolvers.md#connections-and-transactions) now names the
-three handles and says what each is for, but not what it costs to mix them. On
-sqlite, writing through `ctx.db_pool()` while the request transaction already
-holds a write lock returns `SQLITE_BUSY`. The otp flow happens to be safe because
-its writes run before the transaction takes a lock, which is an accident of
-ordering rather than a guarantee, and nothing says so.
+### 36. `grand_line_build` silently skips files it cannot read or parse
 
-**Fix.** Add the locking caveat next to the handle table, and say plainly that
-anything written through `ctx.db_pool()` is outside the request's rollback, which
-is the whole point of it and also the whole risk.
+**Why.** `scan_dir` swallows three failure classes: `fs::read_dir` errors,
+`fs::read_to_string` errors (`unwrap_or_default`), and `parse_file` errors, each
+producing zero resolvers with no warning. The `resolve_dirs` check added in this
+session catches a missing directory, but a directory that exists yet is unreadable,
+or a file that fails to parse, still yields a schema quietly missing resolvers with
+a green build. A resolver dropped this way becomes a runtime "unknown field" that
+could have been a build error.
 
-### 23. Close the `From<async_graphql::Error> for GrandLineErr` request
+**Fix.** Emit `cargo:warning=` naming the path for a `read_dir` or `read_to_string`
+failure. A `parse_file` failure is expected for a file that will not compile
+anyway, so a warning is enough there too, but the read failures should be loud.
+
+### 37. `org_invitation_reject` contradicts its own comment (saas example)
+
+**Why.** [`invitation_resolve.rs`](../examples/saas/src/authz/invitation_resolve.rs)
+marks the resolver `#[mutation(check = authenticated)]` while its body comment says
+"No authentication required (mirrors a plain unsubscribe-style link). Proof of
+ownership is the id+secret+otp challenge itself, not a session." Both cannot be
+right. As written the guard is redundant for security, `auth_otp_ensure_resolve`
+already gates on id+secret+otp, but it does reject the unauthenticated flow the
+comment describes.
+
+**Fix.** Decide which behavior the example models, then fix the other half, and pin
+the choice with a saas test.
+
+### 38. `many_to_many` join-table `include_deleted` is inconsistent
+
+**Why.** In [`relation_shape.rs`](../crates/macro_proc/model/relation_shape.rs),
+`many_to_many_condition` passes the relation's `include_deleted` through to the
+join-table subquery, while `many_to_many_filter` (the `_some` / `_none` / `_every`
+fields) hardcodes `include_deleted(false)` for it. A soft-deleted join row
+therefore counts when fetching the list with `includeDeleted: true` but never
+counts for the relation filters, so `posts_some` and the `posts` list can disagree
+about the same rows with no signal.
+
+**Fix.** Align them. If soft-deleted join rows should always be invisible, drop the
+passthrough in `many_to_many_condition` too. If the difference is deliberate, name
+it in a comment and in [relationships.md](relationships.md).
+
+### 39. `DefaultOtpImpl::reset` misses `include_deleted(false)`
+
+**Why.** `find` and `increment` in [`otp.rs`](../crates/auth/models/otp.rs) both
+exclude soft-deleted rows, `reset` does not. For a consumer OTP model that keeps
+`deleted_at` (the example disables it, the macro only requires the listed columns),
+a resolve on a soft-deleted row would still zero its attempt counter.
+
+**Fix.** Add `.include_deleted(false)` to the reset query, matching its siblings.
+
+### 40. Small docs and message fixes
+
+- `OtpReRequestTooSoon` renders as "otp is not yet to re-request", which reaches
+  clients as-is since the variant is `#[client]`. Something like "otp re-request is
+  still in cooldown, try again later".
+- [error-handling.md](error-handling.md) links `examples/saas/src/err.rs`, the file
+  is [`examples/saas/src/utils/err.rs`](../examples/saas/src/utils/err.rs).
+- [debug-macros.md](debug-macros.md) says `debug_macro_cli` prints "with syntax
+  highlighting via prettyplease". prettyplease only formats; the single
+  `bright_black` from the colored crate is applied to the whole output. Reword to
+  "pretty-printed with prettyplease".
+- [design-notes.md](contribution/design-notes.md) still lists, under Known
+  limitations, "No subscriptions yet. EmptySubscription is used throughout", and
+  roadmap item 6 calls subscriptions "currently the largest capability gap".
+  Subscriptions shipped. Roadmap item 8 also lists `LICENSE` as missing, the file
+  exists, and CONTRIBUTING effectively exists as docs/contribution.md. CI and a
+  changelog genuinely are still missing, keep those.
+- CLAUDE.md's Formatting Rules table reads "Semicolon: colon (,)", which names a
+  colon while showing a comma. Should be "comma (,)".
+
+### 41. Close the `From<async_graphql::Error> for GrandLineErr` request
 
 **Why not.** The case that prompted it was reaching for the raw db handle, and
 `ctx.db().await?` already covers that. For the general case,
@@ -426,14 +802,12 @@ instead, and drop the request.
 
 ---
 
-## Open decision, not yet an item
+## Verified as already fixed, dropped from the merge
 
-After a normal rollback (a resolver errored, `cleanup` succeeded), the response
-still carries `data` produced by mutations that were rolled back. A client reading
-only `data` sees rows that do not exist. Nulling `data` on any rollback would be
-consistent with one transaction per request, but it conflicts with GraphQL's
-partial success semantics and is harmless for queries, where a rollback discards
-nothing. Needs a decision before it becomes an item.
+- **The `nongdan-dev` repo urls** flagged in todo4 are gone from README.md and
+  docs, only the audit file itself still mentioned them.
+- **`get_ip`'s undocumented `x-socket-addr` requirement** is documented in
+  authentication.md now. What remains is the axum layer, kept as item 30.
 
 ---
 
@@ -441,11 +815,59 @@ nothing. Needs a decision before it becomes an item.
 
 Recorded so they are not re-reported.
 
+- **`data` is now nulled when a transaction was actually rolled back** (the open
+  decision). `cleanup` returns whether it rolled anything back, and the extension
+  nulls `data` only then. A query keeps graphql's partial success untouched: it
+  opens no transaction, so an error in one field undid nothing. Documented in
+  resolvers.md.
+- **The session cookie set no `SameSite` and no `Path`.** Both now come
+  from `HttpConfig`, with `SameSite=Lax` and `Path=/` as explicit defaults, applied
+  to every cookie `set_cookie` writes rather than only the session one. They live
+  on `HttpConfig` rather than `AuthConfig` as the item suggested, because
+  `set_cookie` is in `_http` and cannot see `_auth`, and the attributes are a
+  property of the deployment, not of auth.
+- **No supported way to keep working after the mutation returns.**
+  `ctx.detach()` queues a job on `GrandLineData`, spawned only after a successful
+  commit and dropped on a rollback. The closure is handed an
+  `Arc<DatabaseConnection>`, so it cannot capture the request transaction.
+- **`grand_line_build` reported errors cargo ignored.** Now uses
+  `println!("cargo::error=..")` (two colons, read from stdout, fails the build)
+  plus `process::exit(1)`, rather than the `panic!` the item suggested: it fails
+  the build just as hard, without a backtrace, and keeps the no-panic rule. Scan
+  dirs are validated with `resolve_dirs`, which names the stale path. This also
+  surfaced that the crate's doc examples were only passing because `generate()`
+  silently did nothing, they are `no_run` now.
+- **Unbounded `offset` and `order_by`.** `CoreConfig` gained `offset_max`
+  (10_000) and `order_by_max` (5). Only the client supplied `order_by` is capped,
+  an app's own default is deliberate.
+- **`get_ip` trusted client supplied headers.** Replaced the fallback
+  chain with `HttpConfig::ip_source`: `SocketAddr` by default, or
+  `Proxy { header, hops }` counting from the right of a comma separated list.
+  `init_common_headers` in test_utils now sets `x-socket-addr`, which is what a
+  real handler provides.
+- **A missing `User-Agent` blocked login.** `get_ua` returns what it
+  found, `HeaderUa404` is gone.
+- **`arithmetic_side_effects` allowed workspace wide.** Global allow
+  dropped, clippy is clean with it on. Three sites turned out to be real: the
+  `Option<..>` strip in `unwrap_option_str` (now `strip_prefix`/`strip_suffix`,
+  which also checks the closing bracket), the otp `remaining_attempt` subtraction
+  (now saturating), and a test resolver adding two client supplied `i64`. The rest
+  are narrow `#[allow]`s with reasons, mostly timestamp shifts by app config and
+  byte indices in the i18n parser.
+- **Documentation gaps.** resolvers.md now has the `ctx.db_pool()`
+  rollback and sqlite locking caveats, the detached job section, and what a
+  rollback does to the response. model.md has the worked example of a computed
+  field reading a related row with batching.
+- **`GQL_SELECT` listed `#[graphql(skip)]` columns**, found by a test written for
+  `gql_look_ahead_all`. A skipped field has no resolver so no client can name it,
+  making the entry unreachable, but it meant the map was a list of every column
+  rather than the reachable ones. `GQL_COLS` still holds them, an `sql_dep` on a
+  skipped column still resolves.
 - **The dataloader cache key was unstable, so batching silently fell back to n+1.**
-  Found while working item 8, and the more severe half of it. `gql_look_ahead_of`
+  Found while working the gql_load item (now item 17), and the more severe half of it. `gql_look_ahead_of`
   collected through a `HashSet` and iterated it, and `ColumnX::to_loader_key`
-  writes that order into the key (item 8's claim that the lookahead was missing
-  from the key was already stale). Every `HashSet` gets its own `RandomState`
+  writes that order into the key (the claim that the lookahead was missing from
+  the key was already stale). Every `HashSet` gets its own `RandomState`
   seed, so the same selection set produced a different key per call - measured 5
   distinct orders out of 6 identical sets in one thread. Each key builds its own
   `DataLoader`, so `todos { user { name } }` over 10 rows ran up to 10 queries
@@ -464,7 +886,7 @@ Recorded so they are not re-reported.
   an empty lookahead is legitimate for `__typename` or a `#[resolver]` with no
   `sql_dep`. `gql_look_ahead_all` is built from `gql_select`, not `gql_cols`, which
   still holds `#[graphql(skip)]` columns despite what its doc comment used to say.
-  The worked example item 22 asked for is in model.md, so that item is closed too.
+  The worked example the docs item asked for is in model.md, closed with it.
 - `History` stored every column, defeating `#[graphql(skip)]`. `History::add`
   snapshotted the raw row, so enabling `#[model(history)]` on a model holding
   secrets put `password_hashed` and friends into `History.data` as cleartext json,
@@ -476,7 +898,7 @@ Recorded so they are not re-reported.
   without hiding it from the api. `History::diff` covers the read side, snapshots
   stay the storage format - a stored delta chain would be silently wrong for good
   the first time a write bypasses history. What is left is the row boundary, now
-  item 4.
+  item 8.
 - Commit was silently swallowed whenever a dataloader ran. `LoaderX` held an
   `Arc<DatabaseTransaction>`, async_graphql keeps the loader alive briefly inside
   the `tokio::spawn`ed batch task after handing rows back, and that task could

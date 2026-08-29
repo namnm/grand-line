@@ -137,4 +137,42 @@ fn my_query() -> bool {
 
 `ctx.db_pool()` steps outside the request entirely. The otp attempt counter is the framework's own use of it, so a failed resolve still counts against the limit after the request rolls back, see [Authentication](authentication.md).
 
+Two things follow from that, and they are the whole point of `db_pool()` and also its whole risk:
+
+- **Anything written through it is outside the request's rollback.** That is what makes it right for an attempt counter and wrong for everything else. A partial write it leaves behind is not undone when the resolver errors.
+- **On sqlite it can deadlock against your own request.** Writing through `ctx.db_pool()` while the request transaction already holds the write lock returns `SQLITE_BUSY`. The otp flow is safe because its writes happen before the transaction takes a lock, which is an accident of ordering, not a guarantee. Postgres does not have this problem, it blocks per row rather than per database.
+
+## Work that outlives the request
+
+The transaction is held for the whole resolver body, so a mutation that kicks off something slow would hold a connection open for the duration. `ctx.detach()` queues that work instead:
+
+```rs
+#[mutation]
+fn transcode_video(id: String) -> bool {
+    ctx.detach(move |db| async move {
+        // db is a pooled connection, the request transaction is already gone
+        transcode(&id).await?;
+        am_update!(Video {
+            id: id,
+            status: VideoStatus::Ready,
+        })
+        .exec_without_ctx(db.as_ref())
+        .await?;
+        Ok(())
+    })
+    .await?;
+    true
+}
+```
+
+The job is spawned only after the request commits. A rollback drops it: there is no background work to do for a request that did not land. It is handed a pooled connection rather than the request transaction, so it cannot race the commit or write through a transaction the request owns.
+
+Do not reach for a bare `tokio::spawn` here. A task spawned from a resolver runs while the request transaction is still open, and on a fast path it can try to `UPDATE` a row the request has not committed yet: postgres blocks until the commit, sqlite returns `database is locked`, and if the request then rolls back the task's write stands on its own.
+
+## What a rollback does to the response
+
+When a mutation errors, the transaction rolls back and the response's `data` is set to `null`. Everything the resolvers produced before the error describes rows that no longer exist, and a client reading only `data` would take them as written.
+
+A query is left alone. It opens no transaction, so an error in one field undid nothing and GraphQL's partial success still applies: the failed field is `null`, its siblings keep their values.
+
 **Known limitation:** inside a mutation every resolver shares the one transaction, i.e. one underlying DB connection. Sibling GraphQL fields, relation resolvers included, may be scheduled concurrently as Rust futures, but their statements still serialize on that connection. Queries no longer have this problem, they read from the pool.

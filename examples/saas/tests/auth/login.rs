@@ -77,6 +77,7 @@ async fn login_without_user_agent_header_succeeds() -> Res<()> {
     // the session just records an empty one
     let mut h = d.h.clone();
     h.remove(H_UA);
+    h.remove(H_UA_SEC_CH);
     let s = d.schema(h);
     let q = r#"
     mutation {
@@ -90,7 +91,7 @@ async fn login_without_user_agent_header_succeeds() -> Res<()> {
     let expected = value!({
         "login": {
             "inner": {
-                "ua": "{}",
+                "ua": {},
             },
         },
     });

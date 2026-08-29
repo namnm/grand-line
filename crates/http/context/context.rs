@@ -126,6 +126,10 @@ where
     /// SameSite and Path come from HttpConfig, leaving either implicit lets the
     /// browser decide: no SameSite means Lax, which a cross origin app never sends,
     /// and no Path scopes the cookie to the directory of the request uri.
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "shifting now by an expiry the caller passes from config, not by client input"
+    )]
     fn set_cookie(&self, k: &str, v: &str, expires: i64) {
         let c = self.http_config();
         let v = Cookie::build(Cookie::new(k, v))

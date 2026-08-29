@@ -16,6 +16,10 @@ use crate::prelude::*;
 ///
 /// vars supplies variable values, a missing key returns Err unless
 /// ctx.allow_missing_vars was set, in which case the placeholder is preserved.
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "byte index and brace depth over one bounded template, depth only decrements inside a brace it opened"
+)]
 pub fn intl(template: &str, vars: &HashMap<&str, IntlValue>, ctx: &IntlFormatter) -> Res<String> {
     let mut out = String::with_capacity(template.len() + 32);
     let bytes = template.as_bytes();
@@ -109,6 +113,10 @@ pub struct Placeholder {
 /// Placeholders with invalid var names (empty, contains spaces, etc.) are
 /// silently skipped, matching intl behaviour.  Unclosed { stops
 /// scanning from that point.
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "byte index and brace depth over one bounded template, depth only decrements inside a brace it opened"
+)]
 pub fn intl_parse(template: &str) -> Vec<Placeholder> {
     let bytes = template.as_bytes();
     let mut result = Vec::new();
@@ -184,6 +192,10 @@ fn parse_into_placeholder(inner: &str) -> Option<Placeholder> {
     })
 }
 
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "byte index and brace depth over one bounded template, depth only decrements inside a brace it opened"
+)]
 fn parse_plural_case_args(cases: &str) -> Vec<String> {
     let bytes = cases.as_bytes();
     let mut result = Vec::new();
@@ -280,6 +292,10 @@ fn parse_placeholder(inner: &str) -> Option<(&str, Ph<'_>)> {
     Some((var, ph))
 }
 
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "byte index and brace depth over one bounded template, depth only decrements inside a brace it opened"
+)]
 fn cut(s: &str, sep: char) -> (&str, &str) {
     match s.find(sep) {
         None => (s.trim(), ""),
@@ -352,6 +368,10 @@ fn slot(out: &mut String, var: &str, val: &IntlValue, ph: &Ph<'_>, ctx: &IntlFor
 // Plural case scanner
 // ---------------------------------------------------------------------------
 
+#[allow(
+    clippy::arithmetic_side_effects,
+    reason = "byte index and brace depth over one bounded template, depth only decrements inside a brace it opened"
+)]
 fn find_case<'a>(cases: &'a str, keyword: &str) -> Option<&'a str> {
     let bytes = cases.as_bytes();
     let mut i = 0;

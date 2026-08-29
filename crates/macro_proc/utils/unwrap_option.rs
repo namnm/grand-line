@@ -17,8 +17,8 @@ where
     D: Display,
 {
     let uw_str = ty.to_string().replace(' ', "");
-    if uw_str.starts_with("Option<") {
-        return (true, uw_str[7..uw_str.len() - 1].to_owned());
+    if let Some(inner) = uw_str.strip_prefix("Option<").and_then(|v| v.strip_suffix('>')) {
+        return (true, inner.to_owned());
     }
     (false, uw_str)
 }

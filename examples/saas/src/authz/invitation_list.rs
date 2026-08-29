@@ -24,11 +24,16 @@ async fn my_org_invitations() -> Vec<OrgInvitation> {
         .into_iter()
         .map(|i| {
             let d = OtpDataOrgInvitation::from_json(i.data)?;
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "shifting a timestamp by an expiry the app configures, not by client input"
+            )]
+            let will_expire_at = i.created_at + duration_ms(ctx.auth_config().otp_expires_ms);
             Ok(OrgInvitation {
                 id: i.id,
                 org_id: d.org_id,
                 role_id: d.role_id,
-                will_expire_at: i.created_at + duration_ms(ctx.auth_config().otp_expires_ms),
+                will_expire_at,
             })
         })
         .collect::<Res<Vec<_>>>()?

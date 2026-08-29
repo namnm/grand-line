@@ -8,7 +8,7 @@ impl Query {
         0
     }
     async fn add(&self, a: i64, b: i64) -> i64 {
-        a + b
+        a.saturating_add(b)
     }
 }
 

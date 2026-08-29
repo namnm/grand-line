@@ -1,5 +1,6 @@
 #![allow(ambiguous_glob_reexports, dead_code, unused_imports)]
 
+pub use core::time::Duration;
 pub use grand_line::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -53,22 +54,98 @@ fn investigation_forced_tx_is_tx() -> bool {
     ctx.db().await?.is_tx()
 }
 
+/// A read that errors, nullable so the error does not propagate to the root and
+/// the response keeps whatever its sibling field produced.
+#[query]
+fn investigation_missing() -> Option<bool> {
+    let db = &ctx.db().await?;
+    Investigation::find_by_id(MISSING_ID).one_or_404(db).await?;
+    Some(true)
+}
+
+// ---------------------------------------------------------------------------
+// Detached jobs, queued during the request and spawned only after it commits
+// ---------------------------------------------------------------------------
+
+/// Queues a detached job writing a Report, so a test can see whether it ran.
+#[mutation]
+fn detached_report(title: String) -> bool {
+    ctx.detach(move |db| async move {
+        am_create!(Report {
+            title,
+            investigation_id: DETACHED_ID.to_owned(),
+        })
+        .exec_without_ctx(db.as_ref())
+        .await?;
+        Ok(())
+    })
+    .await?;
+    true
+}
+
+/// Queues the same job, writes through the request transaction, then fails.
+/// Nullable so the error stays on this field and data still carries the sibling
+/// mutation's result, which is the case the rollback null out is about.
+#[mutation]
+fn detached_report_then_fail(title: String) -> Option<bool> {
+    let db = &ctx.db().await?;
+    ctx.detach(move |db| async move {
+        am_create!(Report {
+            title,
+            investigation_id: DETACHED_ID.to_owned(),
+        })
+        .exec_without_ctx(db.as_ref())
+        .await?;
+        Ok(())
+    })
+    .await?;
+    Investigation::find_by_id(MISSING_ID).one_or_404(db).await?;
+    Some(true)
+}
+
 #[derive(Default, MergedObject)]
 pub struct Query(
     InvestigationDetailQuery,
     InvestigationConnIsTxQuery,
     InvestigationForcedTxIsTxQuery,
+    InvestigationMissingQuery,
 );
 #[derive(Default, MergedObject)]
-pub struct Mutation(InvestigationCreateMutation);
+pub struct Mutation(
+    InvestigationCreateMutation,
+    DetachedReportMutation,
+    DetachedReportThenFailMutation,
+);
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
+/// An id no row ever has, so a lookup on it errors Db404.
+pub const MISSING_ID: &str = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+/// Marks the rows a detached job writes, so a test can count only those.
+pub const DETACHED_ID: &str = "detached";
+
 pub struct Setup {
     pub tmp: TmpDb,
     pub s: GraphQLSchema<Query, Mutation, EmptySubscription>,
+}
+
+/// Polls for reports written by a detached job, which runs in a spawned task
+/// after the response is already built.
+pub async fn wait_reports(tmp: &TmpDb, want: u64) -> Res<u64> {
+    let mut n = 0;
+    for _ in 0..50u8 {
+        n = Report::find()
+            .filter(ReportColumn::InvestigationId.eq(DETACHED_ID))
+            .count(&tmp.db)
+            .await?;
+        if n >= want {
+            return Ok(n);
+        }
+        sleep(Duration::from_millis(10)).await;
+    }
+    Ok(n)
 }
 
 pub async fn setup() -> Res<Setup> {

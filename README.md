@@ -13,13 +13,13 @@
 Rust macro framework for building GraphQL APIs on top of `sea-orm` and `async-graphql` - fine granted dynamic authorization per col/row levels, automatic CRUD resolvers, nested filtering, sorting, pagination, relationships, and soft-delete.
 
 <p align="center">
-  <img src="https://github.com/nongdan-dev/grand-line/blob/master/.md/banner.jpg?raw=true" alt="Grand Line One Piece"/>
+  <img src="https://github.com/namnm/grand-line/blob/master/.md/banner.jpg?raw=true" alt="Grand Line One Piece"/>
 </p>
 
-- [Simple Todo example](https://github.com/nongdan-dev/grand-line/blob/master/examples/simple_todo/src/lib.rs)
-- [Saas example (auth + authz)](https://github.com/nongdan-dev/grand-line/blob/master/examples/saas)
-- [All examples](https://github.com/nongdan-dev/grand-line/blob/master/examples)
-- [Tests](https://github.com/nongdan-dev/grand-line/blob/master/tests)
+- [Simple Todo example](https://github.com/namnm/grand-line/blob/master/examples/simple_todo/src/lib.rs)
+- [Saas example (auth + authz)](https://github.com/namnm/grand-line/blob/master/examples/saas)
+- [All examples](https://github.com/namnm/grand-line/blob/master/examples)
+- [Tests](https://github.com/namnm/grand-line/blob/master/tests)
 
 ## Docs
 
